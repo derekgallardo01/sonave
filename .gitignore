@@ -32,3 +32,7 @@ Thumbs.db
 
 # --- generated cards/reports (regenerable) ---
 results/*.html
+
+# --- local agent/session dirs ---
+.claude/
+scratch_*.json

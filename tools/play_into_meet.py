@@ -45,6 +45,42 @@ def _play(f: str) -> bool:
         return False
 
 
+def _find_device(spec: str):
+    """Resolve --device (index or name substring) to an output device index + samplerate."""
+    import sounddevice as sd
+    devs = sd.query_devices()
+    if spec.isdigit():
+        idx = int(spec)
+    else:
+        matches = [i for i, d in enumerate(devs)
+                   if d["max_output_channels"] > 0 and spec.lower() in d["name"].lower()]
+        if not matches:
+            outs = [f'[{i}] {d["name"]}' for i, d in enumerate(devs) if d["max_output_channels"] > 0]
+            raise SystemExit(f"no output device matching '{spec}'. Available:\n  " + "\n  ".join(outs))
+        idx = matches[0]
+    d = devs[idx]
+    sr = int(d["default_samplerate"])
+    print(f"playing into output device [{idx}] {d['name']} @ {sr} Hz")
+    return idx, sr
+
+
+def _play_device(f: str, device: int, sr: int) -> bool:
+    """Decode a clip and stream it straight to a chosen output device (e.g. CABLE Input)."""
+    import librosa
+    import sounddevice as sd
+    try:
+        w = librosa.load(f, sr=sr, mono=True)[0]
+        sd.play(w, sr, device=device)
+        sd.wait()
+        return True
+    except KeyboardInterrupt:
+        import sounddevice as sd
+        sd.stop()
+        raise
+    except Exception:
+        return False
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("folder", help="folder of audio to play into the meeting")
@@ -52,7 +88,13 @@ def main():
     ap.add_argument("--loop", action="store_true", help="repeat forever")
     ap.add_argument("--gap", type=float, default=0.6, help="silence between clips (s)")
     ap.add_argument("--limit", type=int, default=0, help="max files per pass (0=all)")
+    ap.add_argument("--device", default="", help="output device index or name substring "
+                    "(e.g. 'CABLE Input') — routes straight to a virtual cable, no speakers")
     args = ap.parse_args()
+
+    device_idx = device_sr = None
+    if args.device:
+        device_idx, device_sr = _find_device(args.device)
 
     files = _files(args.folder)
     if not files:
@@ -73,7 +115,10 @@ def main():
             for f in order:
                 played += 1
                 print(f"  [{played}] {Path(f).name}", flush=True)
-                _play(f)
+                if device_idx is not None:
+                    _play_device(f, device_idx, device_sr)
+                else:
+                    _play(f)
                 if args.gap:
                     time.sleep(args.gap)
             if not args.loop:
