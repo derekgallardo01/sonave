@@ -140,6 +140,24 @@ def add_noise(x):
     return x + k * n
 
 
+# --- transforms the robustness test flagged (results/robustness.md) ----------
+def pitch_shift(x, fs=SR):
+    import librosa
+    return librosa.effects.pitch_shift(x, sr=fs, n_steps=_rand_range(-1.5, 1.5)).astype(np.float32)
+
+
+def time_stretch(x, fs=SR):
+    import librosa
+    y = librosa.effects.time_stretch(x, rate=_rand_range(0.92, 1.08))
+    return (y[: len(x)] if len(y) >= len(x) else np.pad(y, (0, len(x) - len(y)))).astype(np.float32)
+
+
+def reverb(x):
+    ir = np.exp(-np.linspace(0, 6, int(0.2 * SR))) * _rng.standard_normal(int(0.2 * SR))
+    ir[0] = 1.0
+    return np.convolve(x, ir)[: len(x)].astype(np.float32)
+
+
 def augment(x: np.ndarray, fs: int = SR) -> np.ndarray:
     """Apply a GENTLE random subset of real-call degradations.
 
@@ -158,6 +176,13 @@ def augment(x: np.ndarray, fs: int = SR) -> np.ndarray:
         x = mulaw(x)
     if _rng.random() < 0.4:
         x = add_noise(x)
+    # transforms the robustness test flagged (fixes false-alarm fragility + noise evasion)
+    if _rng.random() < 0.25:
+        x = pitch_shift(x, fs)
+    if _rng.random() < 0.25:
+        x = time_stretch(x, fs)
+    if _rng.random() < 0.2:
+        x = reverb(x)
     m = np.max(np.abs(x))
     if m > 0:
         x = x / m * 0.98
