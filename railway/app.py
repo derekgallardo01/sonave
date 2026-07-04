@@ -25,25 +25,37 @@ import urllib.request
 import wave
 from pathlib import Path
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
 
 # --- config (Railway env vars) ----------------------------------------------
 RECALL_API_KEY = os.environ.get("SONAVE_RECALL_API_KEY")
 RECALL_BASE = os.environ.get("SONAVE_RECALL_BASE", "https://us-west-2.recall.ai/api/v1")
-# Railway sets RAILWAY_PUBLIC_DOMAIN automatically (e.g. sonave.up.railway.app).
-PUBLIC_DOMAIN = os.environ.get("SONAVE_PUBLIC_DOMAIN") or os.environ.get("RAILWAY_PUBLIC_DOMAIN")
 DATA_DIR = Path(os.environ.get("SONAVE_DATA_DIR", "/data/captured"))
 SR = 16_000
 
 app = FastAPI(title="Sonave Capture")
 
 
-def _ws_url() -> str:
-    if not PUBLIC_DOMAIN:
-        raise RuntimeError("No public domain set (RAILWAY_PUBLIC_DOMAIN / SONAVE_PUBLIC_DOMAIN).")
-    return f"wss://{PUBLIC_DOMAIN}/api/ws/audio"
+def _domain(request: Request | None = None) -> str:
+    """Public hostname. Prefer an explicit env override, else the actual request
+    Host header (works on Railway with zero config), else Railway's auto var."""
+    env = os.environ.get("SONAVE_PUBLIC_DOMAIN") or os.environ.get("RAILWAY_PUBLIC_DOMAIN")
+    if env:
+        return env
+    if request is not None:
+        host = request.headers.get("host")
+        if host:
+            return host
+    return ""
+
+
+def _ws_url(request: Request) -> str:
+    d = _domain(request)
+    if not d:
+        raise RuntimeError("Could not determine public domain from request.")
+    return f"wss://{d}/api/ws/audio"
 
 
 # --- send a bot to a meeting -------------------------------------------------
@@ -53,17 +65,17 @@ class BotReq(BaseModel):
 
 
 @app.post("/bot")
-def send_bot(req: BotReq):
+def send_bot(req: BotReq, request: Request):
     if not RECALL_API_KEY:
         return {"error": "SONAVE_RECALL_API_KEY not set on the service"}
+    ws = _ws_url(request)
     payload = {
         "meeting_url": req.meeting_url,
         "bot_name": req.bot_name,
         "recording_config": {
             "audio_separate_raw": {},
             "realtime_endpoints": [
-                {"type": "websocket", "url": _ws_url(),
-                 "events": ["audio_separate_raw.data"]}
+                {"type": "websocket", "url": ws, "events": ["audio_separate_raw.data"]}
             ],
         },
     }
@@ -72,7 +84,7 @@ def send_bot(req: BotReq):
                                         "Content-Type": "application/json"})
     try:
         resp = json.loads(urllib.request.urlopen(r, timeout=20).read())
-        return {"ok": True, "bot_id": resp.get("id"), "ws": _ws_url()}
+        return {"ok": True, "bot_id": resp.get("id"), "ws": ws}
     except urllib.error.HTTPError as e:
         return {"ok": False, "status": e.code, "detail": e.read().decode()[:300]}
 
@@ -131,8 +143,8 @@ def download(name: str):
 
 
 @app.get("/", response_class=HTMLResponse)
-def index():
-    domain = PUBLIC_DOMAIN or "(set RAILWAY_PUBLIC_DOMAIN)"
+def index(request: Request):
+    domain = _domain(request) or "(unknown — no Host header)"
     key = "set" if RECALL_API_KEY else "MISSING — set SONAVE_RECALL_API_KEY"
     return f"""<!doctype html><meta charset=utf-8><title>Sonave Capture</title>
 <style>body{{font:15px system-ui;max-width:720px;margin:40px auto;padding:0 16px;
