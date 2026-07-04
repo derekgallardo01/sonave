@@ -104,10 +104,15 @@ def send_bot(req: BotReq, request: Request):
 
 
 # --- real-time audio capture -------------------------------------------------
+CHUNK_SEC = 120          # flush each speaker's audio every ~2 min (all-day safe)
+_CHUNK_BYTES = CHUNK_SEC * SR * 2
+
+
 @app.websocket("/api/ws/audio")
 async def ws_audio(ws: WebSocket):
     await ws.accept()
     buffers: dict[str, bytearray] = {}
+    idx: dict[str, int] = {}
     session = int(time.time())
     try:
         while True:
@@ -118,27 +123,31 @@ async def ws_audio(ws: WebSocket):
                 if not buf:
                     continue
                 spk = ((d.get("participant") or {}).get("name") or "unknown").replace(" ", "_")
-                buffers.setdefault(spk, bytearray()).extend(base64.b64decode(buf))
+                b = buffers.setdefault(spk, bytearray())
+                b.extend(base64.b64decode(buf))
+                if len(b) >= _CHUNK_BYTES:               # periodic flush -> ~2 min files
+                    _write(spk, bytes(b), session, idx.get(spk, 0))
+                    idx[spk] = idx.get(spk, 0) + 1
+                    b.clear()
             except Exception:
                 pass
     except WebSocketDisconnect:
         pass
     finally:
-        _save(buffers, session)
+        for spk, b in buffers.items():                   # flush the remainder
+            if len(b) >= SR * 2:
+                _write(spk, bytes(b), session, idx.get(spk, 0))
 
 
-def _save(buffers: dict[str, bytearray], session: int):
+def _write(spk: str, pcm: bytes, session: int, idx: int):
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    for spk, pcm in buffers.items():
-        if len(pcm) < SR * 2:            # <1 s of 16-bit audio -> skip
-            continue
-        out = DATA_DIR / f"meet_{spk}_{session}.wav"
-        with wave.open(str(out), "wb") as w:
-            w.setnchannels(1)
-            w.setsampwidth(2)            # 16-bit PCM (S16LE, matches Recall)
-            w.setframerate(SR)
-            w.writeframes(bytes(pcm))
-        print(f"[capture] saved {len(pcm)/2/SR:.1f}s of '{spk}' -> {out}", flush=True)
+    out = DATA_DIR / f"meet_{spk}_{session}_{idx:03d}.wav"
+    with wave.open(str(out), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)            # 16-bit PCM (S16LE, matches Recall)
+        w.setframerate(SR)
+        w.writeframes(pcm)
+    print(f"[capture] saved {len(pcm)/2/SR:.1f}s of '{spk}' -> {out}", flush=True)
 
 
 # --- retrieval ---------------------------------------------------------------
