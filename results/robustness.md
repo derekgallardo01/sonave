@@ -36,5 +36,21 @@ additive noise** (plus the existing RawBoost/codec) — applied to **both** real
 - real voices stop false-flagging under processing (fixes Meet + these transforms),
 - noise stops being an evasion (fakes-with-noise are now in training).
 
-`src/augment.py` should be extended with pitch/time/reverb; then retrain and re-run
-`src/robustness.py` to confirm the drops shrink. This is the principled hardening list.
+## HARDENING RESULT — augmented against the flagged transforms ✅
+
+Extended `src/augment.py` with pitch-shift / time-stretch / reverb, retrained
+`models/sonave_xlsr_hard`, re-ran the test. Before (`_rw`) vs after (`_hard`):
+
+| Metric | Before | After |
+|---|---|---|
+| clean catch / real-kept | 95.0 / 91.2 | **97.5 / 92.5** |
+| noise SNR10 catch (evasion) | 65.0 | **82.5** |
+| noise SNR20 catch | 77.5 | 83.8 |
+| **reverb** real-kept | 43.8 | **82.5** |
+| **time 1.06×** real-kept | 40.0 | **63.7** |
+| **pitch +1** real-kept | 35.0 | **58.8** |
+
+**The loop worked:** noise-evasion and reverb false-alarms are largely fixed, and
+clean performance improved rather than being traded away. Remaining headroom on pitch/
+time-stretch (real-kept ~60%) — push further with stronger pitch/time augmentation
+weight + more epochs. Model: `models/sonave_xlsr_hard`.
