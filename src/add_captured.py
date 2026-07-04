@@ -43,32 +43,40 @@ def _windows(wav, hop):
             yield s, w
 
 
-def main() -> None:
-    caps = sorted(glob.glob(str(CAP_DIR / "*.wav")))
-    if not caps:
-        raise SystemExit(f"No captures in {CAP_DIR}. Do a Meet capture session first.")
-    TRAIN_DIR.mkdir(parents=True, exist_ok=True)
-    TEST_DIR.mkdir(parents=True, exist_ok=True)
+CAP_FAKE_DIR = config.DATA / "captured_fake"      # fake-session captures go here
 
+
+def _ingest(cap_dir: Path, label: str, gen: str, hold_out_test: bool):
+    """Window every capture in a dir. Real captures also hold out a test split."""
     train_rows, n_test = [], 0
+    caps = sorted(glob.glob(str(cap_dir / "*.wav")))
     for cap in caps:
         spk = Path(cap).stem
         wav, _ = librosa.load(cap, sr=config.SAMPLE_RATE, mono=True)
-        split = int(0.7 * len(wav))
+        split = int(0.7 * len(wav)) if hold_out_test else len(wav)
         tr, te = wav[:split], wav[split:]
-
         for s, w in _windows(tr, hop=config.SAMPLE_RATE // 2):     # dense 0.5 s
-            out = TRAIN_DIR / f"{spk}_tr_{s}.wav"
+            out = TRAIN_DIR / f"{label}_{spk}_tr_{s}.wav"
             sf.write(str(out), w.astype(np.float32), config.SAMPLE_RATE)
             train_rows.append({"path": out.relative_to(config.ROOT).as_posix(),
-                               "label": "real", "generator": "meet_real",
-                               "split": "train"})
-        for s, w in _windows(te, hop=2 * config.SAMPLE_RATE):      # sparse 2 s
-            out = TEST_DIR / f"{spk}_te_{s}.wav"
+                               "label": label, "generator": gen, "split": "train"})
+        for s, w in _windows(te, hop=2 * config.SAMPLE_RATE):      # sparse 2 s test
+            out = TEST_DIR / f"{label}_{spk}_te_{s}.wav"
             sf.write(str(out), w.astype(np.float32), config.SAMPLE_RATE)
             n_test += 1
+    return train_rows, n_test, len(caps)
 
-    # corpus_meet.csv = corpus_rw.csv + captured train reals
+
+def main() -> None:
+    if not glob.glob(str(CAP_DIR / "*.wav")) and not glob.glob(str(CAP_FAKE_DIR / "*.wav")):
+        raise SystemExit(f"No captures in {CAP_DIR} or {CAP_FAKE_DIR}. Capture first.")
+    TRAIN_DIR.mkdir(parents=True, exist_ok=True)
+    TEST_DIR.mkdir(parents=True, exist_ok=True)
+
+    real_rows, real_test, n_real = _ingest(CAP_DIR, "real", "meet_real", hold_out_test=True)
+    fake_rows, fake_test, n_fake = _ingest(CAP_FAKE_DIR, "fake", "meet_fake", hold_out_test=True)
+    train_rows = real_rows + fake_rows
+
     with open(BASE_CSV, newline="", encoding="utf-8") as f:
         base = list(csv.DictReader(f))
     cols = list(base[0].keys())
@@ -78,8 +86,8 @@ def main() -> None:
         w.writeheader()
         w.writerows(all_rows)
 
-    print(f"captured train windows (real, Meet-piped): {len(train_rows)}")
-    print(f"held-out test windows (for validation):     {n_test}  -> {TEST_DIR}")
+    print(f"real captures: {n_real} files -> {len(real_rows)} train windows / {real_test} test")
+    print(f"fake captures: {n_fake} files -> {len(fake_rows)} train windows / {fake_test} test")
     print(f"wrote {OUT_CSV} ({len(all_rows)} rows)")
     print("Next: python src/train_xlsr.py --manifest data/corpus_meet.csv "
           "--out models/sonave_xlsr_meet --augment")
