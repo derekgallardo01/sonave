@@ -8,7 +8,8 @@ voice that doesn't match is a red flag EVEN when the deepfake score is uncertain
 and vice versa. Two independent signals -> far fewer false positives AND stronger
 catches, especially for the wire-fraud vertical where the caller claims an identity.
 
-Uses Resemblyzer (lightweight GE2E speaker embeddings). Voiceprints are the L2-
+Uses ECAPA-TDNN (SpeechBrain) speaker embeddings — a wide same-vs-different gap even
+on short 4 s windows (~0.6 same-speaker vs ~0.05 impostor). Voiceprints are the L2-
 normalized mean embedding over a person's enrollment clips.
 
 API:
@@ -27,31 +28,54 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config  # noqa: E402
 
 ENROLL_DIR = config.ROOT / "enrollments"
-# Cosine sim above this = same speaker. NOTE: resemblyzer similarity is length- and
-# channel-dependent (real-self ~0.75 on short Meet audio, ~0.94 on long clean audio;
-# impostors ~0.6). This default is a compromise; for production, CALIBRATE per speaker
-# (measure their self-similarity baseline) or upgrade to ECAPA-TDNN for a wider gap.
-MATCH_THRESHOLD = 0.72
+# Cosine sim above this = same speaker. With ECAPA the gap is wide (~0.6 same vs ~0.05
+# impostor) even at 4 s, so a mid threshold is robust. Calibrate per-deployment if needed.
+MATCH_THRESHOLD = 0.35
 
 _ENC = None
 
 
 def _enc():
+    """Load ECAPA-TDNN once. Patches SpeechBrain's lazy loader so its unused optional
+    integrations (k2/flair/...) can't crash on Windows, and copies model files instead
+    of symlinking (no admin needed)."""
     global _ENC
     if _ENC is None:
-        from resemblyzer import VoiceEncoder
-        _ENC = VoiceEncoder(verbose=False)
+        import types
+        import torch
+        import speechbrain.utils.importutils as iu
+        _orig = iu.LazyModule.ensure_module
+
+        def _safe(self, stacklevel):
+            try:
+                return _orig(self, stacklevel)
+            except Exception:
+                m = types.ModuleType(self.target)
+                self.lazy_module = m
+                return m
+        iu.LazyModule.ensure_module = _safe
+
+        from speechbrain.inference.speaker import EncoderClassifier
+        from speechbrain.utils.fetching import LocalStrategy
+        dev = "cuda" if torch.cuda.is_available() else "cpu"
+        _ENC = EncoderClassifier.from_hparams(
+            source="speechbrain/spkrec-ecapa-voxceleb",
+            savedir=str(config.ROOT / "models" / "ecapa"),
+            run_opts={"device": dev},
+            local_strategy=LocalStrategy.COPY_SKIP_CACHE)
     return _ENC
 
 
 def embed(source) -> np.ndarray:
     """Speaker embedding from a wav path or a 16 kHz float array."""
-    from resemblyzer import preprocess_wav
+    import torch
     if isinstance(source, (str, Path)):
-        wav = preprocess_wav(Path(source))
+        import librosa
+        wav, _ = librosa.load(str(source), sr=config.SAMPLE_RATE, mono=True)
     else:
-        wav = preprocess_wav(np.asarray(source, dtype=np.float32), source_sr=config.SAMPLE_RATE)
-    e = _enc().embed_utterance(wav)
+        wav = np.asarray(source, dtype=np.float32)
+    t = torch.tensor(wav, dtype=torch.float32).unsqueeze(0)
+    e = _enc().encode_batch(t).squeeze().detach().cpu().numpy()
     return e / (np.linalg.norm(e) + 1e-8)
 
 
