@@ -29,3 +29,6 @@ enrollments/
 .DS_Store
 Thumbs.db
 .ipynb_checkpoints/
+
+# --- generated cards/reports (regenerable) ---
+results/*.html
