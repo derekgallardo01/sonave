@@ -37,6 +37,20 @@ SR = 16_000
 
 app = FastAPI(title="Sonave Capture")
 
+# Inline favicon: white audio bars on the brand-blue rounded square (no file needed).
+_FAVICON_SVG = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">'
+    '<rect width="32" height="32" rx="7" fill="#2f6df6"/>'
+    '<g fill="#fff">'
+    '<rect x="6" y="13" width="3" height="6" rx="1.5"/>'
+    '<rect x="11" y="9" width="3" height="14" rx="1.5"/>'
+    '<rect x="16" y="5" width="3" height="22" rx="1.5"/>'
+    '<rect x="21" y="10" width="3" height="12" rx="1.5"/>'
+    '<rect x="26" y="14" width="3" height="4" rx="1.5"/>'
+    '</g></svg>'
+)
+_FAVICON_B64 = base64.b64encode(_FAVICON_SVG.encode()).decode()
+
 
 def _domain(request: Request | None = None) -> str:
     """Public hostname. Prefer an explicit env override, else the actual request
@@ -128,6 +142,13 @@ def _save(buffers: dict[str, bytearray], session: int):
 
 
 # --- retrieval ---------------------------------------------------------------
+@app.get("/favicon.ico")
+@app.get("/favicon.svg")
+def favicon():
+    from fastapi.responses import Response
+    return Response(content=_FAVICON_SVG, media_type="image/svg+xml")
+
+
 @app.get("/captures")
 def captures():
     if not DATA_DIR.exists():
@@ -147,6 +168,7 @@ def index(request: Request):
     domain = _domain(request) or "(unknown — no Host header)"
     key = "set" if RECALL_API_KEY else "MISSING — set SONAVE_RECALL_API_KEY"
     return f"""<!doctype html><meta charset=utf-8><title>Sonave Capture</title>
+<link rel="icon" href="data:image/svg+xml;base64,{_FAVICON_B64}">
 <style>body{{font:15px system-ui;max-width:720px;margin:40px auto;padding:0 16px;
 background:#0f1420;color:#e8edf6}}input,button{{font:15px system-ui;padding:9px 12px;
 border-radius:8px;border:1px solid #2a3446;background:#1a2130;color:#e8edf6}}
