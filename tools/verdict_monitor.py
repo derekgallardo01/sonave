@@ -96,6 +96,17 @@ def main():
                 tag = {"real": "  REAL ", "suspect": "SUSPECT", "fake": " FAKE!"}.get(v, v)
                 print(f"  {time.strftime('%H:%M:%S')} | {name[-18:]} | this chunk: "
                       f"[{tag}] P(fake)={p:.2f} | call so far: {rv.upper()} ({roll:.2f})", flush=True)
+                # push the verdict up to Railway so it shows on the page
+                parts = name[:-4].split("_")
+                speaker = "_".join(parts[1:-2]) if len(parts) >= 4 else name
+                try:
+                    body = json.dumps({"speaker": speaker, "p_fake": round(p, 3),
+                                       "rolling": round(roll, 3), "verdict": rv}).encode()
+                    urllib.request.urlopen(urllib.request.Request(
+                        f"{base}/api/verdict", data=body,
+                        headers={"Content-Type": "application/json"}), timeout=10)
+                except Exception:
+                    pass
             time.sleep(POLL)
     except KeyboardInterrupt:
         print("\nstopped.")

@@ -109,6 +109,8 @@ _CHUNK_BYTES = CHUNK_SEC * SR * 2
 
 # --- live stream-quality monitoring -----------------------------------------
 QUALITY: dict[str, dict] = {}
+# authenticity verdicts pushed up from the local GPU scorer (tools/verdict_monitor.py)
+VERDICTS: dict[str, dict] = {}
 
 
 def _quality(spk: str, pcm: bytes):
@@ -205,14 +207,38 @@ def favicon():
     return Response(content=_FAVICON_SVG, media_type="image/svg+xml")
 
 
+class VerdictReq(BaseModel):
+    speaker: str
+    p_fake: float
+    rolling: float
+    verdict: str
+
+
+@app.post("/api/verdict")
+def api_verdict(v: VerdictReq):
+    """Local GPU scorer pushes authenticity verdicts here; the page shows them."""
+    VERDICTS[v.speaker] = {"p_fake": round(v.p_fake, 3), "rolling": round(v.rolling, 3),
+                           "verdict": v.verdict}
+    return {"ok": True}
+
+
 @app.get("/api/quality")
 def api_quality():
     out = {}
-    for spk, q in QUALITY.items():
-        speech = q["speech_sec"] / max(q["total_sec"], 1e-6)
-        out[spk] = {"level": round(q["level"], 3), "peak": round(q["peak"], 3),
-                    "clips": q["clips"], "speech_pct": round(speech * 100),
-                    "total_sec": round(q["total_sec"]), "verdict": _quality_verdict(q)}
+    speakers = set(QUALITY) | set(VERDICTS)
+    for spk in speakers:
+        q = QUALITY.get(spk)
+        row = {"verdict": _quality_verdict(q) if q else "—"}
+        if q:
+            speech = q["speech_sec"] / max(q["total_sec"], 1e-6)
+            row.update({"level": round(q["level"], 3), "peak": round(q["peak"], 3),
+                        "clips": q["clips"], "speech_pct": round(speech * 100),
+                        "total_sec": round(q["total_sec"])})
+        av = VERDICTS.get(spk)
+        if av:
+            row["auth_verdict"] = av["verdict"]
+            row["auth_p"] = av["rolling"]
+        out[spk] = row
     return out
 
 
@@ -250,13 +276,15 @@ button{{background:#2f6df6;border:0;cursor:pointer}}a{{color:#5aa0ff}}
 <h3>Captures</h3><div id=list>loading…</div>
 <script>
 function qcolor(v){{return v=='good'?'#38c172':v.indexOf('CLIP')>=0?'#ef4a4a':v.indexOf('QUIET')>=0||v.indexOf('silence')>=0?'#e8a020':'#8b97ad'}}
+function avcolor(v){{return v=='real'?'#38c172':v=='fake'?'#ef4a4a':'#e8a020'}}
 async function quality(){{let d=await(await fetch('/api/quality')).json();let ks=Object.keys(d);
  if(!ks.length){{document.getElementById('quality').innerHTML='<span style=color:#8b97ad>waiting for audio…</span>';return}}
- document.getElementById('quality').innerHTML=ks.map(k=>{{let s=d[k],lv=Math.min(100,Math.round(s.level*300)),c=qcolor(s.verdict);
+ document.getElementById('quality').innerHTML=ks.map(k=>{{let s=d[k],lv=Math.min(100,Math.round((s.level||0)*300)),c=qcolor(s.verdict);
+  let auth=s.auth_verdict?`<span style="background:${{avcolor(s.auth_verdict)}};color:#fff;padding:3px 10px;border-radius:6px;font-weight:800;font-size:13px">${{s.auth_verdict.toUpperCase()}}${{s.auth_p!=null?' '+s.auth_p:''}}</span>`:`<span style="color:#6a7688;font-size:12px">verdict pending…</span>`;
+  let q=s.level!=null?`<div style="height:8px;background:#2a3446;border-radius:5px;margin:8px 0 6px;overflow:hidden"><i style="display:block;height:100%;width:${{lv}}%;background:${{c}}"></i></div>
+  <div style="color:#8b97ad;font-size:12px">${{s.verdict.toUpperCase()}} · level ${{s.level}} · peak ${{s.peak}}${{s.peak>=0.985?' ⚠':''}} · speech ${{s.speech_pct}}% · ${{s.total_sec}}s · clips ${{s.clips}}</div>`:'';
   return `<div style="background:#1a2130;border:1px solid #2a3446;border-radius:10px;padding:12px 14px;margin:8px 0">
-  <div style="display:flex;justify-content:space-between"><b>${{k}}</b><span style="color:${{c}};font-weight:700;font-size:13px">${{s.verdict.toUpperCase()}}</span></div>
-  <div style="height:8px;background:#2a3446;border-radius:5px;margin:8px 0 6px;overflow:hidden"><i style="display:block;height:100%;width:${{lv}}%;background:${{c}}"></i></div>
-  <div style="color:#8b97ad;font-size:12px">level ${{s.level}} · peak ${{s.peak}}${{s.peak>=0.985?' ⚠':''}} · speech ${{s.speech_pct}}% · ${{s.total_sec}}s captured · clips ${{s.clips}}</div></div>`}}).join('')}}
+  <div style="display:flex;justify-content:space-between;align-items:center"><b>${{k}}</b>${{auth}}</div>${{q}}</div>`}}).join('')}}
 async function send(){{let u=document.getElementById('u').value;
 let r=await fetch('/bot',{{method:'POST',headers:{{'Content-Type':'application/json'}},
 body:JSON.stringify({{meeting_url:u}})}});let d=await r.json();
