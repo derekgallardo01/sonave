@@ -112,13 +112,19 @@ QUALITY: dict[str, dict] = {}
 
 
 def _quality(spk: str, pcm: bytes):
-    """Update rolling audio-quality stats for a speaker from a raw PCM16 chunk."""
-    import audioop
-    n = len(pcm) // 2
+    """Update rolling audio-quality stats for a speaker from a raw PCM16 chunk.
+    Uses stdlib array/math (audioop was removed in Python 3.13)."""
+    import array
+    import math
+    s = array.array("h")
+    s.frombytes(pcm if len(pcm) % 2 == 0 else pcm[:-1])
+    n = len(s)
     if n == 0:
         return
-    rms = audioop.rms(pcm, 2) / 32768.0
-    peak = audioop.max(pcm, 2) / 32768.0
+    peak = max(abs(min(s)), abs(max(s))) / 32768.0
+    step = max(1, n // 2000)                       # subsample for cheap RMS
+    ss = sum(s[i] * s[i] for i in range(0, n, step))
+    rms = math.sqrt(ss / (n // step + 1)) / 32768.0
     sec = n / SR
     q = QUALITY.setdefault(spk, {"level": 0.0, "peak": 0.0, "clips": 0,
                                  "speech_sec": 0.0, "total_sec": 0.0})
@@ -160,13 +166,16 @@ async def ws_audio(ws: WebSocket):
                     continue
                 spk = ((d.get("participant") or {}).get("name") or "unknown").replace(" ", "_")
                 raw = base64.b64decode(buf)
-                _quality(spk, raw)                       # live quality metrics
-                b = buffers.setdefault(spk, bytearray())
+                b = buffers.setdefault(spk, bytearray())     # CAPTURE FIRST (critical path)
                 b.extend(raw)
                 if len(b) >= _CHUNK_BYTES:               # periodic flush -> ~2 min files
                     _write(spk, bytes(b), session, idx.get(spk, 0))
                     idx[spk] = idx.get(spk, 0) + 1
                     b.clear()
+                try:
+                    _quality(spk, raw)                   # quality is best-effort, never breaks capture
+                except Exception:
+                    pass
             except Exception:
                 pass
     except WebSocketDisconnect:
