@@ -1,0 +1,24 @@
+# Sonave Phase 0 — detector + evaluation environment (.venv)
+#
+# IMPORTANT (RTX 5060 / Blackwell / sm_120): torch must be the CUDA 12.8 build,
+# or the GPU sits idle. Install torch FIRST from the cu128 index, then the rest:
+#
+#   python -m venv .venv
+#   .venv\Scripts\activate            # PowerShell: .venv\Scripts\Activate.ps1
+#   pip install --upgrade pip
+#   pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu128
+#   pip install -r requirements.txt
+#
+# torch/torchaudio are intentionally NOT pinned here so the cu128 index install
+# above wins. If you `pip install -r` without doing the cu128 step first, you'll
+# get a CPU/older-CUDA wheel that silently can't use the RTX 5060.
+
+transformers>=4.44
+huggingface_hub>=0.24
+soundfile>=0.12
+librosa>=0.10
+numpy>=1.26
+scikit-learn>=1.4
+matplotlib>=3.8
+pandas>=2.2
+tqdm>=4.66

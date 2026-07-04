@@ -1,0 +1,6 @@
+# Sonave detection service — API deps (on top of the detector env: torch cu128,
+# transformers, librosa, soundfile, numpy — see repo requirements.txt).
+fastapi>=0.110
+uvicorn[standard]>=0.29
+python-multipart>=0.0.9   # multipart file upload for POST /score
+pydantic>=2.6

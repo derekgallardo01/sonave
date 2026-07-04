@@ -1,0 +1,18 @@
+# Sonave Phase 0 — XTTS-v2 fake generation environment (.venv-tts) — ISOLATED.
+#
+# Why a separate venv: Coqui/XTTS pins an older torch that conflicts with the
+# cu128 torch the detector needs. Generation is a one-time offline step that only
+# writes WAV files, so it never runs alongside the detector. Keep them apart.
+#
+#   python -m venv .venv-tts
+#   .venv-tts\Scripts\activate
+#   pip install --upgrade pip
+#   pip install -r requirements-tts.txt
+#
+# We use the maintained community fork `coqui-tts` (the original `TTS` package is
+# abandoned and won't install cleanly on modern Python). It pulls its own torch.
+
+coqui-tts>=0.24
+soundfile>=0.12
+librosa>=0.10
+tqdm>=4.66

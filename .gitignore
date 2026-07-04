@@ -1,0 +1,28 @@
+# --- Python venvs ---
+.venv/
+.venv-tts/
+__pycache__/
+*.pyc
+
+# --- Data & models (big / binary / regenerable — never commit) ---
+data/
+models/
+*.opus
+*.wav
+*.flac
+
+# --- Generated results (keep the .md write-ups, drop heavy/regenerable stuff) ---
+results/plots/
+results/*.csv
+
+# --- HF / torch caches if pointed local ---
+.cache/
+hf_cache/
+
+# --- secrets (never commit) ---
+.env
+
+# --- OS / editor cruft ---
+.DS_Store
+Thumbs.db
+.ipynb_checkpoints/
