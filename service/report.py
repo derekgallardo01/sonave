@@ -87,9 +87,17 @@ def _speaker_rows(rep) -> tuple[str, dict, dict]:
         flagged[spk] = v.get("flagged_stretches", [])
         fl = "".join(f"<div>{f['start_s']}s–{f['end_s']}s (peak {f['peak']})</div>"
                      for f in v.get("flagged_stretches", [])) or "<span class=mut>none</span>"
+        vp = v.get("voiceprint_sim")
+        if vp is None:
+            vpcell = "<span class=mut>not enrolled</span>"
+        else:
+            ok = v.get("voiceprint_match")
+            vpcell = (f"<b style='color:{'#2f9e5f' if ok else '#d64545'}'>"
+                      f"{'MATCH' if ok else 'MISMATCH'}</b> <span class=mut>({vp})</span>")
         rows.append(
             f"<tr><td><b>{html.escape(str(spk))}</b></td>"
             f"<td><span class='badge' style='background:{_COL.get(vd)}'>{vd.upper()}</span></td>"
+            f"<td>{vpcell}</td>"
             f"<td>{v.get('peak_rolling','—')}</td><td>{v.get('windows','—')}</td><td>{fl}</td></tr>")
     return "".join(rows), series, flagged
 
@@ -125,7 +133,7 @@ th{{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#8a94a6}}
 <div><b>Model:</b> {html.escape(rep.get('model_version',''))}</div>
 </div>
 <h3>Per-speaker findings</h3>
-<table><tr><th>Speaker</th><th>Verdict</th><th>Peak P(fake)</th><th>Windows</th><th>Flagged stretches</th></tr>{rows}</table>
+<table><tr><th>Speaker</th><th>Verdict</th><th>Voiceprint (identity)</th><th>Peak P(fake)</th><th>Windows</th><th>Flagged stretches</th></tr>{rows}</table>
 <h3>Authenticity timeline</h3>
 <div class="card">{chart}
 <div class="sub" style="margin-top:8px">Rolling P(fake) per speaker. Dashed lines = suspect/fake thresholds; shaded bands = flagged stretches.</div></div>

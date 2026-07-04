@@ -117,11 +117,36 @@ def analyze(path: Path, hop: float, segments_path: str | None) -> dict:
     base["mode"] = "per_speaker"
     base["speakers"] = {spk: _rolling_verdict(pairs, hop)
                         for spk, pairs in per.items()}
+    _voiceprint_pass(base["speakers"], wav, segs)     # enrolled speakers -> fuse identity
     worst = max((v.get("peak_rolling", 0) for v in base["speakers"].values()),
                 default=0)
     base["overall_verdict"] = ("fake" if worst >= detector.TAU_FAKE
                                else "suspect" if worst >= detector.TAU_REAL else "real")
     return base
+
+
+def _voiceprint_pass(speakers: dict, wav, segs):
+    """For ENROLLED speakers, verify identity by voiceprint and fuse it into the
+    verdict: a strong match rescues a jittery deepfake score, a mismatch flags
+    impersonation. Silently skips if enrollment isn't available."""
+    try:
+        import enroll
+    except Exception:
+        return
+    for spk, v in speakers.items():
+        if not enroll.is_enrolled(spk):
+            continue
+        parts = [wav[int(a * model_sls.SR):int(b * model_sls.SR)]
+                 for a, b, s in segs if s == spk]
+        if not parts:
+            continue
+        audio = np.concatenate(parts)
+        fr = enroll.fused_risk(v.get("peak_rolling", 0.0), spk, audio)
+        chk = fr.get("speaker_check") or {}
+        v["voiceprint_sim"] = chk.get("similarity")
+        v["voiceprint_match"] = chk.get("match")
+        v["fused_risk"] = fr["risk"]
+        v["verdict"] = fr["verdict"]        # identity-aware verdict wins
 
 
 def _print(rep):
