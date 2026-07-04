@@ -54,3 +54,15 @@ Extended `src/augment.py` with pitch-shift / time-stretch / reverb, retrained
 clean performance improved rather than being traded away. Remaining headroom on pitch/
 time-stretch (real-kept ~60%) — push further with stronger pitch/time augmentation
 weight + more epochs. Model: `models/sonave_xlsr_hard`.
+
+### IMPORTANT caveat — hardening did NOT transfer to real Meet audio
+
+Checked `sonave_xlsr_hard` on the real captured Meet voice: it got WORSE
+(mean P(fake) 0.565 → **0.894**), not better. Synthetic pitch/time/reverb/noise
+augmentation makes the model robust to *those synthetic transforms*, but real Google
+Meet WebRTC processing is a different domain it still hasn't seen — same lesson as the
+failed offline Meet-ify (Stage 5). So:
+- `sonave_xlsr_hard` = a real GENERAL-robustness win (evasion + synthetic transforms).
+- It is NOT the Meet deployment model; the Meet false-positive still needs REAL Meet
+  data (proven: `sonave_xlsr_meet`, 0.42→0.003).
+- Best future model = corpus + **real Meet captures** + hardened augmentation (both).
