@@ -175,6 +175,30 @@ def _flush_capture():
     CAPTURE["buffers"].clear()
 
 
+class EnrollReq(BaseModel):
+    speaker_id: str
+
+
+@app.post("/api/enroll")
+def api_enroll(body: EnrollReq):
+    """Enroll a voiceprint for a speaker from their captured Meet audio."""
+    import glob
+    import enroll
+    key = body.speaker_id
+    files = [p for p in glob.glob(str(CAPTURE_DIR / "*.wav"))
+             if key.replace(" ", "_") in Path(p).name]
+    if not files:
+        return {"ok": False, "error": f"no captured audio matching '{key}' in {CAPTURE_DIR}"}
+    enroll.enroll(key, files)
+    return {"ok": True, "enrolled": enroll.list_enrolled(), "from": len(files)}
+
+
+@app.get("/api/enrolled")
+def api_enrolled():
+    import enroll
+    return {"enrolled": enroll.list_enrolled()}
+
+
 @app.get("/api/status")
 def status():
     elapsed = (time.time() - STATE["started"]) if STATE["started"] else 0
@@ -288,6 +312,9 @@ button{background:#2f6df6;color:#fff;border:0;border-radius:9px;padding:10px 16p
 <div class="feed"><h3>Alerts &amp; actions</h3><div id="feed"><div class="empty">No alerts.</div></div></div>
 </div><script>
 async function demo(){await fetch('/api/demo/start',{method:'POST'})}
+async function enroll(spk){let r=await fetch('/api/enroll',{method:'POST',
+ headers:{'Content-Type':'application/json'},body:JSON.stringify({speaker_id:spk})});
+ let d=await r.json();alert(d.ok?('enrolled '+spk+' from '+d.from+' clips'):('enroll failed: '+d.error))}
 function cls(v){return v}
 async function tick(){
  let r=await fetch('/api/status'),d=await r.json();
@@ -301,7 +328,7 @@ async function tick(){
   return `<div class="spk ${s.verdict}"><div class="name"><span class="dot bg-${s.verdict}"></span>${k}</div>
   <div class="st ${s.verdict}">${s.verdict}</div>
   <div class="meter"><i class="bg-${s.verdict}" style="width:${p}%"></i></div>
-  <div class="sub">P(fake) ${s.rolling_p_fake} · peak ${s.peak} · ${s.windows} windows</div></div>`}).join('')}
+  <div class="sub">P(fake) ${s.rolling_p_fake} · peak ${s.peak} · ${s.windows} win${s.enrolled?` · <b>voiceprint ${s.voiceprint_sim==null?'…':s.voiceprint_sim}</b>`:` · <a href="#" onclick="enroll('${k}');return false">enroll</a>`}</div></div>`}).join('')}
  let f=document.getElementById('feed'),al=(d.alerts||[]).slice().reverse();
  if(!al.length){f.innerHTML='<div class="empty">No alerts.</div>'}
  else{f.innerHTML=al.map(a=>`<div class="ev"><span class="tag ${a.type}">${a.type=='wire_hold'?'WIRE HOLD':'ALERT'}</span>

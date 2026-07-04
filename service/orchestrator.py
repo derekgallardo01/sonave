@@ -35,6 +35,21 @@ class SpeakerState:
     alerted: bool = False
     peak: float = 0.0
     buffer: np.ndarray = field(default_factory=lambda: np.zeros(0, dtype=np.float32))
+    verify_buf: np.ndarray = field(default_factory=lambda: np.zeros(0, dtype=np.float32))
+    voiceprint_sim: float | None = None      # speaker-verification similarity
+
+
+VERIFY_MIN = 8 * model_sls.SR     # need >=8 s of a speaker before verifying (short
+VERIFY_MAX = 20 * model_sls.SR    # clips give noisy embeddings); keep the last ~20 s
+
+
+def _enroll_mod():
+    """Lazily import enrollment; None if resemblyzer isn't installed."""
+    try:
+        import enroll
+        return enroll
+    except Exception:
+        return None
 
 
 STREAM_WIN = model_sls.MAX_LEN          # 4 s scoring window
@@ -49,10 +64,25 @@ class Orchestrator:
         self.speakers: dict[str, SpeakerState] = {}
 
     def ingest(self, speaker_id: str, wav: np.ndarray, ts: float) -> dict:
-        """Score one chunk for a speaker; update rolling state; escalate if red."""
+        """Score one chunk for a speaker; update rolling state; escalate if red.
+
+        If the speaker is ENROLLED, fuse the deepfake score with a voiceprint check
+        (max of 'looks synthetic' and 'not the claimed person') — so impersonation
+        is caught even when the audio is acoustically clean, and real enrolled voices
+        aren't falsely flagged.
+        """
         p = detector.score_array(wav)["p_fake"]
         st = self.speakers.setdefault(speaker_id, SpeakerState(rolling=p))
-        st.rolling = self.alpha * p + (1 - self.alpha) * st.rolling if st.n else p
+        score = p
+        en = _enroll_mod()
+        if en is not None and en.is_enrolled(speaker_id):
+            # accumulate audio for a RELIABLE voiceprint check (4 s is too short)
+            st.verify_buf = np.concatenate([st.verify_buf, wav])[-VERIFY_MAX:]
+            if len(st.verify_buf) >= VERIFY_MIN:
+                fr = en.fused_risk(p, speaker_id, st.verify_buf)
+                score = fr["risk"]
+                st.voiceprint_sim = (fr.get("speaker_check") or {}).get("similarity")
+        st.rolling = self.alpha * score + (1 - self.alpha) * st.rolling if st.n else score
         st.n += 1
         st.peak = max(st.peak, st.rolling)
         st.verdict = detector.verdict(st.rolling)
@@ -66,7 +96,8 @@ class Orchestrator:
             if self.on_hold:
                 self.on_hold(event)      # pause the wire / require re-auth
         return {"speaker_id": speaker_id, "ts": ts, "p_fake": round(p, 3),
-                "rolling_p_fake": round(st.rolling, 3), "verdict": st.verdict}
+                "rolling_p_fake": round(st.rolling, 3), "verdict": st.verdict,
+                "voiceprint_sim": st.voiceprint_sim}
 
     def ingest_stream(self, speaker_id: str, pcm: np.ndarray, ts: float) -> dict:
         """Accumulate streamed real-time audio per speaker; score each full window.
@@ -88,8 +119,11 @@ class Orchestrator:
 
     def status(self) -> dict:
         """Snapshot for the live dashboard (per-speaker RAG)."""
+        en = _enroll_mod()
         return {spk: {"verdict": s.verdict, "rolling_p_fake": round(s.rolling, 3),
-                      "peak": round(s.peak, 3), "windows": s.n}
+                      "peak": round(s.peak, 3), "windows": s.n,
+                      "enrolled": bool(en and en.is_enrolled(spk)),
+                      "voiceprint_sim": s.voiceprint_sim}
                 for spk, s in self.speakers.items()}
 
 

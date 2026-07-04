@@ -22,3 +22,4 @@ scikit-learn>=1.4
 matplotlib>=3.8
 pandas>=2.2
 tqdm>=4.66
+resemblyzer>=0.1.4          # speaker embeddings for voiceprint enrollment (service/enroll.py)
