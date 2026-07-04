@@ -107,6 +107,42 @@ def send_bot(req: BotReq, request: Request):
 CHUNK_SEC = 120          # flush each speaker's audio every ~2 min (all-day safe)
 _CHUNK_BYTES = CHUNK_SEC * SR * 2
 
+# --- live stream-quality monitoring -----------------------------------------
+QUALITY: dict[str, dict] = {}
+
+
+def _quality(spk: str, pcm: bytes):
+    """Update rolling audio-quality stats for a speaker from a raw PCM16 chunk."""
+    import audioop
+    n = len(pcm) // 2
+    if n == 0:
+        return
+    rms = audioop.rms(pcm, 2) / 32768.0
+    peak = audioop.max(pcm, 2) / 32768.0
+    sec = n / SR
+    q = QUALITY.setdefault(spk, {"level": 0.0, "peak": 0.0, "clips": 0,
+                                 "speech_sec": 0.0, "total_sec": 0.0})
+    q["level"] = 0.25 * rms + 0.75 * q["level"]       # smoothed current level
+    q["peak"] = max(peak, q["peak"] * 0.99)            # decaying peak-hold
+    if peak >= 0.99:
+        q["clips"] += 1
+    if rms > 0.01:
+        q["speech_sec"] += sec
+    q["total_sec"] += sec
+
+
+def _quality_verdict(q: dict) -> str:
+    if q["total_sec"] < 3:
+        return "warming up"
+    if q["peak"] >= 0.985 or q["clips"] > 5:
+        return "CLIPPING — lower volume"
+    if q["level"] < 0.01:
+        return "TOO QUIET — raise volume"
+    speech = q["speech_sec"] / max(q["total_sec"], 1e-6)
+    if speech < 0.2:
+        return "mostly silence — is audio playing?"
+    return "good"
+
 
 @app.websocket("/api/ws/audio")
 async def ws_audio(ws: WebSocket):
@@ -123,8 +159,10 @@ async def ws_audio(ws: WebSocket):
                 if not buf:
                     continue
                 spk = ((d.get("participant") or {}).get("name") or "unknown").replace(" ", "_")
+                raw = base64.b64decode(buf)
+                _quality(spk, raw)                       # live quality metrics
                 b = buffers.setdefault(spk, bytearray())
-                b.extend(base64.b64decode(buf))
+                b.extend(raw)
                 if len(b) >= _CHUNK_BYTES:               # periodic flush -> ~2 min files
                     _write(spk, bytes(b), session, idx.get(spk, 0))
                     idx[spk] = idx.get(spk, 0) + 1
@@ -158,6 +196,17 @@ def favicon():
     return Response(content=_FAVICON_SVG, media_type="image/svg+xml")
 
 
+@app.get("/api/quality")
+def api_quality():
+    out = {}
+    for spk, q in QUALITY.items():
+        speech = q["speech_sec"] / max(q["total_sec"], 1e-6)
+        out[spk] = {"level": round(q["level"], 3), "peak": round(q["peak"], 3),
+                    "clips": q["clips"], "speech_pct": round(speech * 100),
+                    "total_sec": round(q["total_sec"]), "verdict": _quality_verdict(q)}
+    return out
+
+
 @app.get("/captures")
 def captures():
     if not DATA_DIR.exists():
@@ -187,8 +236,18 @@ button{{background:#2f6df6;border:0;cursor:pointer}}a{{color:#5aa0ff}}
 <p>domain <code>{domain}</code> · Recall key <code>{key}</code></p>
 <div class=row><input id=u placeholder="paste a Google Meet / Zoom link" style=flex:1>
 <button onclick=send()>Send bot</button></div>
-<p id=msg></p><h3>Captures</h3><div id=list>loading…</div>
+<p id=msg></p>
+<h3>Live stream quality</h3><div id=quality>waiting for audio…</div>
+<h3>Captures</h3><div id=list>loading…</div>
 <script>
+function qcolor(v){{return v=='good'?'#38c172':v.indexOf('CLIP')>=0?'#ef4a4a':v.indexOf('QUIET')>=0||v.indexOf('silence')>=0?'#e8a020':'#8b97ad'}}
+async function quality(){{let d=await(await fetch('/api/quality')).json();let ks=Object.keys(d);
+ if(!ks.length){{document.getElementById('quality').innerHTML='<span style=color:#8b97ad>waiting for audio…</span>';return}}
+ document.getElementById('quality').innerHTML=ks.map(k=>{{let s=d[k],lv=Math.min(100,Math.round(s.level*300)),c=qcolor(s.verdict);
+  return `<div style="background:#1a2130;border:1px solid #2a3446;border-radius:10px;padding:12px 14px;margin:8px 0">
+  <div style="display:flex;justify-content:space-between"><b>${{k}}</b><span style="color:${{c}};font-weight:700;font-size:13px">${{s.verdict.toUpperCase()}}</span></div>
+  <div style="height:8px;background:#2a3446;border-radius:5px;margin:8px 0 6px;overflow:hidden"><i style="display:block;height:100%;width:${{lv}}%;background:${{c}}"></i></div>
+  <div style="color:#8b97ad;font-size:12px">level ${{s.level}} · peak ${{s.peak}}${{s.peak>=0.985?' ⚠':''}} · speech ${{s.speech_pct}}% · ${{s.total_sec}}s captured · clips ${{s.clips}}</div></div>`}}).join('')}}
 async function send(){{let u=document.getElementById('u').value;
 let r=await fetch('/bot',{{method:'POST',headers:{{'Content-Type':'application/json'}},
 body:JSON.stringify({{meeting_url:u}})}});let d=await r.json();
@@ -197,4 +256,5 @@ async function list(){{let d=await(await fetch('/captures')).json();
 document.getElementById('list').innerHTML=d.files.length?d.files.map(f=>
 `<div>· <a href="/download/${{f.name}}">${{f.name}}</a> (${{f.mb}} MB)</div>`).join(''):'none yet';}}
 list();setInterval(list,5000);
+quality();setInterval(quality,1500);
 </script>"""
