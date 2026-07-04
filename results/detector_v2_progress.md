@@ -246,3 +246,67 @@ clean MLAAD. Closing it needs harder/real-world fake examples (compressed deepfa
 partial splices, more deepfake-in-the-wild corpora) — the mirror of what we just did
 for reals. Diminishing-returns territory; the current model is already a real product
 starting point.
+
+## STAGE 6 — balanced real+fake Meet capture (VB-CABLE) fixed BOTH the false-positive AND the fake-blindness ✅
+
+Stage 4 fixed the real-Meet false-positive with one real speaker, but the `_meet`
+model had **over-adapted**: trained on real-Meet audio ONLY, it learned "Meet audio =
+real" and went **blind to fakes on Meet** — a live AI-podcast played through Meet
+scored P(fake)=**0.05** (called a clone real). The base `_rw` model has the opposite
+flaw: it **false-alarms on real Meet audio** (26% real-acc on held-out Meet windows).
+Neither was deployable on live Meet audio.
+
+Stage 5 concluded the scalable fix is to replay audio through a LIVE Meet via a
+virtual audio cable. Did exactly that — for **both** classes.
+
+**Capture rig (both classes, through the real bot → Recall → WS path):**
+- **Real-Meet:** LibriSpeech played into the meeting via **VB-CABLE**
+  (`tools/play_into_meet.py --device "CABLE Input"`; set Meet's mic to `CABLE Output`)
+  → 27 chunks (~54 min), 100%-voiced, no clipping. *Playing through speakers failed
+  outright* (the mic never picked it up at usable volume, `level 0.0`); the virtual
+  cable — digital, full-volume, no acoustics — was the unlock.
+- **Fake-Meet:** an AI-generated podcast played into Meet → 37 chunks (~44 min) →
+  `data/captured_fake/`.
+- Balanced corpus via `src/add_captured.py` (`data/corpus_meet.csv`): **4,347 real /
+  5,392 fake** Meet train windows (1 : 1.24) on top of the diverse base corpus. Honest
+  time-split (first 70% train / last 30% test; dense-train / sparse-test; no window
+  leakage). Retrained → `models/sonave_xlsr_meet/` (replaces Stage 4's).
+
+| Held-out Meet windows (465 real / 574 fake) | base `_rw` | **new `_meet`** |
+|---|---|---|
+| real-Meet → called REAL | 26% (P̄ 0.71) | **98%** (P̄ 0.06) |
+| fake-Meet → caught FAKE | 69% (P̄ 0.66) | **100%** (P̄ 1.00) |
+| balanced accuracy | 47% | **99%** |
+
+**Both bugs fixed at once:** the fake-blindness (old `_meet` ~5% catch on Meet fakes →
+**100%**) and the real false-alarm (base `_rw` 26% → **98%** real-correct). The lever
+was again DATA — balanced real+fake audio from the *actual* Meet domain, made
+collectable at scale by the VB-CABLE rig.
+
+**Honest caveat — same-source held-out.** The split is time-based (no leakage) but
+same-source: real test = the same LibriSpeech session, fake test = the same podcast
+sessions. So this proves the model cleanly *separates these two sources on Meet audio*
+(exactly the deployed bug); the near-perfect fake side (mean 1.00) hints at some
+session-specific fit. It does NOT yet prove generalization to *unseen* real speakers
+or *unseen* fake generators through Meet.
+
+**Next (cross-source validation):** capture a *different* real voice + a *different*
+fake generator through Meet and test on those; re-run In-the-Wild to confirm no
+regression on general (non-Meet) audio.
+
+**Tooling shipped this stage:**
+- `tools/play_into_meet.py --device` — route an audio folder into a virtual cable
+  (VB-CABLE), the proven way to get real/fake audio through a *live* Meet.
+- `src/pull_captures.py [--fake] [--match]` + cross-label guard — route a session to
+  `captured/` (real) or `captured_fake/` (fake), skipping test clips and never
+  double-labelling one already filed the other way.
+- `tools/verdict_monitor.py` — live GPU scoring of capture chunks (defaults to
+  `sonave_xlsr_meet`); prints per-chunk + rolling verdict and POSTs it up for display.
+- Capture page (`railway/app.py`) — live **authenticity badge** (REAL/SUSPECT/FAKE +
+  threshold legend), session-grouped captures with inline play, `POST /api/verdict`,
+  test-speaker filtering.
+
+Reproduce: capture real via VB-CABLE + fake via Meet → `python src/pull_captures.py
+<url>` (and `--fake` for the fake session) → `python src/add_captured.py` → `python
+src/train_xlsr.py --manifest data/corpus_meet.csv --out models/sonave_xlsr_meet
+--augment` → validate on the held-out `data/corpus/captured_test/` windows.

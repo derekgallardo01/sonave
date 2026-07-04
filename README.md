@@ -1,25 +1,46 @@
 # Sonave
 
-**Real-time deepfake detection for video meetings, engineered to survive the
-*compressed* audio real calls actually produce.**
+**Real-time deepfake-voice detection for video meetings — engineered to work on the
+compressed, processed audio real calls actually produce.**
 
-> **Thesis:** Commodity deepfake-audio detectors score well on clean clips but drop
-> toward ~70% accuracy once audio passes through the Opus codec that Google Meet /
-> Zoom / WebRTC use. Sonave's wedge is a detector tuned to hold accuracy under
-> compression. **Phase 0 proves that gap is real before we build anything on it.**
+Sonave flags AI-cloned voices on live Google Meet / Zoom calls (wire-fraud / finance
+vertical). A Recall bot captures meeting audio → a fine-tuned **XLS-R + SLS** detector
+scores each speaker → a live **REAL / SUSPECT / FAKE** verdict.
 
 ---
 
-## Status: Phase 0 — Compression Robustness Validation
+## Status: working detector + live capture/scoring pipeline
 
-Phase 0 is a **go/no-go validation experiment**, not a product. It answers one
-question with a number: *how much detection accuracy is lost when audio is degraded
-to Google Meet's Opus conditions?* When Phase 0 produces its finding, the project
-**pauses for a human decision** before any Phase 1 work.
+Full history and every honest caveat live in
+[`results/detector_v2_progress.md`](results/detector_v2_progress.md). Highlights:
 
-Everything here is Phase 0. No API, bot, or UI yet — by design.
+- **Modern-fake detection (clean audio):** ~91% catch on *unseen* commercial tools
+  (ElevenLabs / Cartesia / Gemini) vs commodity ~2%; unseen-generator EER ~7.5%.
+- **Real-call robustness:** holds through Google-Meet Opus; real-world false-alarms
+  cut ~55% → ~8% by adding real-world real speech to training.
+- **Meet domain (Stage 6):** a *balanced* real+fake corpus captured through a **live
+  Meet** (VB-CABLE) gives **99% balanced accuracy** on held-out Meet windows (98%
+  real-correct, 100% fake-caught) — fixing both the real false-positive and the
+  fake-blindness. *Caveat: same-source held-out; cross-source validation is next.*
+- **Product:** hosted CPU-only capture service ([`railway/`](railway/)) with a live
+  authenticity badge; local GPU scoring via [`tools/verdict_monitor.py`](tools/verdict_monitor.py).
 
-### What the pipeline does
+### The original Phase 0 thesis — DISPROVEN, then pivoted
+Sonave began as a go/no-go test of one thesis: *Opus compression craters commodity
+detectors.* **Phase 0 disproved it** — a competent detector held ~97% through every
+bitrate ([`results/findings.md`](results/findings.md)) — but surfaced a bigger, real
+gap: commodity detectors are **blind to current-generation voice clones** (~0–4%
+catch). Everything since has built the detector that closes that gap *and* survives
+real-call audio. The Phase 0 experiment below is preserved as historical record.
+
+---
+
+## Phase 0 (historical) — Compression Robustness Validation
+
+The original go/no-go experiment: *how much detection accuracy is lost when audio is
+degraded to Google Meet's Opus conditions?* Verdict: little — see `results/findings.md`.
+
+### What the Phase 0 pipeline does
 
 1. **Real speech** — 150 LibriSpeech utterances across 40 speakers (`controlled` track).
 2. **Fake speech** — two independent sources:

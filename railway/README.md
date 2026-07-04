@@ -27,17 +27,40 @@ simulation was proven to fail (see `../results/detector_v2_progress.md`).
 ## Use
 
 - Open `https://<your-domain>/` → paste a Meet/Zoom link → **Send bot**.
-- Talk / run the meeting. When the bot leaves, each speaker's audio is saved.
-- The page lists captures with **download** links. Pull them to your GPU box, add as
-  `label=real` (see `../src/add_captured.py`), and retrain.
+- Talk / run the meeting. Each 2-min chunk of every speaker's audio is saved as it
+  flushes (survives the bot leaving).
+- The page shows **live stream quality** per speaker, a **live authenticity badge**
+  (REAL / SUSPECT / FAKE — pushed up by `../tools/verdict_monitor.py` scoring on your
+  GPU), and **captures grouped by session** with inline play + download links.
+- Pull captures to your GPU box (`../src/pull_captures.py`), fold in
+  (`../src/add_captured.py`), and retrain.
 
-## Collecting good data
-- **Real voices:** put the bot in your normal meetings (with consent) — diverse
-  speakers/mics/rooms, all correctly "real".
-- **Fakes in the Meet domain:** play your fake clips into a meeting via a virtual
-  audio cable (VB-CABLE) so they go through real Meet, and label them fake.
+## Collecting good data (the proven VB-CABLE workflow)
+The reliable way to feed known-label audio through a *real* Meet — validated in
+Stage 6 (`../results/detector_v2_progress.md`). Playing through speakers does **not**
+work (the mic never picks it up at usable volume); a virtual cable is the unlock.
+
+1. Install **VB-CABLE** (adds `CABLE Input` = a virtual speaker, `CABLE Output` = a
+   virtual mic).
+2. In your Meet tab: **Settings → Audio → Microphone → `CABLE Output`**, and un-mute.
+3. Play the audio into the cable, full-volume and digital:
+   `python ../tools/play_into_meet.py <folder> --shuffle --loop --device "CABLE Input"`
+4. Send the bot; watch the page level go **GOOD**. It captures at full quality.
+
+- **Real session:** play real human speech (e.g. LibriSpeech) → pull with
+  `pull_captures.py <url>` → `data/captured/` (label real).
+- **Fake session:** play AI-generated speech → pull with `pull_captures.py <url> --fake`
+  → `data/captured_fake/` (label fake). The pull tool never double-labels a clip.
+- **Balance matters:** collect comparable amounts of BOTH — real-only teaches "Meet =
+  real" (goes blind to fakes), fake-only teaches "Meet = fake" (false-alarms on real).
 - **Always** hold some captured audio out of training to validate — the ground truth.
 - **Consent:** announce recording; required for the finance vertical.
+
+## Live authenticity verdict on the page
+`../tools/verdict_monitor.py <url>` polls this service for new chunks, scores each on
+your local GPU with `models/sonave_xlsr_meet`, and `POST`s the verdict to
+`/api/verdict` so the page badge reads REAL / SUSPECT / FAKE in ~2-min steps. No
+tunnel needed — it reads the chunks the capture service already saved.
 
 ## Local test
 ```
