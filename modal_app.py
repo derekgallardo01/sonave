@@ -52,17 +52,17 @@ image = (
         "pydantic>=2.6",
     )
     .run_function(_cache_backbone)                  # bake backbone weights into the image
-    # mirror the repo layout at /root so service/detector/model_sls import cleanly
-    .add_local_file("config.py", "/root/config.py")
-    .add_local_dir("src", "/root/src")
-    .add_local_dir("service", "/root/service")
-    .add_local_dir("models/sonave_xlsr_meet", "/root/models/sonave_xlsr_meet")
     .env({
         "SONAVE_MODEL": "/root/models/sonave_xlsr_meet",   # the balanced Meet model (Stage 6)
         "SONAVE_TAU_REAL": "0.40",
         "SONAVE_TAU_FAKE": "0.70",
         "PYTHONPATH": "/root",
     })
+    # add_local_* MUST come last (Modal mounts these at startup, not a build step)
+    .add_local_file("config.py", "/root/config.py")
+    .add_local_dir("src", "/root/src")
+    .add_local_dir("service", "/root/service")
+    .add_local_dir("models/sonave_xlsr_meet", "/root/models/sonave_xlsr_meet")
 )
 
 app = modal.App("sonave-detector", image=image)
