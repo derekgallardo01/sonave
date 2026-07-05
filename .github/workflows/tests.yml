@@ -1,0 +1,31 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  fast:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      # CPU-only + just what the fast suite imports (torch/numpy for model_sls,
+      # fastapi/pydantic for the two apps, httpx for TestClient). The heavy ML deps
+      # (transformers, librosa, speechbrain) are lazy-imported and never reached in
+      # the mocked fast tests, so we skip them to keep CI ~1 min. The GPU smoke test
+      # (-m gpu) is excluded by pytest.ini and auto-skips without a model anyway.
+      - name: Install minimal deps (CPU)
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install numpy fastapi "uvicorn[standard]" pydantic python-multipart httpx pytest
+
+      - name: Run fast suite
+        run: python -m pytest
