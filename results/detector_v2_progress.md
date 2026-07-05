@@ -310,3 +310,47 @@ Reproduce: capture real via VB-CABLE + fake via Meet → `python src/pull_captur
 <url>` (and `--fake` for the fake session) → `python src/add_captured.py` → `python
 src/train_xlsr.py --manifest data/corpus_meet.csv --out models/sonave_xlsr_meet
 --augment` → validate on the held-out `data/corpus/captured_test/` windows.
+
+## STAGE 7 — cross-source validation: real GENERALIZES, fake DOESN'T (the honest resolution) ⚠️
+
+Stage 6's 99% was on **same-source** held-out (train & test both = the one LibriSpeech
+real session + the one podcast fake). Two checks to find the true state.
+
+**(a) General regression — non-Meet (`src/eval_xlsr.py` on `models/sonave_xlsr_meet`).**
+The heavy Meet retrain did NOT wreck general performance:
+
+| External test set (unseen) | ours: catch / real-acc / EER | commodity |
+|---|---|---|
+| 27 unseen generators (ElevenLabs/Cartesia/Gemini) | **91.2%** / 81.4% / 12.8% | 13.4% / 100% / 33.7% |
+| unseen MLAAD only (540 fakes) | **88.9%** | 1.9% |
+| In-the-Wild (real-world) | 62.0% / 91.3% / 23.0% | 4.0% / 99.3% / 23.0% |
+| In-the-Wild Opus-24k (Meet codec) | 58.7% / **92.7%** / 24.3% | 9.3% / 98.7% |
+
+Small cost only: unseen-gen EER 7.5%→12.8%, real-acc→81.4% (a touch more eager on clean
+real). No overfitting to Meet — the general detector survives the Meet adaptation.
+
+**(b) Cross-source THROUGH Meet (controlled VB-CABLE capture, genuinely unseen sources).**
+Fed **ASV real** (different corpus than the LibriSpeech it trained on) then **held-out
+MLAAD generators** (ElevenLabs/Cartesia/Gemini — never in training) through a live Meet,
+captured, scored with the Meet model, labelled by feed phase (transition chunk dropped):
+
+| Class (unseen source, through Meet) | mean P(fake) | @0.5 |
+|---|---|---|
+| REAL — ASV speakers (135 windows) | 0.065 | **96% real-acc** ✅ |
+| FAKE — held-out generators (174 windows) | 0.331 | **29% catch** ⚠️ |
+
+**Finding.** The real-side false-positive fix **generalizes** — 96% real-acc on a
+*different* real corpus through Meet, so it's learned "real through Meet," not memorized
+the LibriSpeech session. But the **fake side does NOT generalize through Meet**: only
+**29%** catch on unseen generators, versus **100%** same-source (podcast) and **91%** on
+those same generators *on clean audio*. The model learned "*this podcast's* fake through
+Meet," not "fake through Meet" broadly — its Meet-domain fake knowledge is one generator
+wide. **The Stage-6 99% was inflated by same-source, confirmed.**
+
+**The fix (mirrors the real-diversity fix that worked).** Collect DIVERSE fake generators
+through Meet into `captured_fake/` — not just the podcast — and retrain. The same lever
+that lifted real-acc will lift the 29%. The Stage-7 cross-source capture (held-out
+generators through Meet, on Railway) is the first slice of exactly that data.
+
+Reproduce: `python src/eval_xlsr.py --model models/sonave_xlsr_meet` (regression);
+controlled VB-CABLE capture of ASV-real then held-out fakes, score by phase (cross-source).

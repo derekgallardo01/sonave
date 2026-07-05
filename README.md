@@ -18,10 +18,13 @@ Full history and every honest caveat live in
   (ElevenLabs / Cartesia / Gemini) vs commodity ~2%; unseen-generator EER ~7.5%.
 - **Real-call robustness:** holds through Google-Meet Opus; real-world false-alarms
   cut ~55% → ~8% by adding real-world real speech to training.
-- **Meet domain (Stage 6):** a *balanced* real+fake corpus captured through a **live
-  Meet** (VB-CABLE) gives **99% balanced accuracy** on held-out Meet windows (98%
-  real-correct, 100% fake-caught) — fixing both the real false-positive and the
-  fake-blindness. *Caveat: same-source held-out; cross-source validation is next.*
+- **Meet domain (Stage 6–7):** a *balanced* real+fake corpus captured through a **live
+  Meet** (VB-CABLE) fixes both the real false-positive and the fake-blindness. Honest
+  cross-source validation (Stage 7): the **real side generalizes** (96% real-acc on an
+  *unseen* real corpus through Meet), but the **fake side is still narrow** (29% catch on
+  *unseen* generators through Meet — it learned one podcast, not fakes-in-general). Next
+  lever: diverse fake generators through Meet. General non-Meet performance held (91%
+  catch on 27 unseen commercial tools).
 - **Product:** hosted CPU-only capture service ([`railway/`](railway/)) with a live
   authenticity badge; local GPU scoring via [`tools/verdict_monitor.py`](tools/verdict_monitor.py).
 
