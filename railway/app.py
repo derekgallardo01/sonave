@@ -20,6 +20,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import threading
 import time
 import urllib.request
 import wave
@@ -34,6 +35,10 @@ RECALL_API_KEY = os.environ.get("SONAVE_RECALL_API_KEY")
 RECALL_BASE = os.environ.get("SONAVE_RECALL_BASE", "https://us-west-2.recall.ai/api/v1")
 DATA_DIR = Path(os.environ.get("SONAVE_DATA_DIR", "/data/captured"))
 SR = 16_000
+# Optional: a hosted detector (e.g. the Modal /score_clip host). When set, each flushed
+# chunk is scored there in a background thread and the verdict shows on the page — no
+# local GPU / monitor process needed. Unset = capture only (page shows "verdict pending").
+SCORER_URL = os.environ.get("SONAVE_SCORER_URL", "").rstrip("/")
 
 app = FastAPI(title="Sonave Capture")
 
@@ -111,6 +116,7 @@ _CHUNK_BYTES = CHUNK_SEC * SR * 2
 QUALITY: dict[str, dict] = {}
 # authenticity verdicts pushed up from the local GPU scorer (tools/verdict_monitor.py)
 VERDICTS: dict[str, dict] = {}
+ROLL: dict[str, float] = {}      # speaker -> rolling P(fake), for the hosted scorer
 
 
 def _quality(spk: str, pcm: bytes):
@@ -171,9 +177,11 @@ async def ws_audio(ws: WebSocket):
                 b = buffers.setdefault(spk, bytearray())     # CAPTURE FIRST (critical path)
                 b.extend(raw)
                 if len(b) >= _CHUNK_BYTES:               # periodic flush -> ~2 min files
-                    _write(spk, bytes(b), session, idx.get(spk, 0))
+                    out = _write(spk, bytes(b), session, idx.get(spk, 0))
                     idx[spk] = idx.get(spk, 0) + 1
                     b.clear()
+                    if SCORER_URL:                       # score on the hosted detector, off-path
+                        threading.Thread(target=_score_and_store, args=(spk, out), daemon=True).start()
                 try:
                     _quality(spk, raw)                   # quality is best-effort, never breaks capture
                 except Exception:
@@ -185,7 +193,9 @@ async def ws_audio(ws: WebSocket):
     finally:
         for spk, b in buffers.items():                   # flush the remainder
             if len(b) >= SR * 2:
-                _write(spk, bytes(b), session, idx.get(spk, 0))
+                out = _write(spk, bytes(b), session, idx.get(spk, 0))
+                if SCORER_URL:
+                    threading.Thread(target=_score_and_store, args=(spk, out), daemon=True).start()
 
 
 def _write(spk: str, pcm: bytes, session: int, idx: int):
@@ -197,6 +207,40 @@ def _write(spk: str, pcm: bytes, session: int, idx: int):
         w.setframerate(SR)
         w.writeframes(pcm)
     print(f"[capture] saved {len(pcm)/2/SR:.1f}s of '{spk}' -> {out}", flush=True)
+    return out
+
+
+def _av(p: float) -> str:
+    return "fake" if p >= 0.7 else "suspect" if p >= 0.4 else "real"
+
+
+def _score_and_store(spk: str, path: Path):
+    """Best-effort: POST a flushed chunk to the hosted scorer (Modal /score_clip) and
+    store the verdict for the page. Runs in a daemon thread — never the capture path."""
+    if not SCORER_URL:
+        return
+    try:
+        data = Path(path).read_bytes()
+        boundary = "----sonavecap"
+        body = (f"--{boundary}\r\n".encode()
+                + b'Content-Disposition: form-data; name="file"; filename="c.wav"\r\n'
+                + b"Content-Type: audio/wav\r\n\r\n" + data + b"\r\n"
+                + f"--{boundary}--\r\n".encode())
+        req = urllib.request.Request(
+            f"{SCORER_URL}/score_clip", data=body, method="POST",
+            headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
+        with urllib.request.urlopen(req, timeout=180) as r:
+            res = json.loads(r.read())
+        p = res.get("p_fake")
+        if p is None:
+            return
+        prev = ROLL.get(spk)
+        roll = p if prev is None else 0.4 * p + 0.6 * prev
+        ROLL[spk] = roll
+        VERDICTS[spk] = {"p_fake": round(p, 3), "rolling": round(roll, 3), "verdict": _av(roll)}
+        print(f"[score] {spk}: p_fake={p:.3f} rolling={roll:.3f} -> {_av(roll)}", flush=True)
+    except Exception as e:  # noqa: BLE001 — scoring must never crash capture
+        print(f"[score] skip {spk}: {repr(e)[:80]}", flush=True)
 
 
 # --- retrieval ---------------------------------------------------------------
