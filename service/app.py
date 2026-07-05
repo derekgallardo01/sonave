@@ -67,6 +67,18 @@ async def score(file: UploadFile = File(...), speaker_id: str | None = None):
     return res
 
 
+@app.post("/score_clip")
+async def score_clip(file: UploadFile = File(...), speaker_id: str | None = None):
+    """Score a WHOLE clip (windowed mean) — the live-monitor endpoint. Replaces the
+    local GPU scorer: POST a capture chunk, get back the rolling-style verdict."""
+    t0 = time.perf_counter()
+    data = await file.read()
+    res = detector.score_clip(data)
+    res["speaker_id"] = speaker_id
+    res["latency_ms"] = int((time.perf_counter() - t0) * 1000)
+    return res
+
+
 @app.post("/score_json")
 def score_json(body: ScoreJSON):
     t0 = time.perf_counter()

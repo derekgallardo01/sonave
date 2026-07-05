@@ -112,3 +112,35 @@ def _result(p: float) -> dict:
 
 def batch_score_arrays(wavs: list[np.ndarray]) -> list[dict]:
     return [_result(p) for p in _score_wavs(wavs)]
+
+
+def score_clip(audio: bytes, win_s: float = 4.0, hop_s: float = 2.0,
+               rms_gate: float = 0.005, batch: int = 16) -> dict:
+    """Score a WHOLE clip: window into voiced win_s windows (hop_s stride), batch-score
+    each on the GPU, return the mean P(fake) + verdict. Mirrors the windowing the local
+    verdict monitor used, so the hosted service can replace it 1:1 (no local GPU)."""
+    import librosa
+    import soundfile as sf
+    import io as _io
+    try:
+        wav, sr = sf.read(_io.BytesIO(audio))
+    except Exception:
+        wav, sr = librosa.load(_io.BytesIO(audio), sr=None, mono=True)
+    if getattr(wav, "ndim", 1) > 1:
+        wav = wav.mean(axis=1)
+    wav = np.asarray(wav, dtype="float32")
+    if sr != model_sls.SR:
+        wav = librosa.resample(wav, orig_sr=sr, target_sr=model_sls.SR)
+    W, H = int(win_s * model_sls.SR), int(hop_s * model_sls.SR)
+    wins = [wav[s:s + W] for s in range(0, max(1, len(wav) - W), H)
+            if np.sqrt(np.mean(wav[s:s + W] ** 2)) >= rms_gate]
+    if not wins:
+        return {"p_fake": None, "verdict": "silence", "n_windows": 0,
+                "model_version": MODEL_VERSION}
+    ps = []
+    for i in range(0, len(wins), batch):            # batch so a long clip doesn't OOM
+        ps.extend(_score_wavs(wins[i:i + batch]))
+    mean = float(np.mean(ps))
+    return {"p_fake": round(mean, 4), "p_max": round(float(np.max(ps)), 4),
+            "verdict": verdict(mean), "n_windows": len(wins),
+            "model_version": MODEL_VERSION}
