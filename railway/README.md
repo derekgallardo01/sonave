@@ -18,6 +18,11 @@ simulation was proven to fail (see `../results/detector_v2_progress.md`).
    - `SONAVE_RECALL_API_KEY` = your Recall key
    - `SONAVE_RECALL_BASE` = `https://us-west-2.recall.ai/api/v1` (match your region)
    - `SONAVE_DATA_DIR` = `/data/captured`
+   - `SONAVE_SCORER_URL` *(optional)* = a hosted detector, e.g. the Modal deploy
+     (`https://<you>--sonave-detector-fastapi-app.modal.run`, see `../modal_app.py`).
+     When set, Railway scores each flushed chunk on that GPU service in a background
+     thread and shows the verdict on the page — **no local process / laptop needed**.
+     Unset = capture-only (page shows "verdict pending").
 4. **Add a Volume** (Settings → Volumes) mounted at `/data` so captures survive
    redeploys.
 5. Railway gives you a public domain (e.g. `sonave.up.railway.app`). It sets
@@ -30,8 +35,9 @@ simulation was proven to fail (see `../results/detector_v2_progress.md`).
 - Talk / run the meeting. Each 2-min chunk of every speaker's audio is saved as it
   flushes (survives the bot leaving).
 - The page shows **live stream quality** per speaker, a **live authenticity badge**
-  (REAL / SUSPECT / FAKE — pushed up by `../tools/verdict_monitor.py` scoring on your
-  GPU), and **captures grouped by session** with inline play + download links.
+  (REAL / SUSPECT / FAKE — scored either hands-free via `SONAVE_SCORER_URL` (Railway →
+  Modal) or by `../tools/verdict_monitor.py` on your local GPU), and **captures grouped
+  by session** with inline play + download links.
 - Pull captures to your GPU box (`../src/pull_captures.py`), fold in
   (`../src/add_captured.py`), and retrain.
 

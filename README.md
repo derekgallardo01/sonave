@@ -18,15 +18,20 @@ Full history and every honest caveat live in
   (ElevenLabs / Cartesia / Gemini) vs commodity ~2%; unseen-generator EER ~7.5%.
 - **Real-call robustness:** holds through Google-Meet Opus; real-world false-alarms
   cut ~55% → ~8% by adding real-world real speech to training.
-- **Meet domain (Stage 6–7):** a *balanced* real+fake corpus captured through a **live
-  Meet** (VB-CABLE) fixes both the real false-positive and the fake-blindness. Honest
-  cross-source validation (Stage 7): the **real side generalizes** (96% real-acc on an
-  *unseen* real corpus through Meet), but the **fake side is still narrow** (29% catch on
-  *unseen* generators through Meet — it learned one podcast, not fakes-in-general). Next
-  lever: diverse fake generators through Meet. General non-Meet performance held (91%
-  catch on 27 unseen commercial tools).
-- **Product:** hosted CPU-only capture service ([`railway/`](railway/)) with a live
-  authenticity badge; local GPU scoring via [`tools/verdict_monitor.py`](tools/verdict_monitor.py).
+- **Meet domain (Stage 6–7):** a real+fake corpus captured through a **live Meet**
+  (VB-CABLE) fixes both the real false-positive and the fake-blindness on *same-source*
+  audio. Honest cross-source validation then showed the real halves: the **real side
+  generalizes** (96% real-acc on an *unseen* real corpus through Meet), but **cross-source
+  fake catch through Meet is hard** — adding 87 diverse generators ~2.5×'d it (20% → 51%),
+  yet that gain costs real-acc (98% → 86%) in a way rebalancing *cannot* undo (an inherent
+  precision/recall tradeoff, Stage 7b). Production stays on the high-real-acc model; the
+  next lever is *diverse real-through-Meet* to close it symmetrically. General non-Meet
+  performance held throughout (91% catch on 27 unseen commercial tools).
+- **Product (fully hosted):** CPU-only capture service on **Railway**
+  ([`railway/`](railway/)) → GPU scoring on **Modal** (scale-to-zero T4,
+  [`modal_app.py`](modal_app.py)) → live authenticity badge on the page, no laptop in the
+  loop. Local GPU scoring ([`tools/verdict_monitor.py`](tools/verdict_monitor.py)) remains
+  as an option.
 
 ### The original Phase 0 thesis — DISPROVEN, then pivoted
 Sonave began as a go/no-go test of one thesis: *Opus compression craters commodity
