@@ -354,3 +354,37 @@ generators through Meet, on Railway) is the first slice of exactly that data.
 
 Reproduce: `python src/eval_xlsr.py --model models/sonave_xlsr_meet` (regression);
 controlled VB-CABLE capture of ASV-real then held-out fakes, score by phase (cross-source).
+
+### Stage 7b — fake-diversity attempt: lever confirmed, but a real precision/recall wall
+Applied the mirror of the real-diversity fix: captured **26 chunks of 87 MLAAD generators**
+through Meet (VB-CABLE) into `captured_fake/`, holding out 3 generators (ElevenLabs-v3,
+Cartesia Sonic-3, Gemini) for a clean through-Meet test. Retrained, then a same-chunks
+3-way comparison on the held-out generators + ASV real, all through Meet:
+
+| Model | held-out FAKE catch | ASV REAL acc |
+|---|---|---|
+| old (pre-diversity) | 20% (mean 0.22) | **98%** (mean 0.06) |
+| diverse, imbalanced (fake 2.2:1) | 49% (mean 0.56) | 88% (mean 0.17) |
+| diverse, **rebalanced** (fake 1.05:1) | **51%** (mean 0.51) | 86% (mean 0.14) |
+
+**Two findings:**
+1. **Diversity is the lever — confirmed and durable.** Adding 87 generators through Meet
+   ~2.5×'d cross-source fake catch (20%→51%). Rebalancing (2.2:1→1.05:1) did NOT change
+   catch — the gain is fake *diversity*, not volume.
+2. **The real-acc cost is inherent, not an imbalance artifact.** Rebalancing the data (and
+   the loss is already inverse-frequency weighted) did NOT recover real-acc (88%→86%). The
+   mean P(fake) on real audio shifted 0.06→0.14 and stayed there at any balance. A model
+   trained to catch diverse *unseen* fakes is genuinely more suspicious of *unseen* real
+   audio too — a precision/recall tradeoff, not a bug to rebalance away.
+
+**Decision: production stays on the old model** (`models/sonave_xlsr_meet` = the Stage-6
+`_meet`; Modal never redeployed). For the wire-fraud vertical, false-positives on real
+people are the expensive error, and the old model keeps 98% real-acc, 100% same-source
+Meet catch, and 91% on unseen tools *on clean audio*. The diverse models are kept as R&D
+(`models/_meet_diverse_imbalanced`).
+
+**The principled next lever (needs capture):** close real-acc the way we closed it before —
+add **diverse real-through-Meet** (ASV/VoxPopuli, not just LibriSpeech) so the model learns
+"diverse real = real" alongside "diverse fake = fake." Cross-source fake catch through Meet
+on genuinely unseen generators is simply a hard problem; ~51% at 86% real-acc is the honest
+current ceiling with fake-diversity alone.
