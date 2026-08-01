@@ -38,6 +38,11 @@ _AUTH_SECRET = modal.Secret.from_dict({
 })
 
 
+# A HuggingFace token (from the deploy shell's HF_TOKEN, if any) de-risks the anonymous
+# 1.2 GB backbone pull at build — huggingface_hub picks up HF_TOKEN automatically.
+_HF_SECRET = modal.Secret.from_dict({"HF_TOKEN": os.environ.get("HF_TOKEN", "")})
+
+
 def _cache_backbone():
     """Runs at image BUILD time: bake the 1.2 GB XLS-R backbone into the image so
     cold starts don't re-download it."""
@@ -61,7 +66,7 @@ image = (
         "python-multipart>=0.0.9",
         "pydantic>=2.6",
     )
-    .run_function(_cache_backbone)                  # bake backbone weights into the image
+    .run_function(_cache_backbone, secrets=[_HF_SECRET])   # bake backbone (HF_TOKEN if set)
     .env({
         "SONAVE_MODEL": "/root/models/sonave_xlsr_meet",   # the balanced Meet model (Stage 6)
         "SONAVE_TAU_REAL": "0.40",

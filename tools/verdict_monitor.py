@@ -33,6 +33,7 @@ import config  # noqa: E402
 # Shared secret for the (now optionally auth'd) Railway + Modal services. Set
 # SONAVE_API_TOKEN in the environment to match; empty = no header (open services).
 TOKEN = os.environ.get("SONAVE_API_TOKEN", "")
+EMA = float(os.environ.get("SONAVE_SCORE_EMA", "0.6"))   # weight on the newest chunk score
 
 
 def _auth_headers(extra: dict | None = None) -> dict:
@@ -70,11 +71,18 @@ def _post_clip(remote: str, path: Path):
         + data + b"\r\n"
         + f"--{boundary}--\r\n".encode()
     )
-    req = urllib.request.Request(
-        f"{remote}/score_clip", data=body, method="POST",
-        headers=_auth_headers({"Content-Type": f"multipart/form-data; boundary={boundary}"}))
-    with urllib.request.urlopen(req, timeout=180) as r:
-        res = json.loads(r.read())
+    headers = _auth_headers({"Content-Type": f"multipart/form-data; boundary={boundary}"})
+    res = None
+    for attempt in range(3):                       # retry 429 / cold-start / transient
+        try:
+            req = urllib.request.Request(f"{remote}/score_clip", data=body, method="POST", headers=headers)
+            with urllib.request.urlopen(req, timeout=120) as r:
+                res = json.loads(r.read())
+            break
+        except Exception:
+            if attempt == 2:
+                raise
+            time.sleep(0.5 * (2 ** attempt))
     p = res.get("p_fake")
     return None if p is None else float(p)
 
@@ -139,7 +147,7 @@ def main():
                     continue
                 if p is None:
                     continue
-                roll = p if roll is None else 0.4 * p + 0.6 * roll
+                roll = p if roll is None else EMA * p + (1 - EMA) * roll
                 v, rv = _verdict(p), _verdict(roll)
                 tag = {"real": "  REAL ", "suspect": "SUSPECT", "fake": " FAKE!"}.get(v, v)
                 print(f"  {time.strftime('%H:%M:%S')} | {name[-18:]} | this chunk: "

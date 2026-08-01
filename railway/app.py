@@ -18,8 +18,10 @@ Endpoints:
 from __future__ import annotations
 
 import base64
+import io
 import json
 import os
+import random
 import re
 import secrets
 import threading
@@ -150,6 +152,16 @@ QUALITY: dict[str, dict] = {}
 # authenticity verdicts pushed up from the local GPU scorer (tools/verdict_monitor.py)
 VERDICTS: dict[str, dict] = {}
 ROLL: dict[str, float] = {}      # speaker -> rolling P(fake), for the hosted scorer
+_STATE_LOCK = threading.Lock()   # guards ROLL/VERDICTS across scoring threads
+
+# Real-time scoring: decouple from the 2-min capture-file flush. Score a short sliding
+# window every SCORE_SEC so a verdict appears in seconds, not minutes. Capture still
+# writes 2-min WAVs for training; only the *scoring* cadence is fast.
+SCORE_SEC = int(os.environ.get("SONAVE_SCORE_SEC", "10"))       # cadence between scores
+SCORE_WIN_SEC = int(os.environ.get("SONAVE_SCORE_WIN_SEC", "8"))  # window length scored
+SCORE_EMA = float(os.environ.get("SONAVE_SCORE_EMA", "0.6"))     # weight on the newest score
+_SCORE_HOP_BYTES = SCORE_SEC * SR * 2
+_SCORE_WIN_BYTES = SCORE_WIN_SEC * SR * 2
 
 
 def _quality(spk: str, pcm: bytes):
@@ -199,6 +211,8 @@ async def ws_audio(ws: WebSocket):
     await ws.accept()
     buffers: dict[str, bytearray] = {}
     idx: dict[str, int] = {}
+    seen: dict[str, int] = {}        # cumulative bytes per speaker (drives scoring cadence)
+    scored: dict[str, int] = {}      # cumulative bytes at last score
     session = int(time.time())
     try:
         while True:
@@ -213,12 +227,16 @@ async def ws_audio(ws: WebSocket):
                 raw = base64.b64decode(buf)
                 b = buffers.setdefault(spk, bytearray())     # CAPTURE FIRST (critical path)
                 b.extend(raw)
-                if len(b) >= _CHUNK_BYTES:               # periodic flush -> ~2 min files
-                    out = _write(spk, bytes(b), session, idx.get(spk, 0))
+                if len(b) >= _CHUNK_BYTES:               # periodic flush -> ~2 min training files
+                    _write(spk, bytes(b), session, idx.get(spk, 0))
                     idx[spk] = idx.get(spk, 0) + 1
                     b.clear()
-                    if SCORER_URL:                       # score on the hosted detector, off-path
-                        threading.Thread(target=_score_and_store, args=(spk, out), daemon=True).start()
+                # real-time scoring: every SCORE_SEC, score the last ~SCORE_WIN_SEC off-path
+                seen[spk] = seen.get(spk, 0) + len(raw)
+                if SCORER_URL and seen[spk] - scored.get(spk, 0) >= _SCORE_HOP_BYTES:
+                    scored[spk] = seen[spk]
+                    window = _pcm_to_wav(bytes(b[-_SCORE_WIN_BYTES:]))
+                    threading.Thread(target=_score_and_store, args=(spk, window), daemon=True).start()
                 try:
                     _quality(spk, raw)                   # quality is best-effort, never breaks capture
                 except Exception:
@@ -228,11 +246,9 @@ async def ws_audio(ws: WebSocket):
     except WebSocketDisconnect:
         pass
     finally:
-        for spk, b in buffers.items():                   # flush the remainder
+        for spk, b in buffers.items():                   # flush the remainder to disk
             if len(b) >= SR * 2:
-                out = _write(spk, bytes(b), session, idx.get(spk, 0))
-                if SCORER_URL:
-                    threading.Thread(target=_score_and_store, args=(spk, out), daemon=True).start()
+                _write(spk, bytes(b), session, idx.get(spk, 0))
 
 
 def _write(spk: str, pcm: bytes, session: int, idx: int):
@@ -251,32 +267,51 @@ def _av(p: float) -> str:
     return "fake" if p >= 0.7 else "suspect" if p >= 0.4 else "real"
 
 
-def _score_and_store(spk: str, path: Path):
-    """Best-effort: POST a flushed chunk to the hosted scorer (Modal /score_clip) and
-    store the verdict for the page. Runs in a daemon thread — never the capture path."""
+def _pcm_to_wav(pcm: bytes) -> bytes:
+    """Wrap raw S16LE 16 kHz mono PCM in a WAV container (for POSTing a live window)."""
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(SR)
+        w.writeframes(pcm)
+    return buf.getvalue()
+
+
+def _score_and_store(spk: str, wav_bytes: bytes):
+    """Best-effort: POST a live window to the hosted scorer (Modal /score_clip) and store
+    the rolling verdict. Runs in a daemon thread with bounded retry — never the capture path."""
     if not SCORER_URL:
         return
     try:
-        data = Path(path).read_bytes()
         boundary = "----sonavecap"
         body = (f"--{boundary}\r\n".encode()
                 + b'Content-Disposition: form-data; name="file"; filename="c.wav"\r\n'
-                + b"Content-Type: audio/wav\r\n\r\n" + data + b"\r\n"
+                + b"Content-Type: audio/wav\r\n\r\n" + wav_bytes + b"\r\n"
                 + f"--{boundary}--\r\n".encode())
         headers = {"Content-Type": f"multipart/form-data; boundary={boundary}"}
         if API_TOKEN:
             headers["X-Sonave-Token"] = API_TOKEN     # shared secret; Modal validates it
-        req = urllib.request.Request(
-            f"{SCORER_URL}/score_clip", data=body, method="POST", headers=headers)
-        with urllib.request.urlopen(req, timeout=180) as r:
-            res = json.loads(r.read())
+        res = None
+        for attempt in range(3):                      # retry 429 / cold-start / transient
+            try:
+                req = urllib.request.Request(
+                    f"{SCORER_URL}/score_clip", data=body, method="POST", headers=headers)
+                with urllib.request.urlopen(req, timeout=60) as r:
+                    res = json.loads(r.read())
+                break
+            except Exception:
+                if attempt == 2:
+                    raise
+                time.sleep(0.5 * (2 ** attempt) + random.random() * 0.3)   # backoff + jitter
         p = res.get("p_fake")
         if p is None:
             return
-        prev = ROLL.get(spk)
-        roll = p if prev is None else 0.4 * p + 0.6 * prev
-        ROLL[spk] = roll
-        VERDICTS[spk] = {"p_fake": round(p, 3), "rolling": round(roll, 3), "verdict": _av(roll)}
+        with _STATE_LOCK:
+            prev = ROLL.get(spk)
+            roll = p if prev is None else SCORE_EMA * p + (1 - SCORE_EMA) * prev
+            ROLL[spk] = roll
+            VERDICTS[spk] = {"p_fake": round(p, 3), "rolling": round(roll, 3), "verdict": _av(roll)}
         print(f"[score] {spk}: p_fake={p:.3f} rolling={roll:.3f} -> {_av(roll)}", flush=True)
     except Exception as e:  # noqa: BLE001 — scoring must never crash capture
         print(f"[score] skip {spk}: {repr(e)[:80]}", flush=True)
@@ -315,8 +350,9 @@ class VerdictReq(BaseModel):
 @app.post("/api/verdict", dependencies=[Depends(require_auth)])
 def api_verdict(v: VerdictReq):
     """Local GPU scorer pushes authenticity verdicts here; the page shows them."""
-    VERDICTS[v.speaker] = {"p_fake": round(v.p_fake, 3), "rolling": round(v.rolling, 3),
-                           "verdict": v.verdict}
+    with _STATE_LOCK:
+        VERDICTS[v.speaker] = {"p_fake": round(v.p_fake, 3), "rolling": round(v.rolling, 3),
+                               "verdict": v.verdict}
     return {"ok": True}
 
 
