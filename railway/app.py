@@ -35,6 +35,10 @@ from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSock
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, field_validator
 
+import sys as _sys
+_sys.path.insert(0, str(Path(__file__).resolve().parent))   # make sibling modules importable
+import incidents                                              # incident store + alerting (torch-free)
+
 # --- config (Railway env vars) ----------------------------------------------
 RECALL_API_KEY = os.environ.get("SONAVE_RECALL_API_KEY")
 RECALL_BASE = os.environ.get("SONAVE_RECALL_BASE", "https://us-west-2.recall.ai/api/v1")
@@ -311,8 +315,13 @@ def _score_and_store(spk: str, wav_bytes: bytes):
             prev = ROLL.get(spk)
             roll = p if prev is None else SCORE_EMA * p + (1 - SCORE_EMA) * prev
             ROLL[spk] = roll
-            VERDICTS[spk] = {"p_fake": round(p, 3), "rolling": round(roll, 3), "verdict": _av(roll)}
-        print(f"[score] {spk}: p_fake={p:.3f} rolling={roll:.3f} -> {_av(roll)}", flush=True)
+            verdict = _av(roll)
+            VERDICTS[spk] = {"p_fake": round(p, 3), "rolling": round(roll, 3), "verdict": verdict}
+        print(f"[score] {spk}: p_fake={p:.3f} rolling={roll:.3f} -> {verdict}", flush=True)
+        if verdict == "fake":                         # sustained deepfake -> open incident + alert
+            inc = incidents.record(spk, roll, res.get("model_version", "?"))
+            if inc:
+                incidents.notify(inc)
     except Exception as e:  # noqa: BLE001 — scoring must never crash capture
         print(f"[score] skip {spk}: {repr(e)[:80]}", flush=True)
 
@@ -381,6 +390,20 @@ def api_quality():
     return out
 
 
+@app.get("/api/incidents", dependencies=[Depends(require_auth)])
+def api_incidents():
+    return {"incidents": incidents.list_incidents()}
+
+
+class AckReq(BaseModel):
+    id: int
+
+
+@app.post("/api/incidents/ack", dependencies=[Depends(require_auth)])
+def api_ack(a: AckReq):
+    return {"ok": incidents.acknowledge(a.id)}
+
+
 @app.get("/captures", dependencies=[Depends(require_auth)])
 def captures():
     if not DATA_DIR.exists():
@@ -445,6 +468,9 @@ margin:30px 0 4px;font-weight:700}
 .who{font-weight:700;font-size:16px}
 .chip{color:#fff;padding:5px 12px;border-radius:8px;font-weight:800;font-size:13px;letter-spacing:.02em;white-space:nowrap}
 .chip small{font-weight:600;opacity:.85;font-size:11px;margin-left:5px}
+.alert{display:flex;justify-content:space-between;align-items:center;gap:12px;
+background:rgba(239,74,74,.12);border:1px solid var(--red);border-radius:11px;padding:12px 15px;margin:10px 0}
+.alert b{color:var(--red)}.alert .btn{background:var(--red);padding:8px 13px}
 .pend{color:var(--dim);font-size:12px;font-style:italic}
 .bar{height:7px;background:#0f1524;border-radius:5px;margin:11px 0 8px;overflow:hidden}
 .bar i{display:block;height:100%;transition:width .3s}
@@ -473,6 +499,8 @@ color:var(--ink);cursor:pointer;font-size:11px;padding:0;line-height:1}
 <div class=row><input id=u placeholder="paste a Google Meet / Zoom link" style=flex:1>
 <button id=sendb onclick=send()>Send bot</button></div>
 <p class=msg id=msg></p>
+
+<div id=alerts></div>
 
 <h2>Live authenticity</h2>
 <div class=legend>
@@ -505,9 +533,23 @@ async function jget(u){var r=await fetch(u);if(r.status===401){needlogin();throw
 function dologin(){var t=document.getElementById('tok').value.trim();if(!t)return;
  document.cookie='sonave_token='+t+';path=/;SameSite=Strict;Max-Age=2592000';
  document.getElementById('login').style.display='none';start()}
+async function incidents(){
+ var d;try{d=await jget('/api/incidents')}catch(e){return}
+ var open=(d.incidents||[]).filter(function(i){return i.status=='open'});
+ document.getElementById('alerts').innerHTML=open.map(function(i){
+  return '<div class=alert><div><b>⛔ '+(i.hold?'WIRE HELD':'ALERT')+'</b> — suspected deepfake voice: <b>'
+   +esc(i.speaker)+'</b> · risk '+Math.round(i.rolling*100)+'%'
+   +(i.hold?' · re-authenticate the caller before releasing funds':'')+'</div>'
+   +'<button class=btn onclick="ack('+i.id+')">Acknowledge</button></div>'}).join('')
+}
+async function ack(id){
+ await fetch('/api/incidents/ack',{method:'POST',headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({id:id})});incidents()
+}
 var _started=0;
 function start(){if(_started)return;_started=1;
- list();quality();setInterval(function(){list()},5000);setInterval(quality,1500)}
+ list();quality();incidents();
+ setInterval(function(){list()},5000);setInterval(quality,1500);setInterval(incidents,3000)}
 function avcolor(v){return v=='real'?'var(--green)':v=='fake'?'var(--red)':'var(--amber)'}
 function qcolor(v){return v=='good'?'var(--green)':/CLIP/.test(v)?'var(--red)':/QUIET|silence/i.test(v)?'var(--amber)':'var(--dim)'}
 function hms(s){s=Math.round(s);var h=s/3600|0,m=(s%3600)/60|0,x=s%60;

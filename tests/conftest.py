@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-for _p in (ROOT, ROOT / "src", ROOT / "service", ROOT / "tools"):
+for _p in (ROOT, ROOT / "src", ROOT / "service", ROOT / "tools", ROOT / "railway"):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 

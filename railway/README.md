@@ -69,6 +69,15 @@ work (the mic never picks it up at usable volume); a virtual cable is the unlock
 - **Always** hold some captured audio out of training to validate — the ground truth.
 - **Consent:** announce recording; required for the finance vertical.
 
+## Fraud alerts, wire-hold & incidents
+When a speaker's rolling verdict is a sustained **fake**, the service opens an **incident**
+(persisted to SQLite next to the `/data` volume, so it survives redeploys), flags a
+**wire-hold**, and — if `SONAVE_ALERT_WEBHOOK` is set — posts a Slack-formatted alert. The
+page shows a red **⛔ WIRE HELD** banner with an **Acknowledge** button (which clears the hold
+and closes the incident). This layer is torch-free (it runs on the verdicts the service
+already receives from the scorer); GPU-side voiceprint fusion + auto-generated forensic
+reports are the next follow-ups. Endpoints: `GET /api/incidents`, `POST /api/incidents/ack`.
+
 ## Live authenticity verdict on the page
 `../tools/verdict_monitor.py <url>` polls this service for new chunks, scores each on
 your local GPU with `models/sonave_xlsr_meet`, and `POST`s the verdict to
