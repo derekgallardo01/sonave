@@ -388,3 +388,41 @@ add **diverse real-through-Meet** (ASV/VoxPopuli, not just LibriSpeech) so the m
 "diverse real = real" alongside "diverse fake = fake." Cross-source fake catch through Meet
 on genuinely unseen generators is simply a hard problem; ~51% at 86% real-acc is the honest
 current ceiling with fake-diversity alone.
+
+## STAGE 8 — real-diversity through Meet: didn't recover a THIRD unseen corpus, but the combined model is the deployable operating point ✅
+
+Track 4, the mirror of Stage 7b: added **VoxPopuli** (600 clips, parliamentary — a real
+domain unlike LibriSpeech) through a live Meet (VB-CABLE), 27 chunks → `data/captured/`
+alongside the existing LibriSpeech real. Balanced corpus (`corpus_meet.csv`: 10,014 real /
+11,765 fake — VoxPopuli doubled the captured real). Retrained; held-out test through Meet =
+**ASV** real (the Stage-7b set, unseen) + the 3 held-out fake generators.
+
+| Held-out through Meet | BEFORE (pre-VoxPopuli, no diverse-fake either) | AFTER (real + fake diversity) |
+|---|---|---|
+| ASV real-acc (unseen corpus) | 97% (mean 0.06) | 87% (mean 0.21) |
+| held-out fake catch (unseen gens) | 14% (mean 0.20) | **65%** (mean 0.65) |
+
+**Finding — symmetric to the fake side.** VoxPopuli real-diversity did **not** recover ASV
+real-acc (86% Stage-7b → 87% here; VoxPopuli's isolated contribution ≈ +1pt). Real-diversity,
+like fake-diversity, improves the domains you *add* — it does not transfer to a *third*
+genuinely-unseen real corpus. Cross-source generalization is hard on **both** sides, and the
+real-acc ↔ fake-catch tradeoff is a real frontier with this data (~97/14 or ~87/65, not both
+high). *Caveat: the BEFORE baseline also lacked the diverse-fake now in training (so the
+14→65% jump is mostly the fake diversity), and the test is small (174 windows/side).*
+
+**Deploy decision — ship the combined model.** It's the best *balanced* cross-source detector
+(balanced acc 76% vs old 56%). Per-window threshold sweep on the held-out sets:
+
+| tau | real-acc | fake-catch |
+|---|---|---|
+| 0.5 | 87% | 65% |
+| 0.6 | 91% | 61% |
+| **0.7** (wire-hold) | **93%** | **55%** |
+
+At the product's actual operating point — the tri-state verdict with a wire-hold only on
+*sustained* fake ≥ 0.7 — the model keeps **93% real-acc** (few false holds, rarer still once
+the rolling EMA must sustain) **and catches 55%** of unseen cross-source fakes (old model:
+~10%), with another ~14% landing in the "suspect" band for review. That's a real detector at
+a deployable false-alarm rate, so `models/sonave_xlsr_meet` is now the combined-diversity
+model (old high-real-acc model backed up at `models/_meet_before_realfix`). Further gains need
+many more real+fake domains or the deferred voiceprint-fusion — diminishing-returns territory.
