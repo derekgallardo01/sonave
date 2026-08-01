@@ -14,6 +14,7 @@ No GPU, no network, no model downloads — every external is mocked.
 | `test_railway_quality.py` | Audio-quality math on the capture path — the stdlib rewrite that once broke prod (audioop removed in 3.13): silence/loud/clipping/warm-up verdicts, odd-byte tolerance. |
 | `test_railway_api.py` | Capture-service HTTP: page render (no leftover placeholders), `POST /api/verdict`, `/api/quality` verdict-merge + test-speaker filter, `/captures`, path-traversal safety, favicon. |
 | `test_railway_scoring.py` | Off-path hosted scoring (`SONAVE_SCORER_URL` → Modal): verdict/rolling bookkeeping, `_av` thresholds, safe no-op without a URL, **errors never propagate** (capture must never break). |
+| `test_security.py` | Opt-in `SONAVE_API_TOKEN` auth (401 without token, bearer/cookie grant, WS token gate), `meeting_url` allowlist, `VerdictReq` clamp/sanitize, XSS-escape presence, Modal upload cap (413). |
 | `test_service_api.py` | Detection microservice contract (`/healthz`, `/version`, `/score`, `/score_clip`, `/score_json`) with the detector mocked. |
 | `test_detector_logic.py` | The tri-state real/suspect/fake thresholds and result shaping. |
 | `test_model_sls.py` | `fit_length` crop/pad — the transform every clip passes through. |

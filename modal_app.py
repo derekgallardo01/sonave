@@ -23,9 +23,19 @@ orchestrator POST 4 s chunks to /score (or /score_json with base64).
 Why T4: XLS-R-300M frozen + a tiny head runs comfortably on a T4 (16 GB) — the
 cheapest GPU that fits. Bump to gpu="L4" if you want a bit more headroom/throughput.
 """
+import os
+
 import modal
 
 BACKBONE = "facebook/wav2vec2-xls-r-300m"   # public, no HF token needed
+
+# Opt-in auth: if SONAVE_API_TOKEN is set in the shell you deploy from, it's injected
+# as a runtime secret so /score* requires it (set the SAME token on Railway). Unset =
+# open, as before. Not baked into the image layer.
+_AUTH_SECRET = modal.Secret.from_dict({
+    "SONAVE_API_TOKEN": os.environ.get("SONAVE_API_TOKEN", ""),
+    "SONAVE_MAX_UPLOAD_MB": os.environ.get("SONAVE_MAX_UPLOAD_MB", "25"),
+})
 
 
 def _cache_backbone():
@@ -73,6 +83,7 @@ app = modal.App("sonave-detector", image=image)
     scaledown_window=300,   # stay warm 5 min after the last request (covers a live meeting), then -> 0
     timeout=600,
     min_containers=0,       # scale to zero when idle = $0
+    secrets=[_AUTH_SECRET],  # SONAVE_API_TOKEN / SONAVE_MAX_UPLOAD_MB (empty token = open)
 )
 @modal.concurrent(max_inputs=8)   # one warm GPU serves several chunk requests at once
 @modal.asgi_app()

@@ -20,15 +20,18 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
+import secrets
 import threading
 import time
 import urllib.request
 import wave
 from pathlib import Path
+from urllib.parse import urlparse
 
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 # --- config (Railway env vars) ----------------------------------------------
 RECALL_API_KEY = os.environ.get("SONAVE_RECALL_API_KEY")
@@ -39,6 +42,30 @@ SR = 16_000
 # chunk is scored there in a background thread and the verdict shows on the page — no
 # local GPU / monitor process needed. Unset = capture only (page shows "verdict pending").
 SCORER_URL = os.environ.get("SONAVE_SCORER_URL", "").rstrip("/")
+
+# Auth is OPT-IN: unset SONAVE_API_TOKEN => service is open (as before), so deploying
+# this is a safe no-op. Set the token and every sensitive endpoint requires it —
+# browser via a `sonave_token` cookie, machines via `Authorization: Bearer`/`X-Sonave-Token`,
+# the Recall WebSocket via a `?token=` query param.
+API_TOKEN = os.environ.get("SONAVE_API_TOKEN", "")
+ALLOWED_MEET_HOSTS = ("meet.google.com", "zoom.us", "teams.microsoft.com", "teams.live.com")
+_SPK_RE = re.compile(r"[^A-Za-z0-9_-]+")
+
+
+def _token_ok(v: str | None) -> bool:
+    return bool(v) and bool(API_TOKEN) and secrets.compare_digest(v, API_TOKEN)
+
+
+def require_auth(request: Request):
+    """Endpoint guard. No-op when SONAVE_API_TOKEN is unset."""
+    if not API_TOKEN:
+        return
+    auth = request.headers.get("authorization", "")
+    bearer = auth[7:] if auth.lower().startswith("bearer ") else ""
+    tok = (request.headers.get("x-sonave-token") or bearer
+           or request.cookies.get("sonave_token") or request.query_params.get("token"))
+    if not _token_ok(tok):
+        raise HTTPException(status_code=401, detail="unauthorized")
 
 app = FastAPI(title="Sonave Capture")
 
@@ -83,11 +110,17 @@ class BotReq(BaseModel):
     bot_name: str = "Sonave"
 
 
-@app.post("/bot")
+@app.post("/bot", dependencies=[Depends(require_auth)])
 def send_bot(req: BotReq, request: Request):
     if not RECALL_API_KEY:
         return {"error": "SONAVE_RECALL_API_KEY not set on the service"}
+    u = urlparse(req.meeting_url.strip())
+    if u.scheme not in ("http", "https") or not any(
+            u.netloc == h or u.netloc.endswith("." + h) for h in ALLOWED_MEET_HOSTS):
+        return {"ok": False, "detail": "meeting_url must be a Google Meet / Zoom / Teams link"}
     ws = _ws_url(request)
+    if API_TOKEN:                       # the Recall bot must authenticate to our WS
+        ws = f"{ws}?token={API_TOKEN}"
     payload = {
         "meeting_url": req.meeting_url,
         "bot_name": req.bot_name,
@@ -160,6 +193,9 @@ def _quality_verdict(q: dict) -> str:
 
 @app.websocket("/api/ws/audio")
 async def ws_audio(ws: WebSocket):
+    if API_TOKEN and not _token_ok(ws.query_params.get("token")):
+        await ws.close(code=1008)        # policy violation — bot lacked the token
+        return
     await ws.accept()
     buffers: dict[str, bytearray] = {}
     idx: dict[str, int] = {}
@@ -172,7 +208,8 @@ async def ws_audio(ws: WebSocket):
                 buf = d.get("buffer")
                 if not buf:
                     continue
-                spk = ((d.get("participant") or {}).get("name") or "unknown").replace(" ", "_")
+                # whitelist the speaker name -> safe for use in the capture filename
+                spk = _SPK_RE.sub("_", ((d.get("participant") or {}).get("name") or "unknown")).strip("_") or "unknown"
                 raw = base64.b64decode(buf)
                 b = buffers.setdefault(spk, bytearray())     # CAPTURE FIRST (critical path)
                 b.extend(raw)
@@ -226,9 +263,11 @@ def _score_and_store(spk: str, path: Path):
                 + b'Content-Disposition: form-data; name="file"; filename="c.wav"\r\n'
                 + b"Content-Type: audio/wav\r\n\r\n" + data + b"\r\n"
                 + f"--{boundary}--\r\n".encode())
+        headers = {"Content-Type": f"multipart/form-data; boundary={boundary}"}
+        if API_TOKEN:
+            headers["X-Sonave-Token"] = API_TOKEN     # shared secret; Modal validates it
         req = urllib.request.Request(
-            f"{SCORER_URL}/score_clip", data=body, method="POST",
-            headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
+            f"{SCORER_URL}/score_clip", data=body, method="POST", headers=headers)
         with urllib.request.urlopen(req, timeout=180) as r:
             res = json.loads(r.read())
         p = res.get("p_fake")
@@ -257,8 +296,23 @@ class VerdictReq(BaseModel):
     rolling: float
     verdict: str
 
+    @field_validator("p_fake", "rolling")
+    @classmethod
+    def _prob(cls, v: float) -> float:
+        return max(0.0, min(1.0, float(v)))
 
-@app.post("/api/verdict")
+    @field_validator("verdict")
+    @classmethod
+    def _verdict(cls, v: str) -> str:
+        return v if v in ("real", "suspect", "fake") else "suspect"
+
+    @field_validator("speaker")
+    @classmethod
+    def _spk(cls, v: str) -> str:
+        return (_SPK_RE.sub("_", str(v)).strip("_") or "unknown")[:64]
+
+
+@app.post("/api/verdict", dependencies=[Depends(require_auth)])
 def api_verdict(v: VerdictReq):
     """Local GPU scorer pushes authenticity verdicts here; the page shows them."""
     VERDICTS[v.speaker] = {"p_fake": round(v.p_fake, 3), "rolling": round(v.rolling, 3),
@@ -269,7 +323,7 @@ def api_verdict(v: VerdictReq):
 SKIP_SPEAKERS = ("HealthCheck", "FIXCHECK", "WSTEST", "deploycheck")
 
 
-@app.get("/api/quality")
+@app.get("/api/quality", dependencies=[Depends(require_auth)])
 def api_quality():
     out = {}
     speakers = set(QUALITY) | set(VERDICTS)
@@ -291,7 +345,7 @@ def api_quality():
     return out
 
 
-@app.get("/captures")
+@app.get("/captures", dependencies=[Depends(require_auth)])
 def captures():
     if not DATA_DIR.exists():
         return {"files": []}
@@ -299,7 +353,7 @@ def captures():
     return {"files": [{"name": f.name, "mb": round(f.stat().st_size / 1e6, 2)} for f in fs]}
 
 
-@app.get("/download/{name}")
+@app.get("/download/{name}", dependencies=[Depends(require_auth)])
 def download(name: str):
     f = DATA_DIR / Path(name).name          # prevent path traversal
     return FileResponse(str(f)) if f.exists() else {"error": "not found"}
@@ -312,6 +366,7 @@ def index(request: Request):
     return (_PAGE
             .replace("__DOMAIN__", domain)
             .replace("__KEY__", key)
+            .replace("__AUTH__", "1" if API_TOKEN else "0")
             .replace("__FAVICON__", _FAVICON_B64))
 
 
@@ -394,8 +449,29 @@ color:var(--ink);cursor:pointer;font-size:11px;padding:0;line-height:1}
 <h2>Captures</h2>
 <div id=list><div class=empty>No captures yet.</div></div>
 
+<div id=login style="display:none;position:fixed;inset:0;background:rgba(8,11,18,.94);z-index:99;align-items:center;justify-content:center">
+ <div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:26px 28px;max-width:340px;width:90%">
+  <h1><span class=mark></span>Sonave</h1>
+  <p class=sub style="margin:6px 0 14px">Enter the access token to continue.</p>
+  <input id=tok type=password placeholder="access token" style="width:100%;margin-bottom:10px" onkeydown="if(event.key=='Enter')dologin()">
+  <button class=btn style="width:100%" onclick=dologin()>Unlock</button>
+ </div>
+</div>
+
 <script>
 var SKIP=/HealthCheck|FIXCHECK|WSTEST|deploycheck/i, open={}, lastAudio=null;
+var AUTH='__AUTH__'==='1';
+function cookie(n){return (document.cookie.match('(^|;)\\s*'+n+'\\s*=\\s*([^;]+)')||[])[2]}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function needlogin(){document.getElementById('login').style.display='flex'}
+async function jget(u){var r=await fetch(u);if(r.status===401){needlogin();throw 'auth'}return r.json()}
+function dologin(){var t=document.getElementById('tok').value.trim();if(!t)return;
+ document.cookie='sonave_token='+t+';path=/;SameSite=Strict;Max-Age=2592000';
+ document.getElementById('login').style.display='none';start()}
+var _started=0;
+function start(){if(_started)return;_started=1;
+ list();quality();setInterval(function(){list()},5000);setInterval(quality,1500)}
 function avcolor(v){return v=='real'?'var(--green)':v=='fake'?'var(--red)':'var(--amber)'}
 function qcolor(v){return v=='good'?'var(--green)':/CLIP/.test(v)?'var(--red)':/QUIET|silence/i.test(v)?'var(--amber)':'var(--dim)'}
 function hms(s){s=Math.round(s);var h=s/3600|0,m=(s%3600)/60|0,x=s%60;
@@ -404,7 +480,7 @@ function tod(ms){var d=new Date(ms);var h=d.getHours(),m=d.getMinutes();var ap=h
  h=h%12||12;return h+':'+(m<10?'0':'')+m+' '+ap}
 
 async function quality(){
- var d=await(await fetch('/api/quality')).json();
+ var d;try{d=await jget('/api/quality')}catch(e){return}
  var ks=Object.keys(d).filter(k=>!SKIP.test(k)),active=0;
  if(!ks.length){document.getElementById('quality').innerHTML=
   '<div class=empty>Waiting for audio… send a bot into a meeting to begin.</div>';setlive(0);return}
@@ -412,15 +488,15 @@ async function quality(){
   var s=d[k],lv=Math.min(100,Math.round((s.level||0)*300)),c=qcolor(s.verdict);
   if(s.level>0.01)active++;
   var chip=s.auth_verdict
-   ?'<span class=chip style=background:'+avcolor(s.auth_verdict)+'>'+s.auth_verdict.toUpperCase()
-     +(s.auth_p!=null?' '+s.auth_p:'')+'<small>authenticity</small></span>'
+   ?'<span class=chip style=background:'+avcolor(s.auth_verdict)+'>'+esc(s.auth_verdict.toUpperCase())
+     +(s.auth_p!=null?' '+esc(s.auth_p):'')+'<small>authenticity</small></span>'
    :'<span class=pend>scoring…</span>';
   var det=s.level!=null
    ?'<div class=bar><i style="width:'+lv+'%;background:'+c+'"></i></div>'
     +'<div class=det>audio <b>'+s.verdict.toUpperCase()+'</b> · '+s.speech_pct+'% speech · '
     +hms(s.total_sec)+' · '+s.clips+' clip'+(s.clips==1?'':'s')
     +(s.peak>=0.985?' · <span style=color:var(--red)>⚠ clipping</span>':'')+'</div>':'';
-  return '<div class=card><div class=chead><span class=who>'+k+'</span>'+chip+'</div>'+det+'</div>'
+  return '<div class=card><div class=chead><span class=who>'+esc(k)+'</span>'+chip+'</div>'+det+'</div>'
  }).join('');
  setlive(active)
 }
@@ -435,7 +511,7 @@ function play(name,btn){
 function toggle(id){open[id]=!open[id];list(true)}
 var _cache=null;
 async function list(fromToggle){
- if(!fromToggle){_cache=(await(await fetch('/captures')).json()).files}
+ if(!fromToggle){try{_cache=(await jget('/captures')).files}catch(e){return}}
  var files=(_cache||[]).filter(f=>!SKIP.test(f.name));
  if(!files.length){document.getElementById('list').innerHTML='<div class=empty>No captures yet.</div>';return}
  var sess={};
@@ -448,11 +524,11 @@ async function list(fromToggle){
   var isopen=i in open?open[id]:(i==0);open[id]=isopen;
   var body=isopen?'<div class=sbody>'+g.items.map(f=>{
    var d=f.mb*1e6/32000;
-   return '<div class=clip><button class=play onclick="play(\''+f.name+'\',this)">▶</button>'
-    +'<span class=cname>'+f.name+'</span><span class=cdur>'+hms(d)+' · '+f.mb+' MB</span></div>'
+   return '<div class=clip><button class=play onclick="play(\''+esc(f.name)+'\',this)">▶</button>'
+    +'<span class=cname>'+esc(f.name)+'</span><span class=cdur>'+hms(d)+' · '+f.mb+' MB</span></div>'
   }).join('')+'</div>':'';
-  return '<div class=sess><div class=shead onclick="toggle(\''+id+'\')">'
-   +'<span class=stitle><span class="caret'+(isopen?' open':'')+'">▸</span> '+g.spk
+  return '<div class=sess><div class=shead onclick="toggle(\''+esc(id)+'\')">'
+   +'<span class=stitle><span class="caret'+(isopen?' open':'')+'">▸</span> '+esc(g.spk)
    +' · '+(g.ts?tod(g.ts*1000):'session')+'</span>'
    +'<span class=smeta>'+g.items.length+' clips · '+mb.toFixed(1)+' MB · '+hms(dur)+'</span></div>'
    +body+'</div>'
@@ -464,11 +540,12 @@ async function send(){
  if(!u){document.getElementById('msg').textContent='paste a meeting link first';return}
  b.disabled=true;b.textContent='sending…';
  try{var r=await fetch('/bot',{method:'POST',headers:{'Content-Type':'application/json'},
-  body:JSON.stringify({meeting_url:u})});var d=await r.json();
-  document.getElementById('msg').textContent=d.ok?('✓ bot sent · '+d.bot_id):('✕ '+(d.detail||d.error||d.status))}
+  body:JSON.stringify({meeting_url:u})});
+  if(r.status===401){needlogin();b.disabled=false;b.textContent='Send bot';return}
+  var d=await r.json();
+  document.getElementById('msg').textContent=d.ok?('✓ bot sent · '+d.bot_id):('✕ '+esc(d.detail||d.error||d.status))}
  catch(e){document.getElementById('msg').textContent='✕ '+e}
  b.disabled=false;b.textContent='Send bot';list()
 }
-list();setInterval(()=>list(),5000);
-quality();setInterval(quality,1500);
+if(AUTH && !cookie('sonave_token')) needlogin(); else start();
 </script>"""

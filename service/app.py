@@ -17,11 +17,13 @@ Endpoints:
 from __future__ import annotations
 
 import base64
+import os
+import secrets
 import sys
 import time
 from pathlib import Path
 
-from fastapi import FastAPI, File, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 
 _HERE = Path(__file__).resolve().parent
@@ -32,6 +34,28 @@ for _p in (_HERE, _HERE.parent / "src", _HERE.parent):
 import detector
 
 app = FastAPI(title="Sonave Detection", version="0.1")
+
+# Auth is OPT-IN (unset SONAVE_API_TOKEN => open, as before). When set, /score* and
+# /version require a bearer/X-Sonave-Token; /healthz stays open for platform probes.
+API_TOKEN = os.environ.get("SONAVE_API_TOKEN", "")
+MAX_UPLOAD_MB = float(os.environ.get("SONAVE_MAX_UPLOAD_MB", "25"))
+
+
+def require_auth(request: Request):
+    if not API_TOKEN:
+        return
+    auth = request.headers.get("authorization", "")
+    bearer = auth[7:] if auth.lower().startswith("bearer ") else ""
+    tok = (request.headers.get("x-sonave-token") or bearer
+           or request.query_params.get("token"))
+    if not (tok and secrets.compare_digest(tok, API_TOKEN)):
+        raise HTTPException(status_code=401, detail="unauthorized")
+
+
+def check_size(request: Request):
+    cl = request.headers.get("content-length")
+    if cl and cl.isdigit() and int(cl) > MAX_UPLOAD_MB * 1_000_000:
+        raise HTTPException(status_code=413, detail=f"upload exceeds {MAX_UPLOAD_MB:g} MB")
 
 
 @app.on_event("startup")
@@ -45,7 +69,7 @@ def healthz():
     return {"status": "ok", "device": device, "model": detector.MODEL_VERSION}
 
 
-@app.get("/version")
+@app.get("/version", dependencies=[Depends(require_auth)])
 def version():
     return {"model_version": detector.MODEL_VERSION,
             "tau_real": detector.TAU_REAL, "tau_fake": detector.TAU_FAKE}
@@ -57,7 +81,7 @@ class ScoreJSON(BaseModel):
     ts: float | None = None
 
 
-@app.post("/score")
+@app.post("/score", dependencies=[Depends(require_auth), Depends(check_size)])
 async def score(file: UploadFile = File(...), speaker_id: str | None = None):
     t0 = time.perf_counter()
     data = await file.read()
@@ -67,7 +91,7 @@ async def score(file: UploadFile = File(...), speaker_id: str | None = None):
     return res
 
 
-@app.post("/score_clip")
+@app.post("/score_clip", dependencies=[Depends(require_auth), Depends(check_size)])
 async def score_clip(file: UploadFile = File(...), speaker_id: str | None = None):
     """Score a WHOLE clip (windowed mean) — the live-monitor endpoint. Replaces the
     local GPU scorer: POST a capture chunk, get back the rolling-style verdict."""
@@ -79,7 +103,7 @@ async def score_clip(file: UploadFile = File(...), speaker_id: str | None = None
     return res
 
 
-@app.post("/score_json")
+@app.post("/score_json", dependencies=[Depends(require_auth), Depends(check_size)])
 def score_json(body: ScoreJSON):
     t0 = time.perf_counter()
     res = detector.score_bytes(base64.b64decode(body.audio_b64))

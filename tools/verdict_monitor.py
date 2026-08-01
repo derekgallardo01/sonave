@@ -17,6 +17,7 @@ CHUNK_SEC in railway/app.py (needs a redeploy).
 from __future__ import annotations
 
 import json
+import os
 import sys
 import time
 import urllib.request
@@ -28,6 +29,17 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 import config  # noqa: E402
+
+# Shared secret for the (now optionally auth'd) Railway + Modal services. Set
+# SONAVE_API_TOKEN in the environment to match; empty = no header (open services).
+TOKEN = os.environ.get("SONAVE_API_TOKEN", "")
+
+
+def _auth_headers(extra: dict | None = None) -> dict:
+    h = dict(extra or {})
+    if TOKEN:
+        h["X-Sonave-Token"] = TOKEN
+    return h
 # NB: model_sls (torch/transformers) is imported lazily, only in local-scoring mode,
 # so --remote can run on a box with no GPU / no torch.
 
@@ -38,7 +50,8 @@ TMP = Path(config.DATA / "_verdict_tmp.wav")
 
 
 def _get(url: str) -> bytes:
-    with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "sonave"}), timeout=60) as r:
+    req = urllib.request.Request(url, headers=_auth_headers({"User-Agent": "sonave"}))
+    with urllib.request.urlopen(req, timeout=60) as r:
         return r.read()
 
 
@@ -59,7 +72,7 @@ def _post_clip(remote: str, path: Path):
     )
     req = urllib.request.Request(
         f"{remote}/score_clip", data=body, method="POST",
-        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
+        headers=_auth_headers({"Content-Type": f"multipart/form-data; boundary={boundary}"}))
     with urllib.request.urlopen(req, timeout=180) as r:
         res = json.loads(r.read())
     p = res.get("p_fake")
@@ -139,7 +152,7 @@ def main():
                                        "rolling": round(roll, 3), "verdict": rv}).encode()
                     urllib.request.urlopen(urllib.request.Request(
                         f"{base}/api/verdict", data=body,
-                        headers={"Content-Type": "application/json"}), timeout=10)
+                        headers=_auth_headers({"Content-Type": "application/json"})), timeout=10)
                 except Exception:
                     pass
             time.sleep(POLL)

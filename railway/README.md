@@ -23,6 +23,13 @@ simulation was proven to fail (see `../results/detector_v2_progress.md`).
      When set, Railway scores each flushed chunk on that GPU service in a background
      thread and shows the verdict on the page — **no local process / laptop needed**.
      Unset = capture-only (page shows "verdict pending").
+   - `SONAVE_API_TOKEN` *(optional but recommended)* = a shared access token. **Unset =
+     the service is open** (anyone with the URL can send bots on your Recall dime and
+     download recorded audio). **Set it** and every sensitive endpoint requires it: the
+     page prompts for the token (stored in a cookie), the Recall bot's WebSocket carries
+     it (`?token=`), and `verdict_monitor`/Railway→Modal send it as a header. Use the
+     **same** value on Modal (`../modal_app.py`) and in the shell running
+     `verdict_monitor`. Generate one: `python -c "import secrets;print(secrets.token_urlsafe(32))"`.
 4. **Add a Volume** (Settings → Volumes) mounted at `/data` so captures survive
    redeploys.
 5. Railway gives you a public domain (e.g. `sonave.up.railway.app`). It sets
