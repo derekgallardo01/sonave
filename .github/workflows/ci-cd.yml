@@ -21,6 +21,24 @@ jobs:
           pip install torch --index-url https://download.pytorch.org/whl/cpu
           pip install numpy fastapi "uvicorn[standard]" pydantic python-multipart httpx pytest pytest-asyncio transformers
 
+      - name: Debug environment
+        run: |
+          python --version
+          pip list
+          python -c "import sys; print(sys.path)"
+
+      - name: Run fast suite
+        run: |
+          python -m pytest -v --tb=long || {
+            echo "=== COLLECTION DEBUG ==="
+            python -m pytest --collect-only -v
+            exit 1
+          }
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install numpy fastapi "uvicorn[standard]" pydantic python-multipart httpx pytest pytest-asyncio transformers
+
       - name: Run fast suite
         run: python -m pytest -v --tb=long
 
