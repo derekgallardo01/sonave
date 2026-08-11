@@ -49,8 +49,6 @@ def svc_vp(monkeypatch):
 
     # Mock enroll so we don't download ECAPA in tests
     app_mod = conftest.load_module("svcapp_vp", "service/app.py")
-    fake_voiceprint = np.array([0.1, 0.2, 0.3], dtype=np.float32)
-    fake_voiceprint = fake_voiceprint / np.linalg.norm(fake_voiceprint)
 
     def _fake_fused_risk_with_voiceprint(p_fake, speaker_id, source, voiceprint):
         return {
@@ -63,6 +61,8 @@ def svc_vp(monkeypatch):
         }
 
     monkeypatch.setattr(app_mod.enroll, "fused_risk_with_voiceprint", _fake_fused_risk_with_voiceprint)
+    # _decode_audio needs librosa/soundfile — mock it for the fast test suite
+    monkeypatch.setattr(app_mod, "_decode_audio", lambda data: np.zeros(16000, dtype=np.float32))
     with TestClient(app_mod.app) as c:
         yield c
 

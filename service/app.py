@@ -29,7 +29,7 @@ import time
 import uuid
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile, status
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -193,7 +193,7 @@ def _maybe_fuse(res: dict, data: bytes, speaker_id: str | None,
 
 @app.post("/score", dependencies=[Depends(require_auth), Depends(check_size)])
 async def score(request: Request, file: UploadFile = File(...),
-                speaker_id: str | None = None, voiceprint_b64: str | None = None):
+                speaker_id: str | None = Form(None), voiceprint_b64: str | None = Form(None)):
     client = request.client.host if request.client else "unknown"
     if not _rate_limit_ok(client):
         raise HTTPException(status_code=429, detail="rate limit exceeded")
@@ -209,7 +209,7 @@ async def score(request: Request, file: UploadFile = File(...),
 
 @app.post("/score_clip", dependencies=[Depends(require_auth), Depends(check_size)])
 async def score_clip(request: Request, file: UploadFile = File(...),
-                     speaker_id: str | None = None, voiceprint_b64: str | None = None):
+                     speaker_id: str | None = Form(None), voiceprint_b64: str | None = Form(None)):
     """Score a WHOLE clip (windowed mean) — the live-monitor endpoint."""
     client = request.client.host if request.client else "unknown"
     if not _rate_limit_ok(client):
