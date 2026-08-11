@@ -20,10 +20,12 @@ from __future__ import annotations
 import base64
 import io
 import json
+import logging
 import os
 import random
 import re
 import secrets
+import string
 import threading
 import time
 import urllib.request
@@ -38,6 +40,13 @@ from pydantic import BaseModel, field_validator
 import sys as _sys
 _sys.path.insert(0, str(Path(__file__).resolve().parent))   # make sibling modules importable
 import incidents                                              # incident store + alerting (torch-free)
+
+# --- logging -----------------------------------------------------------------
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
+logger = logging.getLogger("sonave.capture")
 
 # --- config (Railway env vars) ----------------------------------------------
 RECALL_API_KEY = os.environ.get("SONAVE_RECALL_API_KEY")
@@ -142,8 +151,11 @@ def send_bot(req: BotReq, request: Request):
                                         "Content-Type": "application/json"})
     try:
         resp = json.loads(urllib.request.urlopen(r, timeout=20).read())
-        return {"ok": True, "bot_id": resp.get("id"), "ws": ws}
+        bot_id = resp.get("id")
+        logger.info("bot created id=%s for %s", bot_id, req.meeting_url)
+        return {"ok": True, "bot_id": bot_id, "ws": ws}
     except urllib.error.HTTPError as e:
+        logger.error("bot creation failed: HTTP %s", e.code)
         return {"ok": False, "status": e.code, "detail": e.read().decode()[:300]}
 
 
@@ -218,9 +230,11 @@ async def ws_audio(ws: WebSocket):
     seen: dict[str, int] = {}        # cumulative bytes per speaker (drives scoring cadence)
     scored: dict[str, int] = {}      # cumulative bytes at last score
     session = int(time.time())
+    msgs = 0
     try:
         while True:
             msg = await ws.receive_text()
+            msgs += 1
             try:
                 d = (json.loads(msg).get("data") or {}).get("data") or {}
                 buf = d.get("buffer")
@@ -245,10 +259,14 @@ async def ws_audio(ws: WebSocket):
                     _quality(spk, raw)                   # quality is best-effort, never breaks capture
                 except Exception:
                     pass
-            except Exception:
-                pass
+            except json.JSONDecodeError:
+                logger.warning("ws: malformed JSON frame")
+            except Exception as exc:
+                logger.warning("ws: frame error: %s", repr(exc)[:80])
     except WebSocketDisconnect:
-        pass
+        logger.info("ws: disconnect after %s msgs", msgs)
+    except Exception as exc:
+        logger.error("ws: unexpected close: %s", repr(exc)[:120])
     finally:
         for spk, b in buffers.items():                   # flush the remainder to disk
             if len(b) >= SR * 2:
@@ -263,7 +281,7 @@ def _write(spk: str, pcm: bytes, session: int, idx: int):
         w.setsampwidth(2)            # 16-bit PCM (S16LE, matches Recall)
         w.setframerate(SR)
         w.writeframes(pcm)
-    print(f"[capture] saved {len(pcm)/2/SR:.1f}s of '{spk}' -> {out}", flush=True)
+    logger.info("saved %.1fs of '%s' -> %s", len(pcm)/2/SR, spk, out)
     return out
 
 
@@ -282,13 +300,18 @@ def _pcm_to_wav(pcm: bytes) -> bytes:
     return buf.getvalue()
 
 
+def _rand_boundary() -> str:
+    """Random multipart boundary to avoid collisions."""
+    return "----sonave_" + "".join(random.choices(string.ascii_letters + string.digits, k=16))
+
+
 def _score_and_store(spk: str, wav_bytes: bytes):
     """Best-effort: POST a live window to the hosted scorer (Modal /score_clip) and store
     the rolling verdict. Runs in a daemon thread with bounded retry — never the capture path."""
     if not SCORER_URL:
         return
     try:
-        boundary = "----sonavecap"
+        boundary = _rand_boundary()
         body = (f"--{boundary}\r\n".encode()
                 + b'Content-Disposition: form-data; name="file"; filename="c.wav"\r\n'
                 + b"Content-Type: audio/wav\r\n\r\n" + wav_bytes + b"\r\n"
@@ -317,13 +340,13 @@ def _score_and_store(spk: str, wav_bytes: bytes):
             ROLL[spk] = roll
             verdict = _av(roll)
             VERDICTS[spk] = {"p_fake": round(p, 3), "rolling": round(roll, 3), "verdict": verdict}
-        print(f"[score] {spk}: p_fake={p:.3f} rolling={roll:.3f} -> {verdict}", flush=True)
+        logger.info("score %s: p_fake=%.3f rolling=%.3f -> %s", spk, p, roll, verdict)
         if verdict == "fake":                         # sustained deepfake -> open incident + alert
             inc = incidents.record(spk, roll, res.get("model_version", "?"))
             if inc:
                 incidents.notify(inc)
     except Exception as e:  # noqa: BLE001 — scoring must never crash capture
-        print(f"[score] skip {spk}: {repr(e)[:80]}", flush=True)
+        logger.warning("score skip %s: %s", spk, repr(e)[:80])
 
 
 # --- retrieval ---------------------------------------------------------------

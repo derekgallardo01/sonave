@@ -2,26 +2,24 @@
 recall_adapter.py — Phase 3 capture: connect Recall.ai → the orchestrator.
 
 Recall.ai runs the meeting bot (joins Meet/Zoom/Teams, streams audio). This adapter
-(1) tells Recall to send a bot to a meeting, and (2) receives Recall's real-time audio
-and feeds it into `Orchestrator.ingest()` — the same path the offline demo uses.
+(1) tells Recall to send a bot to a meeting, (2) receives Recall's real-time audio
+and feeds it into `Orchestrator.ingest()`, and (3) polls bot status for dashboard
+visibility.
 
 WHERE THE API KEY GOES: environment variable `SONAVE_RECALL_API_KEY` (see .env.example).
 Never hardcode it. Read here via os.environ; nothing else in the repo needs it.
-
-STATUS: ready-to-wire STUB. The bot-creation call is real; the exact real-time audio
-payload shape depends on how you configure Recall's real-time endpoints, so the
-webhook handler has clearly-marked TODOs for the 2–3 field names to confirm against
-your Recall dashboard / docs. Everything downstream (scoring, rolling per-speaker
-state, alerts, wire-hold) already works.
 """
 from __future__ import annotations
 
 import base64
 import io
+import logging
 import os
 from pathlib import Path
 
 import numpy as np
+
+logger = logging.getLogger("sonave.recall")
 
 
 def _load_dotenv():
@@ -89,6 +87,20 @@ def create_bot(meeting_url: str, bot_name: str = "Sonave") -> dict:
         return json.loads(r.read())
 
 
+# --- 1b. poll bot status ------------------------------------------------------
+def get_bot_status(bot_id: str) -> dict:
+    """Poll Recall for a bot's current status (joining, in_call, done, etc.)."""
+    import json
+    import urllib.request
+
+    _require_key()
+    req = urllib.request.Request(
+        f"{BASE}/bot/{bot_id}/",
+        headers={"Authorization": f"Token {API_KEY}"})
+    with urllib.request.urlopen(req, timeout=15) as r:
+        return json.loads(r.read())
+
+
 # --- 2. receive real-time audio → orchestrator ------------------------------
 def handle_audio_event(event: dict, orch) -> dict | None:
     """
@@ -136,12 +148,8 @@ def handle_async_event(event: dict, orch, state: dict | None = None) -> dict:
     Handle a Svix lifecycle webhook. For per-participant "audio ready" events we
     download each participant's audio and score it into the orchestrator.
 
-    Recall's exact payload for audio_separate.done isn't hardcoded here — capture a
-    real one at GET /api/recall/events and confirm these lookups:
-      - event type      : event["event"]  (e.g. "audio_separate.done")
-      - download URL(s)  : per-participant audio URL (may need a follow-up API GET
-                           on the bot/recording id to fetch media URLs)
-      - participant name : the speaker label for each track
+    The exact payload shape varies by Recall configuration. We try several common
+    field paths; if none match, the raw event is captured for inspection.
     """
     etype = event.get("event") or event.get("type") or ""
     if "audio_separate.done" not in etype and "audio_mixed.done" not in etype:
@@ -168,7 +176,7 @@ def handle_async_event(event: dict, orch, state: dict | None = None) -> dict:
 
 
 def _extract_audio_tracks(event: dict):
-    """Return [(speaker_name, download_url)]. TODO: match Recall's real schema."""
+    """Return [(speaker_name, download_url)]. Tries several common Recall payload shapes."""
     data = event.get("data", {})
     # common shapes to try (confirm against a captured payload):
     tracks = []

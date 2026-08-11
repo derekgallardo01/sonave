@@ -22,6 +22,12 @@ RUN pip3 install --no-cache-dir \
 COPY src/ /app/src/
 COPY config.py /app/config.py
 COPY service/ /app/service/
+COPY models/sonave_xlsr_meet/ /app/models/sonave_xlsr_meet/
+
+ENV SONAVE_MODEL=/app/models/sonave_xlsr_meet
+COPY src/ /app/src/
+COPY config.py /app/config.py
+COPY service/ /app/service/
 COPY models/sonave_xlsr_rw/ /app/models/sonave_xlsr_rw/
 
 ENV SONAVE_MODEL=/app/models/sonave_xlsr_rw

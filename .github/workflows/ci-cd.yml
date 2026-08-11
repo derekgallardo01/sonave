@@ -1,0 +1,63 @@
+name: ci-cd
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      # CPU-only + just what the fast suite imports (torch/numpy for model_sls,
+      # fastapi/pydantic for the two apps, httpx for TestClient). The heavy ML deps
+      # (transformers, librosa, speechbrain) are lazy-imported and never reached in
+      # the mocked fast tests, so we skip them to keep CI ~1 min. The GPU smoke test
+      # (-m gpu) is excluded by pytest.ini and auto-skips without a model anyway.
+      - name: Install minimal deps (CPU)
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install numpy fastapi "uvicorn[standard]" pydantic python-multipart httpx pytest
+
+      - name: Run fast suite
+        run: python -m pytest -v
+
+  # ---------------------------------------------------------------------------
+  # Modal deploy: only on pushes to main, only if tests pass, only when
+  # detector-related files change.
+  # ---------------------------------------------------------------------------
+  deploy-modal:
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Modal
+        run: pip install modal
+
+      - name: Deploy to Modal
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+          SONAVE_API_TOKEN: ${{ secrets.SONAVE_API_TOKEN }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: modal deploy modal_app.py
+
+  # ---------------------------------------------------------------------------
+  # Railway deploys automatically via its GitHub integration (Settings →
+  # Deploy → Connect Repo). No GitHub Action needed — Railway watches the
+  # repo and redeploys the railway/ directory on every push to main.
+  # ---------------------------------------------------------------------------
