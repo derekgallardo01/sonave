@@ -43,26 +43,21 @@ import wave
 from pathlib import Path
 from urllib.parse import urlparse
 
+import numpy as np
 from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, field_validator
 
-# Make repo root importable so we can reuse service/enroll.py
-_repo_root = Path(__file__).resolve().parent.parent
-if str(_repo_root) not in sys.path:
-    sys.path.insert(0, str(_repo_root))
+# Make sibling modules importable (incidents, enroll)
+_sys_path_inserted = str(Path(__file__).resolve().parent)
+if _sys_path_inserted not in sys.path:
+    sys.path.insert(0, _sys_path_inserted)
+import incidents   # incident store + alerting (torch-free)
+import enroll      # local speaker enrollment (vendored from service/enroll.py)
 
 # Enrollment persists on Railway's /data volume; model cache too
 os.environ.setdefault("SONAVE_ENROLL_DIR", "/data/enrollments")
 os.environ.setdefault("SONAVE_MODEL_CACHE", "/data/models/ecapa")
-
-import service.enroll as enroll  # noqa: E402
-import numpy as np  # noqa: E402
-
-_sys_path_inserted = str(Path(__file__).resolve().parent)
-if _sys_path_inserted not in sys.path:
-    sys.path.insert(0, _sys_path_inserted)
-import incidents  # incident store + alerting (torch-free)
 
 # --- logging -----------------------------------------------------------------
 logging.basicConfig(
