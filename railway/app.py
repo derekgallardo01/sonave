@@ -5,15 +5,24 @@ Its ONE job: let you drop the Sonave bot into any meeting and save the real
 Meet-piped audio for training. Scoring/retraining happens offline on your GPU box;
 this just collects ground-truth domain data at scale.
 
-Dependency-light on purpose: FastAPI + stdlib `wave` (no torch / numpy / soundfile),
-so the Railway image is tiny and builds in seconds.
+With speaker enrollment:
+  - Enroll a speaker from captured clips (CPU ECAPA-TDNN)
+  - Live scoring fuses deepfake detection + voiceprint verification on Modal GPU
+  - Voiceprints persist on Railway's /data volume
+
+Dependency-light on purpose: FastAPI + stdlib wave (no torch / numpy / soundfile),
+so the Railway image is tiny and builds in seconds. Enrollment adds torch CPU +
+speechbrain on-demand (one-time per speaker).
 
 Endpoints:
-  GET  /                 dashboard: send a bot, list/download captures
+  GET  /                 dashboard: send a bot, list/download captures, enroll speakers
   POST /bot              {meeting_url} -> Recall bot streams audio here
   WS   /api/ws/audio     Recall real-time audio -> saved per speaker on disconnect
   GET  /captures         list saved files (JSON)
   GET  /download/{name}  download a capture
+  POST /api/enroll       {speaker_id, clip_names?} -> enroll speaker from captures
+  GET  /api/enrolled     list enrolled speakers
+  DELETE /api/enroll/{speaker} -> remove enrollment
 """
 from __future__ import annotations
 
@@ -26,6 +35,7 @@ import random
 import re
 import secrets
 import string
+import sys
 import threading
 import time
 import urllib.request
@@ -37,9 +47,22 @@ from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSock
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, field_validator
 
-import sys as _sys
-_sys.path.insert(0, str(Path(__file__).resolve().parent))   # make sibling modules importable
-import incidents                                              # incident store + alerting (torch-free)
+# Make repo root importable so we can reuse service/enroll.py
+_repo_root = Path(__file__).resolve().parent.parent
+if str(_repo_root) not in sys.path:
+    sys.path.insert(0, str(_repo_root))
+
+# Enrollment persists on Railway's /data volume; model cache too
+os.environ.setdefault("SONAVE_ENROLL_DIR", "/data/enrollments")
+os.environ.setdefault("SONAVE_MODEL_CACHE", "/data/models/ecapa")
+
+import service.enroll as enroll  # noqa: E402
+import numpy as np  # noqa: E402
+
+_sys_path_inserted = str(Path(__file__).resolve().parent)
+if _sys_path_inserted not in sys.path:
+    sys.path.insert(0, _sys_path_inserted)
+import incidents  # incident store + alerting (torch-free)
 
 # --- logging -----------------------------------------------------------------
 logging.basicConfig(
@@ -311,11 +334,36 @@ def _score_and_store(spk: str, wav_bytes: bytes):
     if not SCORER_URL:
         return
     try:
+        # Load voiceprint if speaker is enrolled
+        voiceprint_b64 = None
+        try:
+            if enroll.is_enrolled(spk):
+                vp = np.load(enroll.ENROLL_DIR / f"{spk}.npy")
+                voiceprint_b64 = base64.b64encode(vp.tobytes()).decode()
+        except Exception:
+            pass
+
         boundary = _rand_boundary()
-        body = (f"--{boundary}\r\n".encode()
-                + b'Content-Disposition: form-data; name="file"; filename="c.wav"\r\n'
-                + b"Content-Type: audio/wav\r\n\r\n" + wav_bytes + b"\r\n"
-                + f"--{boundary}--\r\n".encode())
+        body_parts = [
+            f'--{boundary}\r\n',
+            'Content-Disposition: form-data; name="file"; filename="c.wav"\r\n',
+            'Content-Type: audio/wav\r\n\r\n',
+        ]
+        body = "".join(body_parts).encode() + wav_bytes + b"\r\n"
+        if voiceprint_b64:
+            body += (
+                f'--{boundary}\r\n'
+                f'Content-Disposition: form-data; name="voiceprint_b64"\r\n\r\n'
+                f'{voiceprint_b64}\r\n'.encode()
+            )
+        if spk:
+            body += (
+                f'--{boundary}\r\n'
+                f'Content-Disposition: form-data; name="speaker_id"\r\n\r\n'
+                f'{spk}\r\n'.encode()
+            )
+        body += f'--{boundary}--\r\n'.encode()
+
         headers = {"Content-Type": f"multipart/form-data; boundary={boundary}"}
         if API_TOKEN:
             headers["X-Sonave-Token"] = API_TOKEN     # shared secret; Modal validates it
@@ -331,7 +379,9 @@ def _score_and_store(spk: str, wav_bytes: bytes):
                 if attempt == 2:
                     raise
                 time.sleep(0.5 * (2 ** attempt) + random.random() * 0.3)   # backoff + jitter
-        p = res.get("p_fake")
+
+        # Modal returns fused risk when voiceprint was provided; fall back to p_fake
+        p = res.get("risk") if res.get("speaker_check") else res.get("p_fake")
         if p is None:
             return
         with _STATE_LOCK:
@@ -339,14 +389,83 @@ def _score_and_store(spk: str, wav_bytes: bytes):
             roll = p if prev is None else SCORE_EMA * p + (1 - SCORE_EMA) * prev
             ROLL[spk] = roll
             verdict = _av(roll)
-            VERDICTS[spk] = {"p_fake": round(p, 3), "rolling": round(roll, 3), "verdict": verdict}
-        logger.info("score %s: p_fake=%.3f rolling=%.3f -> %s", spk, p, roll, verdict)
+            VERDICTS[spk] = {
+                "p_fake": round(res.get("p_fake", p), 3),
+                "rolling": round(roll, 3),
+                "verdict": verdict,
+                "speaker_check": res.get("speaker_check"),
+                "match_conf": res.get("match_conf"),
+            }
+        logger.info("score %s: p_fake=%.3f risk=%.3f rolling=%.3f -> %s (match=%s)",
+                    spk, res.get("p_fake", p), p, roll, verdict,
+                    res.get("speaker_check", {}).get("match") if res.get("speaker_check") else None)
         if verdict == "fake":                         # sustained deepfake -> open incident + alert
             inc = incidents.record(spk, roll, res.get("model_version", "?"))
             if inc:
                 incidents.notify(inc)
     except Exception as e:  # noqa: BLE001 — scoring must never crash capture
         logger.warning("score skip %s: %s", spk, repr(e)[:80])
+
+
+# --- enrollment endpoints ----------------------------------------------------
+class EnrollReq(BaseModel):
+    speaker_id: str
+    clip_names: list[str] | None = None
+
+    @field_validator("speaker_id")
+    @classmethod
+    def _spk(cls, v: str) -> str:
+        return (_SPK_RE.sub("_", str(v)).strip("_") or "unknown")[:64]
+
+
+@app.post("/api/enroll", dependencies=[Depends(require_auth)])
+def api_enroll(req: EnrollReq):
+    """Enroll a speaker from captured clips. If clip_names is omitted, uses all
+    captures whose filename contains the speaker name."""
+    speaker = req.speaker_id
+    if not DATA_DIR.exists():
+        return {"ok": False, "detail": "no capture directory"}
+
+    if req.clip_names:
+        paths = [DATA_DIR / Path(n).name for n in req.clip_names]
+        paths = [p for p in paths if p.exists()]
+    else:
+        paths = sorted(DATA_DIR.glob(f"meet_{speaker}_*.wav"))
+
+    if len(paths) < 1:
+        return {"ok": False, "detail": f"no captures found for '{speaker}'"}
+
+    try:
+        vp = enroll.enroll(speaker, paths)
+        return {"ok": True, "speaker": speaker, "clips": len(paths),
+                "dim": len(vp), "voiceprint_path": str(enroll.ENROLL_DIR / f"{speaker}.npy")}
+    except Exception as exc:
+        logger.exception("enrollment failed for %s", speaker)
+        return {"ok": False, "detail": str(exc)[:200]}
+
+
+@app.get("/api/enrolled", dependencies=[Depends(require_auth)])
+def api_enrolled():
+    """List enrolled speakers with file metadata."""
+    out = []
+    for sid in enroll.list_enrolled():
+        f = enroll.ENROLL_DIR / f"{sid}.npy"
+        st = f.stat() if f.exists() else None
+        out.append({
+            "speaker_id": sid,
+            "created_at": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(st.st_mtime)) if st else None,
+            "size_bytes": st.st_size if st else None,
+        })
+    return {"enrolled": out}
+
+
+@app.delete("/api/enroll/{speaker}", dependencies=[Depends(require_auth)])
+def api_delete_enroll(speaker: str):
+    f = enroll.ENROLL_DIR / f"{_SPK_RE.sub('_', speaker).strip('_') or 'unknown'}.npy"
+    if f.exists():
+        f.unlink()
+        return {"ok": True, "detail": "deleted"}
+    return {"ok": False, "detail": "not found"}
 
 
 # --- retrieval ---------------------------------------------------------------
@@ -409,6 +528,11 @@ def api_quality():
         if av:
             row["auth_verdict"] = av["verdict"]
             row["auth_p"] = av["rolling"]
+            if av.get("speaker_check"):
+                row["speaker_check"] = av["speaker_check"]
+                row["match_conf"] = av.get("match_conf")
+        # show enrollment status
+        row["enrolled"] = enroll.is_enrolled(spk)
         out[spk] = row
     return out
 
@@ -475,11 +599,12 @@ background:var(--card);border:1px solid var(--line);padding:6px 11px;border-radi
 .dot.on{background:var(--green);box-shadow:0 0 0 0 rgba(51,193,127,.6);animation:pulse 1.8s infinite}
 @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(51,193,127,.5)}70%{box-shadow:0 0 0 7px rgba(51,193,127,0)}100%{box-shadow:0 0 0 0 rgba(51,193,127,0)}}
 .row{display:flex;gap:8px;margin:20px 0 6px}
-input,button{font:15px system-ui;padding:11px 13px;border-radius:9px;border:1px solid var(--line);
+input,button,select{font:15px system-ui;padding:11px 13px;border-radius:9px;border:1px solid var(--line);
 background:var(--card);color:var(--ink);outline:none}
-input:focus{border-color:var(--blue)}
+input:focus,select:focus{border-color:var(--blue)}
 button{background:var(--blue);border:0;cursor:pointer;font-weight:600}
 button:hover{filter:brightness(1.08)}button:disabled{opacity:.6;cursor:default}
+button.secondary{background:var(--card2);border:1px solid var(--line)}
 .msg{font-size:13px;color:var(--mut);min-height:18px;margin:2px 0 0}
 h2{font-size:13px;text-transform:uppercase;letter-spacing:.09em;color:var(--dim);
 margin:30px 0 4px;font-weight:700}
@@ -512,6 +637,13 @@ color:var(--ink);cursor:pointer;font-size:11px;padding:0;line-height:1}
 .cname{color:var(--mut);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cdur{color:var(--dim);font-size:12px;font-variant-numeric:tabular-nums}
 .caret{color:var(--dim);transition:transform .15s}.caret.open{transform:rotate(90deg)}
+.enroll-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0}
+.enroll-row select{flex:1;min-width:140px}
+.enroll-row button{padding:9px 14px;font-size:13px}
+.enrolled-list{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 0}
+.enrolled-tag{display:flex;align-items:center;gap:6px;background:var(--card2);border:1px solid var(--line);
+border-radius:8px;padding:6px 12px;font-size:13px}
+.enrolled-tag button{background:transparent;border:0;color:var(--red);font-size:15px;padding:0 2px;cursor:pointer}
 </style>
 <div class=top>
  <div><h1><span class=mark></span>Sonave</h1>
@@ -524,6 +656,17 @@ color:var(--ink);cursor:pointer;font-size:11px;padding:0;line-height:1}
 <p class=msg id=msg></p>
 
 <div id=alerts></div>
+
+<h2>Speaker enrollment</h2>
+<div class=card>
+ <div class=enroll-row>
+  <select id=enrollSpk><option value="">— select speaker from captures —</option></select>
+  <button onclick=enrollSpk()>Enroll selected</button>
+  <button class=secondary onclick=enrollCustom()>Enroll by name</button>
+ </div>
+ <p class=msg id=enrollMsg></p>
+ <div class=enrolled-list id=enrolledList></div>
+</div>
 
 <h2>Live authenticity</h2>
 <div class=legend>
@@ -571,8 +714,8 @@ async function ack(id){
 }
 var _started=0;
 function start(){if(_started)return;_started=1;
- list();quality();incidents();
- setInterval(function(){list()},5000);setInterval(quality,1500);setInterval(incidents,3000)}
+ list();quality();incidents();enrolled();
+ setInterval(function(){list()},5000);setInterval(quality,1500);setInterval(incidents,3000);setInterval(enrolled,10000)}
 function avcolor(v){return v=='real'?'var(--green)':v=='fake'?'var(--red)':'var(--amber)'}
 function qcolor(v){return v=='good'?'var(--green)':/CLIP/.test(v)?'var(--red)':/QUIET|silence/i.test(v)?'var(--amber)':'var(--dim)'}
 function hms(s){s=Math.round(s);var h=s/3600|0,m=(s%3600)/60|0,x=s%60;
@@ -590,19 +733,69 @@ async function quality(){
   if(s.level>0.01)active++;
   var chip=s.auth_verdict
    ?'<span class=chip style=background:'+avcolor(s.auth_verdict)+'>'+esc(s.auth_verdict.toUpperCase())
-     +(s.auth_p!=null?' '+esc(s.auth_p):'')+'<small>authenticity</small></span>'
+     +(s.auth_p!=null?' '+esc(s.auth_p):'')+'<small>authenticity'+(s.enrolled?' · enrolled':'')+'</small></span>'
    :'<span class=pend>scoring…</span>';
   var det=s.level!=null
    ?'<div class=bar><i style="width:'+lv+'%;background:'+c+'"></i></div>'
     +'<div class=det>audio <b>'+s.verdict.toUpperCase()+'</b> · '+s.speech_pct+'% speech · '
     +hms(s.total_sec)+' · '+s.clips+' clip'+(s.clips==1?'':'s')
-    +(s.peak>=0.985?' · <span style=color:var(--red)>⚠ clipping</span>':'')+'</div>':'';
+    +(s.peak>=0.985?' · <span style=color:var(--red)>⚠ clipping</span>':'')
+    +(s.speaker_check&&s.speaker_check.enrolled?' · voiceprint match '+Math.round(s.speaker_check.similarity*100)+'%':'')
+    +'</div>':'';
   return '<div class=card><div class=chead><span class=who>'+esc(k)+'</span>'+chip+'</div>'+det+'</div>'
  }).join('');
  setlive(active)
 }
 function setlive(n){var on=n>0;document.getElementById('dot').className='dot'+(on?' on':'');
  document.getElementById('livetxt').textContent=on?(n+' active'):'idle'}
+
+// --- enrollment UI ---
+var _captureSpeakers=new Set();
+async function enrolled(){
+ var d;try{d=await jget('/api/enrolled')}catch(e){return}
+ var list=document.getElementById('enrolledList');
+ list.innerHTML=(d.enrolled||[]).map(function(e){
+  return '<span class=enrolled-tag><b>'+esc(e.speaker_id)+'</b> · '+e.created_at
+   +' <button onclick="delEnroll(\''+esc(e.speaker_id)+'\')">×</button></span>'
+ }).join('');
+}
+async function delEnroll(spk){
+ if(!confirm('Delete enrollment for '+spk+'?'))return;
+ await fetch('/api/enroll/'+encodeURIComponent(spk),{method:'DELETE'});
+ enrolled();
+}
+async function enrollSpk(){
+ var sel=document.getElementById('enrollSpk'),spk=sel.value;
+ if(!spk){document.getElementById('enrollMsg').textContent='select a speaker first';return}
+ document.getElementById('enrollMsg').textContent='enrolling…';
+ var r=await fetch('/api/enroll',{method:'POST',headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({speaker_id:spk})});
+ var d=await r.json();
+ document.getElementById('enrollMsg').textContent=d.ok?('✓ enrolled '+esc(d.speaker)+' from '+d.clips+' clips'):('✕ '+esc(d.detail));
+ enrolled();
+}
+async function enrollCustom(){
+ var spk=prompt('Speaker name to enroll (uses all captures with this name):');
+ if(!spk)return;
+ document.getElementById('enrollMsg').textContent='enrolling…';
+ var r=await fetch('/api/enroll',{method:'POST',headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({speaker_id:spk})});
+ var d=await r.json();
+ document.getElementById('enrollMsg').textContent=d.ok?('✓ enrolled '+esc(d.speaker)+' from '+d.clips+' clips'):('✕ '+esc(d.detail));
+ enrolled();
+}
+function updateEnrollDropdown(files){
+ var sel=document.getElementById('enrollSpk');
+ var speakers=new Set();
+ files.forEach(function(f){
+  var m=f.name.match(/^meet_([A-Za-z0-9_]+)_/);
+  if(m)speakers.add(m[1]);
+ });
+ _captureSpeakers=speakers;
+ var opts='<option value="">— select speaker from captures —</option>';
+ speakers.forEach(function(s){opts+='<option value="'+esc(s)+'">'+esc(s)+'</option>'});
+ sel.innerHTML=opts;
+}
 
 function play(name,btn){
  if(lastAudio){lastAudio.pause();if(lastAudio._b)lastAudio._b.textContent='▶'}
@@ -615,6 +808,7 @@ async function list(fromToggle){
  if(!fromToggle){try{_cache=(await jget('/captures')).files}catch(e){return}}
  var files=(_cache||[]).filter(f=>!SKIP.test(f.name));
  if(!files.length){document.getElementById('list').innerHTML='<div class=empty>No captures yet.</div>';return}
+ updateEnrollDropdown(files);
  var sess={};
  files.forEach(f=>{var p=f.name.replace(/\.wav$/,'').split('_');
   var ts=p.length>=3?+p[p.length-2]:0, spk=p.slice(1,-2).join('_')||'?';

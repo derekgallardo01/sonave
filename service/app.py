@@ -11,7 +11,8 @@ Or via the Dockerfile in this directory.
 Endpoints:
     POST /score        multipart file OR raw body: audio (wav/flac/ogg) -> verdict
     POST /score_clip   {file} -> windowed mean verdict (live-monitor endpoint)
-    POST /score_json   { "audio_b64": "...", "speaker_id": "...", "ts": 0.0 }
+    POST /score_json   { "audio_b64": "...", "speaker_id": "...", "ts": 0.0,
+                         "voiceprint_b64": "..." }
     GET  /healthz      model loaded + device
     GET  /version      model + threshold policy
     GET  /ready        deep readiness probe (model loaded + scoring works)
@@ -19,6 +20,7 @@ Endpoints:
 from __future__ import annotations
 
 import base64
+import io
 import logging
 import os
 import secrets
@@ -37,6 +39,7 @@ for _p in (_HERE, _HERE.parent / "src", _HERE.parent):
         sys.path.insert(0, str(_p))
 
 import detector
+import enroll
 
 # --- logging -----------------------------------------------------------------
 logging.basicConfig(
@@ -45,7 +48,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("sonave.api")
 
-app = FastAPI(title="Sonave Detection", version="0.2")
+app = FastAPI(title="Sonave Detection", version="0.3")
 
 # Auth is OPT-IN (unset SONAVE_API_TOKEN => open, as before). When set, /score* and
 # /version require a bearer/X-Sonave-Token; /healthz and /ready stay open for probes.
@@ -147,16 +150,57 @@ class ScoreJSON(BaseModel):
     audio_b64: str
     speaker_id: str | None = None
     ts: float | None = None
+    voiceprint_b64: str | None = None
+
+
+def _decode_audio(data: bytes) -> "np.ndarray":
+    """Decode wav/flac/ogg bytes to 16 kHz mono float array (re-uses detector logic)."""
+    import librosa
+    import soundfile as sf
+    try:
+        wav, sr = sf.read(io.BytesIO(data))
+    except Exception:
+        wav, sr = librosa.load(io.BytesIO(data), sr=None, mono=True)
+    if getattr(wav, "ndim", 1) > 1:
+        wav = wav.mean(axis=1)
+    wav = np.asarray(wav, dtype="float32")
+    if sr != detector.model_sls.SR:
+        wav = librosa.resample(wav, orig_sr=sr, target_sr=detector.model_sls.SR)
+    return wav
+
+
+def _maybe_fuse(res: dict, data: bytes, speaker_id: str | None,
+                voiceprint_b64: str | None) -> dict:
+    """If a voiceprint is provided inline, fuse deepfake score with speaker verification."""
+    if not voiceprint_b64 or not speaker_id:
+        return res
+    try:
+        import numpy as np
+        vp = np.frombuffer(base64.b64decode(voiceprint_b64), dtype=np.float32)
+        wav = _decode_audio(data)
+        fr = enroll.fused_risk_with_voiceprint(
+            res.get("p_fake", 0.5), speaker_id, wav, vp)
+        res["p_fake"] = fr["p_fake"]
+        res["risk"] = fr["risk"]
+        res["verdict"] = fr["verdict"]
+        res["speaker_check"] = fr.get("speaker_check")
+        res["match_conf"] = fr.get("match_conf")
+        res["mismatch_risk"] = fr.get("mismatch_risk")
+    except Exception as exc:
+        logger.warning("voiceprint fusion failed rid=%s: %s", res.get("request_id"), exc)
+    return res
 
 
 @app.post("/score", dependencies=[Depends(require_auth), Depends(check_size)])
-async def score(request: Request, file: UploadFile = File(...), speaker_id: str | None = None):
+async def score(request: Request, file: UploadFile = File(...),
+                speaker_id: str | None = None, voiceprint_b64: str | None = None):
     client = request.client.host if request.client else "unknown"
     if not _rate_limit_ok(client):
         raise HTTPException(status_code=429, detail="rate limit exceeded")
     t0 = time.perf_counter()
     data = await file.read()
     res = detector.score_bytes(data)
+    res = _maybe_fuse(res, data, speaker_id, voiceprint_b64)
     res["speaker_id"] = speaker_id
     res["latency_ms"] = int((time.perf_counter() - t0) * 1000)
     res["request_id"] = request.state.rid
@@ -164,7 +208,8 @@ async def score(request: Request, file: UploadFile = File(...), speaker_id: str 
 
 
 @app.post("/score_clip", dependencies=[Depends(require_auth), Depends(check_size)])
-async def score_clip(request: Request, file: UploadFile = File(...), speaker_id: str | None = None):
+async def score_clip(request: Request, file: UploadFile = File(...),
+                     speaker_id: str | None = None, voiceprint_b64: str | None = None):
     """Score a WHOLE clip (windowed mean) — the live-monitor endpoint."""
     client = request.client.host if request.client else "unknown"
     if not _rate_limit_ok(client):
@@ -172,6 +217,7 @@ async def score_clip(request: Request, file: UploadFile = File(...), speaker_id:
     t0 = time.perf_counter()
     data = await file.read()
     res = detector.score_clip(data)
+    res = _maybe_fuse(res, data, speaker_id, voiceprint_b64)
     res["speaker_id"] = speaker_id
     res["latency_ms"] = int((time.perf_counter() - t0) * 1000)
     res["request_id"] = request.state.rid
@@ -181,7 +227,9 @@ async def score_clip(request: Request, file: UploadFile = File(...), speaker_id:
 @app.post("/score_json", dependencies=[Depends(require_auth), Depends(check_size)])
 def score_json(request: Request, body: ScoreJSON):
     t0 = time.perf_counter()
-    res = detector.score_bytes(base64.b64decode(body.audio_b64))
+    data = base64.b64decode(body.audio_b64)
+    res = detector.score_bytes(data)
+    res = _maybe_fuse(res, data, body.speaker_id, body.voiceprint_b64)
     res["speaker_id"] = body.speaker_id
     res["ts"] = body.ts
     res["latency_ms"] = int((time.perf_counter() - t0) * 1000)

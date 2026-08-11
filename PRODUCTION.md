@@ -140,6 +140,15 @@ curl -F "file=@test.wav" -H "X-Sonave-Token: $SONAVE_API_TOKEN" https://<you>--s
 | `SONAVE_SCORER_URL` | Modal URL from Step 3, e.g. `https://<you>--sonave-detector-fastapi-app.modal.run` |
 | `SONAVE_API_TOKEN` | Same token you set for Modal |
 | `SONAVE_DATA_DIR` | `/data/captured` |
+| `SONAVE_ENROLL_DIR` | `/data/enrollments` (voiceprint persistence) |
+| `SONAVE_MODEL_CACHE` | `/data/models/ecapa` (ECAPA model cache, optional) |
+| `SONAVE_PUBLIC_DOMAIN` | Auto-set by Railway; only override if using a custom domain |
+|----------|-------|
+| `SONAVE_RECALL_API_KEY` | Your Recall key |
+| `SONAVE_RECALL_BASE` | `https://us-west-2.recall.ai/api/v1` (match your region) |
+| `SONAVE_SCORER_URL` | Modal URL from Step 3, e.g. `https://<you>--sonave-detector-fastapi-app.modal.run` |
+| `SONAVE_API_TOKEN` | Same token you set for Modal |
+| `SONAVE_DATA_DIR` | `/data/captured` |
 | `SONAVE_PUBLIC_DOMAIN` | Auto-set by Railway; only override if using a custom domain |
 
 ### 4.3 Verify deploy
@@ -153,7 +162,45 @@ Open `https://<your-railway-domain>/`:
 
 ---
 
-## 5. End-to-end smoke test
+## 5. Speaker Enrollment (Voiceprint Verification)
+
+Enrollment adds an **independent signal** to deepfake detection: "is this the person it's supposed to be?" Two independent checks → far fewer false positives and stronger catches, especially for wire-fraud scenarios where the caller claims an identity.
+
+### How it works
+
+1. **Capture real audio** — Send the bot into a meeting where the target speaker talks normally
+2. **Enroll** — The Railway dashboard shows a speaker enrollment panel; click **Enroll** on the speaker's name
+3. **Live fusion** — From then on, every scored window is checked against the stored voiceprint on Modal's GPU
+4. **Dashboard** — Shows enrollment status, voiceprint match %, and the fused verdict
+
+### Enrollment API
+
+| Endpoint | Method | Body | Response |
+|----------|--------|------|----------|
+| `/api/enroll` | `POST` | `{"speaker_id": "Derek", "clip_names": ["meet_Derek_123_000.wav"]}` or omit `clip_names` to auto-select | `{"ok": true, "clips": 3}` |
+| `/api/enrolled` | `GET` | — | `{"enrolled": [{"speaker_id": "Derek", ...}]}` |
+| `/api/enroll/{speaker}` | `DELETE` | — | `{"ok": true}` |
+
+### Voiceprint fusion scoring
+
+When a speaker is enrolled, Railway automatically sends their voiceprint (base64-encoded numpy embedding) inline with every scoring request to Modal. Modal:
+
+1. Scores the audio for deepfake (XLS-R detector)
+2. Embeds the live audio via ECAPA-TDNN and compares to the enrolled voiceprint
+3. **Fuses** the two signals: `risk = max(damped_deepfake, mismatch_risk)`
+4. Returns the fused verdict with match confidence
+
+The voiceprint itself is a small numpy array (~192 floats, ~1 KB base64) and is loaded from Railway's persistent `/data/enrollments/` volume.
+
+### Architecture note
+
+- **Railway** handles enrollment storage (`/data/enrollments/*.npy`) and builds voiceprints with CPU torch (one-time, lightweight)
+- **Modal** receives voiceprint embeddings inline with scoring requests, does the fusion on GPU
+- No sync needed — the voiceprint travels with each request
+
+---
+
+## 6. End-to-end smoke test
 
 1. **Start a Google Meet** (or join an existing one)
 2. **Copy the Meet URL** and paste into the Railway dashboard
@@ -165,7 +212,7 @@ Open `https://<your-railway-domain>/`:
 
 ---
 
-## 6. Health checks & monitoring
+## 7. Health checks & monitoring
 
 | Endpoint | Purpose |
 |----------|---------|
@@ -179,9 +226,16 @@ Open `https://<your-railway-domain>/`:
 
 ---
 
-## 7. Security checklist
+## 8. Security checklist
 
 - [ ] `SONAVE_API_TOKEN` is set and identical on Modal + Railway
+- [ ] `.env` is gitignored and never committed
+- [ ] Recall key has appropriate scope (bot creation only)
+- [ ] Railway volume at `/data` persists captures across deploys
+- [ ] Railway volume at `/data/enrollments` persists voiceprints across deploys
+- [ ] Modal `SONAVE_MAX_UPLOAD_MB` limits upload size (default 25 MB)
+- [ ] Meeting URL allowlist restricts to Google Meet / Zoom / Teams only
+- [ ] Incident DB (`incidents.db`) lives on the persistent volume
 - [ ] `.env` is gitignored and never committed
 - [ ] Recall key has appropriate scope (bot creation only)
 - [ ] Railway volume at `/data` persists captures across deploys
@@ -191,19 +245,22 @@ Open `https://<your-railway-domain>/`:
 
 ---
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 | Symptom | Likely cause | Fix |
 |---------|-------------|-----|
 | Bot sent but no audio appears | Wrong `SONAVE_RECALL_WS` or domain | Check Railway domain is public and `wss://` URL is correct |
 | "scoring…" never updates | `SONAVE_SCORER_URL` not set or Modal cold start | Verify Modal URL; first request after idle may take 10–15 s |
 | Real voices flagged fake | Detector hasn't seen Meet-processed real audio | Collect real Meet audio via VB-CABLE and retrain (see `results/detector_v2_progress.md`) |
-| High false-positive rate | Threshold too aggressive | Raise `SONAVE_TAU_FAKE` (default 0.70) or use voiceprint enrollment (`service/enroll.py`) |
+| High false-positive rate | Threshold too aggressive | Raise `SONAVE_TAU_FAKE` (default 0.70) or use voiceprint enrollment |
+| Enrollment fails | Not enough captured clips (need ≥1) or speaker name mismatch | Check captures exist for that speaker; names are case-sensitive |
+| Voiceprint match shows 0% | ECAPA model download failed on Railway first run | Check `/data/models/ecapa/` exists on the volume; retry enrollment |
+| Capture files missing | Volume not mounted at `/data` | Add Railway volume at `/data` |
 | Capture files missing | Volume not mounted at `/data` | Add Railway volume at `/data` |
 
 ---
 
-## 9. Updating the model
+## 10. Updating the model
 
 1. Retrain locally: `python src/train_xlsr.py --manifest data/corpus_meet.csv --out models/sonave_xlsr_meet`
 2. Update `modal_app.py` model path if the directory name changed
@@ -212,7 +269,7 @@ Open `https://<your-railway-domain>/`:
 
 ---
 
-## 10. Auto-deploy behavior
+## 11. Auto-deploy behavior
 
 The repo includes `.github/workflows/ci-cd.yml`. On every **Pull Request**, it runs the fast test suite. On every **push to `main`**, it:
 
@@ -224,7 +281,7 @@ You can monitor deploys in **GitHub → Actions**.
 
 ---
 
-## 11. Costs (rough)
+## 12. Costs (rough)
 
 | Component | Cost |
 |-----------|------|

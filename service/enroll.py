@@ -19,6 +19,7 @@ API:
 """
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -27,7 +28,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config  # noqa: E402
 
-ENROLL_DIR = config.ROOT / "enrollments"
+ENROLL_DIR = Path(os.environ.get("SONAVE_ENROLL_DIR", config.ROOT / "enrollments"))
 # Cosine sim above this = same speaker. With ECAPA the gap is wide (~0.6 same vs ~0.05
 # impostor) even at 4 s, so a mid threshold is robust. Calibrate per-deployment if needed.
 MATCH_THRESHOLD = 0.35
@@ -58,9 +59,10 @@ def _enc():
         from speechbrain.inference.speaker import EncoderClassifier
         from speechbrain.utils.fetching import LocalStrategy
         dev = "cuda" if torch.cuda.is_available() else "cpu"
+        cache_dir = Path(os.environ.get("SONAVE_MODEL_CACHE", config.ROOT / "models" / "ecapa"))
         _ENC = EncoderClassifier.from_hparams(
             source="speechbrain/spkrec-ecapa-voxceleb",
-            savedir=str(config.ROOT / "models" / "ecapa"),
+            savedir=str(cache_dir),
             run_opts={"device": dev},
             local_strategy=LocalStrategy.COPY_SKIP_CACHE)
     return _ENC
@@ -107,7 +109,13 @@ def verify(speaker_id: str, source, threshold: float = MATCH_THRESHOLD) -> dict:
     if not f.exists():
         return {"speaker": speaker_id, "enrolled": False}
     vp = np.load(f)
-    sim = _cos(embed(source), vp)
+    return verify_with_voiceprint(speaker_id, source, vp, threshold)
+
+
+def verify_with_voiceprint(speaker_id: str, source, voiceprint: np.ndarray,
+                           threshold: float = MATCH_THRESHOLD) -> dict:
+    """Compare audio against a provided voiceprint embedding (e.g. from base64)."""
+    sim = _cos(embed(source), voiceprint)
     return {"speaker": speaker_id, "enrolled": True,
             "similarity": round(sim, 3), "match": sim >= threshold}
 
@@ -131,6 +139,24 @@ def fused_risk(p_fake: float, speaker_id: str | None = None, source=None) -> dic
             match_conf = float(np.clip((sim - MATCH_THRESHOLD) / 0.15, 0, 1))
     # a strong voiceprint match trusts the voice as real (dampens up to 70% of the
     # deepfake score); a mismatch is its own high risk.
+    damped = p_fake * (1 - 0.7 * match_conf)
+    risk = max(damped, mismatch)
+    out["mismatch_risk"] = round(mismatch, 3)
+    out["match_conf"] = round(match_conf, 3)
+    out["risk"] = round(risk, 3)
+    out["verdict"] = "fake" if risk >= 0.7 else "suspect" if risk >= 0.4 else "real"
+    return out
+
+
+def fused_risk_with_voiceprint(p_fake: float, speaker_id: str, source,
+                               voiceprint: np.ndarray) -> dict:
+    """Like fused_risk but with a pre-loaded voiceprint (e.g. from base64 inline)."""
+    out = {"p_fake": round(p_fake, 3)}
+    v = verify_with_voiceprint(speaker_id, source, voiceprint)
+    out["speaker_check"] = v
+    sim = v["similarity"]
+    mismatch = float(np.clip((MATCH_THRESHOLD - sim) / 0.20, 0, 1))
+    match_conf = float(np.clip((sim - MATCH_THRESHOLD) / 0.15, 0, 1))
     damped = p_fake * (1 - 0.7 * match_conf)
     risk = max(damped, mismatch)
     out["mismatch_risk"] = round(mismatch, 3)

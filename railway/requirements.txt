@@ -1,3 +1,17 @@
+# Sonave capture service — Railway deps (CPU-only, no model needed).
+#
+# Torch is installed from the CPU wheel index first (keeps image smaller than CUDA),
+# then the rest from PyPI.
+
+--index-url https://download.pytorch.org/whl/cpu
+torch
+torchaudio
+
+--index-url https://pypi.org/simple
 fastapi>=0.110
 uvicorn[standard]>=0.29
 pydantic>=2.6
+numpy
+librosa
+soundfile
+speechbrain
