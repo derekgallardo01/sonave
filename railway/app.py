@@ -15,7 +15,8 @@ so the Railway image is tiny and builds in seconds. Enrollment adds torch CPU +
 speechbrain on-demand (one-time per speaker).
 
 Endpoints:
-  GET  /                 dashboard: send a bot, list/download captures, enroll speakers
+  GET  /                 marketing landing page (public)
+  GET  /console          operator console: send a bot, live verdicts, captures, enrollment
   POST /bot              {meeting_url} -> Recall bot streams audio here
   WS   /api/ws/audio     Recall real-time audio -> saved per speaker on disconnect
   GET  /captures         list saved files (JSON)
@@ -560,10 +561,14 @@ def download(name: str):
 
 
 @app.get("/", response_class=HTMLResponse)
-def index(request: Request):
-    domain = _domain(request) or "(unknown — no Host header)"
-    key = "set" if RECALL_API_KEY else "MISSING — set SONAVE_RECALL_API_KEY"
-    html = (_HERE / "index.html").read_text(encoding="utf-8")
-    return html.replace("__DOMAIN__", domain).replace("__KEY__", key).replace("__AUTH__", "1" if API_TOKEN else "0").replace("__FAVICON__", _FAVICON_B64)
+def landing():
+    html = (_HERE / "landing.html").read_text(encoding="utf-8")
+    return html.replace("__FAVICON__", _FAVICON_B64)
+
+
+@app.get("/console", response_class=HTMLResponse)
+def console():
+    html = (_HERE / "console.html").read_text(encoding="utf-8")
+    return html.replace("__AUTH__", "1" if API_TOKEN else "0").replace("__FAVICON__", _FAVICON_B64)
 
 

@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sonave — Catch cloned voices on the calls that move money</title>
+<meta name="description" content="Real-time deepfake-voice detection for video meetings. Every speaker gets a live REAL / SUSPECT / FAKE verdict, and a wire hold fires before the fraud clears.">
+<link rel="icon" href="data:image/svg+xml;base64,__FAVICON__">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0e12;--panel:#0d1319;--chip:#131b22;--line:#161e25;--line2:#1e2830;
+  --ink:#e8eef2;--ink2:#8a99a5;--muted:#5d6d79;--dim:#3d4a54;
+  --green:#2ee584;--green-hover:#4deda0;--green-dark:#0d9e56;--on-green:#06130b;
+  --amber:#ffb224;--red:#ff4d5e;--red-soft:#ff8a95;
+  --font:'Sora',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font)}
+a{color:var(--green);text-decoration:none}
+a:hover{color:var(--green-hover)}
+.wrap{max-width:1080px;margin:0 auto;padding:0 28px}
+
+.nav{display:flex;align-items:center;justify-content:space-between;padding:22px 0}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-tile{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center}
+.brand-name{font-size:16px;font-weight:700;color:var(--ink)}
+.nav-links{display:flex;align-items:center;gap:22px;font-size:13px;color:var(--ink2)}
+.nav-links a.plain{color:var(--ink2)}
+.nav-links a.plain:hover{color:var(--ink)}
+.btn-console{padding:8px 16px;border-radius:8px;background:var(--green);color:var(--on-green);font-weight:700;font-size:12.5px}
+.btn-console:hover{background:var(--green-hover);color:var(--on-green)}
+
+.hero{padding:84px 0 70px;max-width:720px}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;padding:6px 13px;border-radius:999px;border:1px solid rgba(46,229,132,.3);background:rgba(46,229,132,.06);font-size:11.5px;color:var(--green);font-weight:600;margin-bottom:26px}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
+.hero h1{font-size:52px;font-weight:800;letter-spacing:-.03em;line-height:1.08;text-wrap:balance}
+.hero-sub{font-size:17px;color:var(--ink2);line-height:1.65;margin-top:22px;max-width:600px;text-wrap:pretty}
+.v-real{color:var(--green)}
+.v-suspect{color:var(--amber)}
+.v-fake{color:var(--red)}
+.hero-ctas{display:flex;gap:12px;margin-top:32px}
+.btn-primary{padding:13px 24px;border-radius:10px;background:var(--green);color:var(--on-green);font-weight:700;font-size:14px}
+.btn-primary:hover{background:var(--green-hover);color:var(--on-green)}
+.btn-ghost{padding:13px 24px;border-radius:10px;border:1px solid var(--line2);color:#c7d2da;font-weight:600;font-size:14px}
+.btn-ghost:hover{border-color:var(--green);color:var(--green)}
+
+.stats{border:1px solid var(--line);border-radius:16px;background:var(--panel);padding:26px 30px;display:grid;grid-template-columns:repeat(4,1fr);gap:24px}
+.stat-num{font-size:30px;font-weight:800;font-family:var(--mono)}
+.stat-sub{font-size:12px;color:var(--muted);line-height:1.55;margin-top:6px}
+
+.how{padding:90px 0 20px}
+.eyebrow{font-size:11px;color:var(--green);letter-spacing:.12em;font-weight:700;margin-bottom:14px}
+.how h2{font-size:30px;font-weight:800;letter-spacing:-.02em;max-width:520px;line-height:1.2}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:40px}
+.step{border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:24px}
+.step-num{font-family:var(--mono);font-size:12px;color:var(--green);margin-bottom:14px}
+.step-title{font-size:16px;font-weight:700;margin-bottom:10px}
+.step-body{font-size:13px;color:var(--ink2);line-height:1.65}
+
+.desk{padding:70px 0}
+.desk-card{border:1px solid var(--line);border-radius:16px;background:var(--panel);padding:34px;display:grid;grid-template-columns:1fr 380px;gap:40px;align-items:center}
+.desk h2{font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1.25;text-wrap:balance}
+.desk-body{font-size:14px;color:var(--ink2);line-height:1.7;margin-top:16px;text-wrap:pretty}
+.demo{border:1px solid rgba(255,77,94,.35);border-radius:13px;background:var(--bg);padding:20px}
+.demo-top{display:flex;align-items:center;justify-content:space-between}
+.demo-who{display:flex;align-items:center;gap:10px}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--chip);border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--ink2)}
+.demo-name{font-size:13.5px;font-weight:700}
+.demo-sub{font-size:10.5px;color:var(--muted)}
+.badge-fake{font-size:10px;font-weight:800;letter-spacing:.05em;padding:4px 10px;border-radius:6px;background:rgba(255,77,94,.12);color:var(--red);border:1px solid rgba(255,77,94,.35)}
+.risk-row{display:flex;align-items:baseline;justify-content:space-between;margin-top:14px}
+.risk-label{font-size:10px;color:var(--muted);letter-spacing:.07em;font-weight:600}
+.risk-pct{font-family:var(--mono);font-size:17px;font-weight:600;color:var(--red)}
+.risk-track{height:6px;background:var(--chip);border-radius:3px;margin-top:6px;overflow:hidden}
+.risk-fill{height:100%;width:84%;background:var(--red);border-radius:3px}
+.spark{display:flex;align-items:flex-end;gap:2px;height:26px;margin-top:12px}
+.spark i{flex:1;border-radius:1.5px;min-height:2px;display:block}
+.hold{margin-top:14px;padding:10px 12px;border-radius:9px;background:rgba(255,77,94,.08);border:1px solid rgba(255,77,94,.25);font-size:11.5px;color:var(--red-soft);font-weight:600}
+
+.footer-cta{border-top:1px solid var(--line);padding:60px 0 80px;text-align:center}
+.footer-cta h2{font-size:28px;font-weight:800;letter-spacing:-.02em}
+.footer-sub{font-size:14px;color:var(--ink2);margin-top:10px}
+.footer-ctas{display:flex;gap:12px;justify-content:center;margin-top:26px}
+.footer-line{font-size:11.5px;color:var(--dim);margin-top:50px;font-family:var(--mono)}
+
+@media (max-width:1100px){
+  .desk-card{grid-template-columns:1fr;gap:28px}
+}
+@media (max-width:800px){
+  .hero h1{font-size:38px}
+  .hero{padding:56px 0 48px}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .steps{grid-template-columns:1fr}
+  .nav-links a.plain{display:none}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <nav class="nav">
+    <div class="brand">
+      <div class="brand-tile">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 8h1.5M5 4.5v7M8 2v12M11 4.5v7M14 8h-1.5" stroke="#06130b" stroke-width="1.8" stroke-linecap="round"></path></svg>
+      </div>
+      <span class="brand-name">Sonave</span>
+    </div>
+    <div class="nav-links">
+      <a class="plain" href="#how">How it works</a>
+      <a class="plain" href="#results">Results</a>
+      <a class="btn-console" href="/console">Open console</a>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div class="hero-badge"><span class="dot"></span>Live on Google Meet, Zoom &amp; Teams</div>
+    <h1>Catch cloned voices on the calls that move money.</h1>
+    <p class="hero-sub">Real-time deepfake-voice detection for video meetings — engineered to work on the compressed, processed audio real calls actually produce. Every speaker gets a live <b class="v-real">REAL</b> / <b class="v-suspect">SUSPECT</b> / <b class="v-fake">FAKE</b> verdict, and a wire hold fires before the fraud clears.</p>
+    <div class="hero-ctas">
+      <a class="btn-primary" href="/console">See the live console</a>
+      <a class="btn-ghost" href="mailto:derekgallardo01@gmail.com?subject=Sonave">Talk to us</a>
+    </div>
+  </header>
+
+  <section class="stats" id="results">
+    <div>
+      <div class="stat-num v-real">91%</div>
+      <div class="stat-sub">catch rate on 27 unseen commercial voice-clone tools</div>
+    </div>
+    <div>
+      <div class="stat-num" style="color:var(--muted)">~2%</div>
+      <div class="stat-sub">what commodity detectors catch on the same fakes</div>
+    </div>
+    <div>
+      <div class="stat-num v-real">96%</div>
+      <div class="stat-sub">real-voice accuracy through Google Meet's Opus codec</div>
+    </div>
+    <div>
+      <div class="stat-num">&lt;1s</div>
+      <div class="stat-sub">from spoken word to verdict — ~100 ms GPU inference per window</div>
+    </div>
+  </section>
+
+  <section class="how" id="how">
+    <div class="eyebrow">HOW IT WORKS</div>
+    <h2>A bot joins. Every voice is scored. Suspicion holds the wire.</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <div class="step-title">Capture</div>
+        <div class="step-body">A meeting bot joins the call as a participant and streams per-speaker audio out — no plugins, no installs for anyone on the call.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <div class="step-title">Detect</div>
+        <div class="step-body">A fine-tuned XLS-R detector scores 4-second windows of each speaker's voice, trained on real meeting-codec audio — not lab recordings.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <div class="step-title">Act</div>
+        <div class="step-body">Rolling per-speaker verdicts drive live badges, alerts, and a webhook that can hold a wire transfer pending re-authentication.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="desk">
+    <div class="desk-card">
+      <div>
+        <div class="eyebrow">BUILT FOR WIRE-FRAUD DESKS</div>
+        <h2>When a deepfaked CEO asks for $2M, the verdict is on screen before the approval.</h2>
+        <p class="desk-body">Every scored window lands in an immutable forensic log — score, verdict, timestamp, audio snippet — with a one-click exportable report per meeting. Voiceprint enrollment adds a second factor: is this even the executive's voice?</p>
+      </div>
+      <div class="demo">
+        <div class="demo-top">
+          <div class="demo-who">
+            <div class="avatar">U</div>
+            <div>
+              <div class="demo-name">Unknown caller</div>
+              <div class="demo-sub">Joined by phone</div>
+            </div>
+          </div>
+          <span class="badge-fake">FAKE</span>
+        </div>
+        <div class="risk-row">
+          <span class="risk-label">DEEPFAKE RISK</span>
+          <span class="risk-pct">84%</span>
+        </div>
+        <div class="risk-track"><div class="risk-fill"></div></div>
+        <div class="spark">
+          <i style="height:12%;background:var(--green)"></i><i style="height:18%;background:var(--green)"></i><i style="height:30%;background:var(--green)"></i><i style="height:26%;background:var(--green)"></i><i style="height:44%;background:var(--amber)"></i><i style="height:58%;background:var(--amber)"></i><i style="height:52%;background:var(--amber)"></i><i style="height:70%;background:var(--red)"></i><i style="height:78%;background:var(--red)"></i><i style="height:84%;background:var(--red)"></i><i style="height:80%;background:var(--red)"></i><i style="height:88%;background:var(--red)"></i><i style="height:74%;background:var(--red)"></i><i style="height:82%;background:var(--red)"></i><i style="height:90%;background:var(--red)"></i><i style="height:86%;background:var(--red)"></i><i style="height:78%;background:var(--red)"></i><i style="height:84%;background:var(--red)"></i><i style="height:88%;background:var(--red)"></i><i style="height:92%;background:var(--red)"></i>
+        </div>
+        <div class="hold">⛔ Wire hold triggered — re-authentication required</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="footer-cta">
+    <h2>Put a verdict on every voice.</h2>
+    <p class="footer-sub">Fully hosted — no laptop in the loop. Design-partner slots open for finance teams.</p>
+    <div class="footer-ctas">
+      <a class="btn-primary" href="/console">Open the console</a>
+    </div>
+    <div class="footer-line">Sonave · Voice Authenticity Engine</div>
+  </section>
+
+</div>
+</body>
+</html>
