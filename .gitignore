@@ -5,8 +5,11 @@ __pycache__/
 *.pyc
 
 # --- Data & models (big / binary / regenerable — never commit) ---
+# Exception: the production checkpoint (3 MB head + meta) is committed so CI can
+# `modal deploy` — modal_app.py mounts models/sonave_xlsr_meet into the image.
 data/
-models/
+models/*
+!models/sonave_xlsr_meet/
 *.opus
 *.wav
 *.flac

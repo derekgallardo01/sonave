@@ -49,14 +49,20 @@ def test_ws_requires_token(rw_auth):
             ws.receive_text()
 
 
-def test_index_injects_auth_flag_and_escape_helper(rw_auth):
-    t = _c(rw_auth).get("/").text
+def test_console_injects_auth_flag_and_escape_helper(rw_auth):
+    t = _c(rw_auth).get("/console").text
     assert "AUTH='1'==='1'" in t          # login overlay activates
     assert "function esc(" in t          # XSS-escape helper present in the page
 
 
-def test_index_auth_off_without_token(railway_mod):
-    assert "AUTH='0'==='1'" in _c(railway_mod).get("/").text
+def test_console_auth_off_without_token(railway_mod):
+    assert "AUTH='0'==='1'" in _c(railway_mod).get("/console").text
+
+
+def test_landing_is_public_and_has_no_auth_wiring(rw_auth):
+    t = _c(rw_auth).get("/").text
+    assert "__AUTH__" not in t            # no unreplaced token
+    assert "AUTH='" not in t              # landing ships no auth JS at all
 
 
 # --- meeting_url allowlist --------------------------------------------------

@@ -56,3 +56,10 @@ jobs:
           SONAVE_API_TOKEN: ${{ secrets.SONAVE_API_TOKEN }}
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: modal deploy modal_app.py
+
+      - name: Verify deployed version matches repo
+        run: |
+          repo=$(python -c "import re; print(re.search(r'version=\"([^\"]+)\"', open('service/app.py').read()).group(1))")
+          live=$(curl -sf https://derekgallardo01--sonave-detector-fastapi-app.modal.run/openapi.json | python -c "import json,sys; print(json.load(sys.stdin)['info']['version'])")
+          echo "repo=$repo live=$live"
+          test "$repo" = "$live"
