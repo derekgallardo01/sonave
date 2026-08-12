@@ -110,6 +110,10 @@ def rw_enroll(monkeypatch, tmp_path):
     monkeypatch.setenv("SONAVE_RECALL_API_KEY", "test-key")
     monkeypatch.setenv("SONAVE_ENROLL_DIR", str(tmp_path / "enrollments"))
     mod = conftest.load_module("rwapp_e", "railway/app.py")
+    # enroll may already be cached in sys.modules from an earlier test file, in
+    # which case its import-time ENROLL_DIR (default /data/enrollments — not
+    # writable on CI runners) survives the setenv above. Patch the attribute.
+    monkeypatch.setattr(mod.enroll, "ENROLL_DIR", Path(tmp_path / "enrollments"))
     mod.QUALITY.clear()
     mod.VERDICTS.clear()
     mod.ROLL.clear()
