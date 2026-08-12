@@ -24,6 +24,15 @@ def load_module(name: str, relpath: str):
     return mod
 
 
+@pytest.fixture(autouse=True)
+def _hermetic_sonave_env(monkeypatch):
+    """Strip all SONAVE_* vars so the suite is immune to the developer's shell /
+    .env state (both apps read env at import; fixtures re-set what they need)."""
+    import os
+    for var in [k for k in os.environ if k.startswith("SONAVE_")]:
+        monkeypatch.delenv(var, raising=False)
+
+
 @pytest.fixture
 def railway_mod(monkeypatch):
     """The Railway capture service, loaded fresh with a clean env (no scorer)."""
