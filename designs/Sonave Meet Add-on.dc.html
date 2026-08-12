@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0b0d10;color:#e8eef2;font-family:'Sora',sans-serif}
+a{color:#2ee584;text-decoration:none}a:hover{color:#6ff0ab}
+@keyframes redPulse{0%,100%{box-shadow:0 0 0 2px rgba(255,77,94,.5)}50%{box-shadow:0 0 0 6px rgba(255,77,94,.12)}}
+@keyframes speak{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
+</style>
+</helmet>
+<div style="min-height:100vh;background:#0b0d10;display:flex;flex-direction:column">
+  <div style="flex:1;display:flex;gap:14px;padding:14px;min-height:0">
+    <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:12px;min-width:0">
+      <sc-for list="{{ tiles }}" as="t" hint-placeholder-count="4">
+        <div style="position:relative;border-radius:14px;background:{{ t.bg }};overflow:hidden;display:flex;align-items:center;justify-content:center;animation:{{ t.anim }}">
+          <div style="width:84px;height:84px;border-radius:50%;background:{{ t.avatarBg }};display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:700;color:{{ t.avatarInk }}">{{ t.initial }}</div>
+          <sc-if value="{{ t.speaking }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;top:12px;right:12px;display:flex;align-items:center;gap:2px;height:14px">
+              <div style="width:3px;height:100%;border-radius:2px;background:#e8eef2;animation:speak .7s infinite"></div>
+              <div style="width:3px;height:100%;border-radius:2px;background:#e8eef2;animation:speak .7s .15s infinite"></div>
+              <div style="width:3px;height:100%;border-radius:2px;background:#e8eef2;animation:speak .7s .3s infinite"></div>
+            </div>
+          </sc-if>
+          <div style="position:absolute;left:12px;bottom:12px;display:flex;align-items:center;gap:8px">
+            <span style="padding:5px 11px;border-radius:8px;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);font-size:12px;font-weight:600">{{ t.name }}</span>
+            <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);font-size:10px;font-weight:800;letter-spacing:.05em;color:{{ t.vColor }}">
+              <span style="width:6px;height:6px;border-radius:50%;background:{{ t.vColor }}"></span>{{ t.verdict }}
+            </span>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="width:330px;flex-shrink:0;border-radius:14px;background:#101418;border:1px solid #1b2128;display:flex;flex-direction:column;overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #1b2128">
+        <div style="display:flex;align-items:center;gap:9px">
+          <div style="width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,#2ee584,#0d9e56);display:flex;align-items:center;justify-content:center">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M2 8h1.5M5 4.5v7M8 2v12M11 4.5v7M14 8h-1.5" stroke="#06130b" stroke-width="1.8" stroke-linecap="round"></path></svg>
+          </div>
+          <div>
+            <div style="font-size:13px;font-weight:700">Sonave</div>
+            <div style="font-size:9.5px;color:#5d6d79">Voice authenticity · this call</div>
+          </div>
+        </div>
+        <span style="color:#5d6d79;font-size:16px;cursor:pointer" style-hover="color:#e8eef2">×</span>
+      </div>
+
+      <div style="padding:14px 16px;border-bottom:1px solid #1b2128;background:{{ bannerBg }}">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:20px;font-weight:800;letter-spacing:-.01em;color:{{ roomColor }}">{{ roomVerdict }}</span>
+          <span style="font-size:11px;color:#8a99a5;line-height:1.45">{{ roomNote }}</span>
+        </div>
+      </div>
+
+      <sc-if value="{{ holdOpen }}" hint-placeholder-val="{{ true }}">
+        <div style="margin:12px 14px 0;padding:12px 13px;border-radius:11px;border:1px solid rgba(255,77,94,.4);background:rgba(255,77,94,.08)">
+          <div style="font-size:12px;font-weight:700;color:#ff8a95">⛔ Wire hold recommended</div>
+          <div style="font-size:11px;color:#8a99a5;margin-top:4px;line-height:1.5">"Unknown caller" crossed the red threshold. A webhook can pause the approval pending re-auth.</div>
+          <div style="display:flex;gap:7px;margin-top:10px">
+            <button onClick="{{ holdWire }}" style="flex:1;padding:8px;border-radius:8px;border:0;background:#ff4d5e;color:#fff;font:700 11.5px 'Sora',sans-serif;cursor:pointer" style-hover="background:#ff6572">Hold the wire</button>
+            <button onClick="{{ dismissHold }}" style="padding:8px 12px;border-radius:8px;border:1px solid #1e2830;background:transparent;color:#8a99a5;font:600 11.5px 'Sora',sans-serif;cursor:pointer" style-hover="color:#e8eef2">Dismiss</button>
+          </div>
+        </div>
+      </sc-if>
+
+      <div style="flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:9px">
+        <sc-for list="{{ panel }}" as="p" hint-placeholder-count="4">
+          <div style="border:1px solid {{ p.border }};border-radius:11px;padding:11px 13px;background:#0b0d10">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+              <div style="display:flex;align-items:center;gap:8px;min-width:0">
+                <span style="font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.name }}</span>
+                <sc-if value="{{ p.enrolled }}" hint-placeholder-val="{{ false }}"><span style="font-size:9px;color:#2ee584;font-weight:700;flex-shrink:0">● VOICEPRINT</span></sc-if>
+              </div>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:{{ p.vColor }};flex-shrink:0">{{ p.pct }}%</span>
+            </div>
+            <div style="height:5px;background:#161c22;border-radius:3px;margin-top:8px;overflow:hidden">
+              <div style="height:100%;border-radius:3px;width:{{ p.pct }}%;background:{{ p.vColor }};transition:width .5s ease"></div>
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:1.5px;height:18px;margin-top:8px">
+              <sc-for list="{{ p.bars }}" as="b" hint-placeholder-count="8">
+                <div style="flex:1;border-radius:1px;min-height:2px;height:{{ b.h }}%;background:{{ b.c }}"></div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="padding:11px 16px;border-top:1px solid #1b2128;display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:10px;color:#5d6d79;font-family:'IBM Plex Mono',monospace">sonave-xlsr-meet · {{ windows }} windows</span>
+        <a href="Sonave Console.dc.html" style="font-size:11px;font-weight:600">Open console ↗</a>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 22px;border-top:1px solid #14181d">
+    <span style="font-size:12.5px;color:#8a99a5;font-family:'IBM Plex Mono',monospace">{{ clock }} · wire-approval-q3</span>
+    <div style="display:flex;gap:10px">
+      <div style="width:42px;height:42px;border-radius:50%;background:#1b2128;display:flex;align-items:center;justify-content:center;font-size:15px;color:#c7d2da;cursor:pointer" style-hover="background:#242c35">🎙</div>
+      <div style="width:42px;height:42px;border-radius:50%;background:#1b2128;display:flex;align-items:center;justify-content:center;font-size:15px;color:#c7d2da;cursor:pointer" style-hover="background:#242c35">🎥</div>
+      <div style="width:42px;height:42px;border-radius:50%;background:rgba(46,229,132,.14);border:1px solid rgba(46,229,132,.4);display:flex;align-items:center;justify-content:center;cursor:pointer">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 8h1.5M5 4.5v7M8 2v12M11 4.5v7M14 8h-1.5" stroke="#2ee584" stroke-width="1.8" stroke-linecap="round"></path></svg>
+      </div>
+      <div style="width:54px;height:42px;border-radius:21px;background:#ff4d5e;display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;cursor:pointer" style-hover="background:#ff6572">⏻</div>
+    </div>
+    <span style="font-size:11px;color:#3d4a54">Sonave add-on concept — in-call surface</span>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;scenario&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;default&quot;: &quot;deepfake on call&quot;, &quot;options&quot;: [&quot;deepfake on call&quot;, &quot;all real&quot;], &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Simulation&quot;}}">
+class Component extends DCLogic {
+  state = { tick: 0, holdOpen: true, held: false, speakers: [
+    { name: 'Derek Gallardo', base: 0.05, enrolled: true, hist: [] },
+    { name: 'M. Alvarez', base: 0.08, enrolled: true, hist: [] },
+    { name: 'J. Whitfield', base: 0.18, enrolled: false, hist: [] },
+    { name: 'Unknown caller', base: 0.82, enrolled: false, hist: [] }
+  ]};
+  componentDidMount() {
+    this._t = setInterval(() => this.setState(st => ({
+      tick: st.tick + 1,
+      speakers: st.speakers.map(s => {
+        const clean = (this.props.scenario ?? 'deepfake on call') === 'all real';
+        const base = clean && s.base >= 0.7 ? 0.12 : s.base;
+        const p = Math.max(0.01, Math.min(0.97, base + (Math.random() - 0.5) * 0.08));
+        return { ...s, p, hist: (s.hist || []).concat(p).slice(-20) };
+      })
+    })), 1100);
+  }
+  componentWillUnmount() { clearInterval(this._t); }
+  vc(p) { return p >= 0.7 ? '#ff4d5e' : p >= 0.4 ? '#ffb224' : '#2ee584'; }
+  vn(p) { return p >= 0.7 ? 'FAKE' : p >= 0.4 ? 'SUSPECT' : 'REAL'; }
+  renderVals() {
+    const st = this.state;
+    const tileBgs = ['#1c2733', '#2a2230', '#22301f', '#301f22'];
+    const avBgs = ['#3b82f6', '#a855f7', '#2ee584', '#ff4d5e'];
+    const tiles = st.speakers.map((s, i) => {
+      const p = s.p ?? s.base;
+      return {
+        name: s.name, initial: s.name.charAt(0), bg: tileBgs[i],
+        avatarBg: avBgs[i] + '33', avatarInk: avBgs[i],
+        verdict: this.vn(p), vColor: this.vc(p),
+        speaking: (st.tick + i) % 4 === i % 4,
+        anim: p >= 0.7 ? 'redPulse 1.6s infinite' : 'none'
+      };
+    });
+    const panel = st.speakers.map(s => {
+      const p = s.p ?? s.base;
+      const bars = (s.hist || []).map(h => ({ h: Math.max(8, Math.round(h * 100)), c: this.vc(h) }));
+      while (bars.length < 20) bars.unshift({ h: 5, c: '#1e2830' });
+      return { name: s.name, enrolled: s.enrolled, pct: Math.round(p * 100), vColor: this.vc(p), bars, border: p >= 0.7 ? 'rgba(255,77,94,.45)' : '#1b2128' };
+    });
+    const maxP = Math.max(...st.speakers.map(s => s.p ?? s.base));
+    const d = new Date(), h = d.getHours() % 12 || 12, mm = String(d.getMinutes()).padStart(2, '0');
+    return {
+      tiles, panel,
+      roomVerdict: st.held ? 'WIRE HELD' : this.vn(maxP),
+      roomColor: this.vc(maxP),
+      roomNote: st.held ? 'Approval paused — re-auth requested via webhook.' : maxP >= 0.7 ? 'One speaker scoring in the red band.' : 'All speakers within normal range.',
+      bannerBg: maxP >= 0.7 ? 'rgba(255,77,94,.06)' : 'rgba(46,229,132,.04)',
+      holdOpen: st.holdOpen && !st.held && maxP >= 0.7,
+      holdWire: () => this.setState({ held: true, holdOpen: false }),
+      dismissHold: () => this.setState({ holdOpen: false }),
+      windows: 240 + st.tick * 3,
+      clock: h + ':' + mm + (d.getHours() < 12 ? ' AM' : ' PM')
+    };
+  }
+}
+</script>
+</body>
+</html>

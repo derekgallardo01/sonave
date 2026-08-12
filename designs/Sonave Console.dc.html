@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0a0e12;color:#e8eef2;font-family:'Sora',sans-serif}
+a{color:#2ee584;text-decoration:none}a:hover{color:#6ff0ab}
+@keyframes livePulse{0%{box-shadow:0 0 0 0 rgba(46,229,132,.45)}70%{box-shadow:0 0 0 7px rgba(46,229,132,0)}100%{box-shadow:0 0 0 0 rgba(46,229,132,0)}}
+@keyframes redPulse{0%,100%{box-shadow:0 0 0 1px rgba(255,77,94,.35)}50%{box-shadow:0 0 0 5px rgba(255,77,94,.08)}}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#1e2830;border-radius:4px}::-webkit-scrollbar-track{background:transparent}
+</style>
+</helmet>
+<div style="display:flex;min-height:100vh;background:#0a0e12">
+  <div style="width:224px;flex-shrink:0;border-right:1px solid #161e25;display:flex;flex-direction:column;padding:20px 14px;gap:6px;position:sticky;top:0;height:100vh;box-sizing:border-box">
+    <div style="display:flex;align-items:center;gap:10px;padding:4px 8px 18px">
+      <div style="width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#2ee584,#0d9e56);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 8h1.5M5 4.5v7M8 2v12M11 4.5v7M14 8h-1.5" stroke="#06130b" stroke-width="1.8" stroke-linecap="round"></path></svg>
+      </div>
+      <div>
+        <div style="font-size:15px;font-weight:700;letter-spacing:-.01em">Sonave</div>
+        <div style="font-size:10px;color:#5d6d79;font-weight:500;letter-spacing:.04em">VOICE AUTHENTICITY</div>
+      </div>
+    </div>
+    <sc-for list="{{ nav }}" as="item" hint-placeholder-count="3">
+      <div onClick="{{ item.go }}" style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:9px;cursor:pointer;font-size:13.5px;font-weight:{{ item.weight }};color:{{ item.color }};background:{{ item.bg }}" style-hover="background:#131b22">
+        <span style="width:16px;text-align:center;font-size:13px;opacity:.9">{{ item.icon }}</span>{{ item.label }}
+      </div>
+    </sc-for>
+    <div style="flex:1"></div>
+    <div style="border:1px solid #161e25;border-radius:11px;padding:12px;background:#0d1319;display:flex;flex-direction:column;gap:8px">
+      <div style="font-size:10px;color:#5d6d79;letter-spacing:.08em;font-weight:600">ACTIVE MODEL</div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#2ee584">sonave-xlsr-meet</div>
+      <div style="display:flex;align-items:center;gap:7px;font-size:11.5px;color:#8a99a5">
+        <span style="width:7px;height:7px;border-radius:50%;background:{{ statusDot }};animation:{{ statusAnim }}"></span>{{ statusText }}
+      </div>
+    </div>
+  </div>
+
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 28px;border-bottom:1px solid #161e25;position:sticky;top:0;background:rgba(10,14,18,.9);backdrop-filter:blur(10px);z-index:20">
+      <div style="font-size:16px;font-weight:700;letter-spacing:-.01em">{{ viewTitle }}</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#5d6d79">{{ clock }}</div>
+        <button onClick="{{ toggleDemo }}" style="padding:7px 14px;border-radius:8px;border:1px solid #1e2830;background:#111820;color:#8a99a5;font:600 12px 'Sora',sans-serif;cursor:pointer" style-hover="border-color:#2ee584;color:#2ee584">{{ demoLabel }}</button>
+      </div>
+    </div>
+
+    <sc-if value="{{ isMonitor }}" hint-placeholder-val="{{ true }}">
+      <div style="padding:24px 28px;display:flex;flex-direction:column;gap:18px">
+        <sc-if value="{{ incidentOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;border:1px solid rgba(255,77,94,.4);background:rgba(255,77,94,.07);border-radius:12px;padding:14px 18px;animation:redPulse 1.6s infinite">
+            <div style="display:flex;align-items:center;gap:12px">
+              <div style="width:34px;height:34px;border-radius:9px;background:rgba(255,77,94,.15);display:flex;align-items:center;justify-content:center;color:#ff4d5e;font-size:15px;font-weight:800">!</div>
+              <div>
+                <div style="font-size:13.5px;font-weight:700;color:#ff8a95">Wire hold triggered — suspected deepfake</div>
+                <div style="font-size:12px;color:#8a99a5;margin-top:2px">Speaker <b style="color:#e8eef2">{{ incidentSpeaker }}</b> crossed the red threshold · rolling risk <span style="font-family:'IBM Plex Mono',monospace;color:#ff4d5e">{{ incidentRisk }}%</span> · webhook fired to approval system</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button onClick="{{ exportReport }}" style="padding:8px 14px;border-radius:8px;border:1px solid #1e2830;background:transparent;color:#8a99a5;font:600 12px 'Sora',sans-serif;cursor:pointer" style-hover="color:#e8eef2">Export report</button>
+              <button onClick="{{ ackIncident }}" style="padding:8px 16px;border-radius:8px;border:0;background:#ff4d5e;color:#fff;font:600 12px 'Sora',sans-serif;cursor:pointer" style-hover="background:#ff6572">Acknowledge</button>
+            </div>
+          </div>
+        </sc-if>
+
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">
+          <div style="border:1px solid #161e25;border-radius:13px;padding:16px 18px;background:#0d1319">
+            <div style="font-size:10.5px;color:#5d6d79;letter-spacing:.08em;font-weight:600;margin-bottom:8px">ROOM VERDICT</div>
+            <div style="font-size:24px;font-weight:800;letter-spacing:-.01em;color:{{ roomColor }}">{{ roomVerdict }}</div>
+            <div style="font-size:11.5px;color:#5d6d79;margin-top:3px">peak risk <span style="font-family:'IBM Plex Mono',monospace;color:{{ roomColor }}">{{ roomRisk }}%</span></div>
+          </div>
+          <div style="border:1px solid #161e25;border-radius:13px;padding:16px 18px;background:#0d1319">
+            <div style="font-size:10.5px;color:#5d6d79;letter-spacing:.08em;font-weight:600;margin-bottom:8px">SPEAKERS LIVE</div>
+            <div style="font-size:24px;font-weight:800;font-family:'IBM Plex Mono',monospace">{{ liveCount }}</div>
+            <div style="font-size:11.5px;color:#5d6d79;margin-top:3px">{{ enrolledCount }} voiceprint-enrolled</div>
+          </div>
+          <div style="border:1px solid #161e25;border-radius:13px;padding:16px 18px;background:#0d1319">
+            <div style="font-size:10.5px;color:#5d6d79;letter-spacing:.08em;font-weight:600;margin-bottom:8px">WINDOWS SCORED</div>
+            <div style="font-size:24px;font-weight:800;font-family:'IBM Plex Mono',monospace">{{ windowsScored }}</div>
+            <div style="font-size:11.5px;color:#5d6d79;margin-top:3px">4 s windows · 2 s hop</div>
+          </div>
+          <div style="border:1px solid #161e25;border-radius:13px;padding:16px 18px;background:#0d1319">
+            <div style="font-size:10.5px;color:#5d6d79;letter-spacing:.08em;font-weight:600;margin-bottom:8px">MEDIAN LATENCY</div>
+            <div style="font-size:24px;font-weight:800;font-family:'IBM Plex Mono',monospace">{{ latency }}<span style="font-size:13px;color:#5d6d79"> ms</span></div>
+            <div style="font-size:11.5px;color:#5d6d79;margin-top:3px">GPU · scale-to-zero T4</div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 336px;gap:18px;align-items:start">
+          <div style="border:1px solid #161e25;border-radius:14px;background:#0d1319;overflow:hidden">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid #161e25">
+              <div style="font-size:11px;color:#8a99a5;letter-spacing:.09em;font-weight:700">LIVE AUTHENTICITY MONITOR</div>
+              <div style="font-size:11px;color:#5d6d79;font-family:'IBM Plex Mono',monospace">{{ updateNote }}</div>
+            </div>
+            <sc-if value="{{ live }}" hint-placeholder-val="{{ false }}">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:16px 20px 20px">
+                <sc-for list="{{ speakers }}" as="s" hint-placeholder-count="3">
+                  <div style="border:1px solid {{ s.cardBorder }};border-radius:12px;padding:14px 16px;background:#0a0e12;animation:{{ s.cardAnim }}">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                      <div style="display:flex;align-items:center;gap:9px;min-width:0">
+                        <div style="width:30px;height:30px;border-radius:50%;background:#131b22;border:1px solid #1e2830;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#8a99a5;flex-shrink:0">{{ s.initial }}</div>
+                        <div style="min-width:0">
+                          <div style="font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.name }}</div>
+                          <div style="font-size:10.5px;color:#5d6d79">{{ s.sub }}</div>
+                        </div>
+                      </div>
+                      <span style="font-size:10px;font-weight:800;letter-spacing:.05em;padding:4px 9px;border-radius:6px;background:{{ s.badgeBg }};color:{{ s.badgeColor }};border:1px solid {{ s.badgeBorder }};flex-shrink:0">{{ s.badge }}</span>
+                    </div>
+                    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-top:12px">
+                      <span style="font-size:10px;color:#5d6d79;letter-spacing:.07em;font-weight:600">DEEPFAKE RISK</span>
+                      <span style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;color:{{ s.color }}">{{ s.pct }}%</span>
+                    </div>
+                    <div style="height:6px;background:#131b22;border-radius:3px;margin-top:6px;overflow:hidden">
+                      <div style="height:100%;border-radius:3px;width:{{ s.pct }}%;background:{{ s.color }};transition:width .5s ease"></div>
+                    </div>
+                    <div style="display:flex;align-items:flex-end;gap:2px;height:26px;margin-top:10px">
+                      <sc-for list="{{ s.bars }}" as="b" hint-placeholder-count="8">
+                        <div style="flex:1;border-radius:1.5px;min-height:2px;height:{{ b.h }}%;background:{{ b.c }}"></div>
+                      </sc-for>
+                    </div>
+                    <div style="display:flex;gap:12px;margin-top:10px;font-size:10.5px;color:#5d6d79;font-family:'IBM Plex Mono',monospace">
+                      <span>{{ s.speech }}% speech</span><span>{{ s.dur }}</span><span>{{ s.clips }} clips</span>
+                      <sc-if value="{{ s.match }}" hint-placeholder-val="{{ false }}"><span style="color:#2ee584">match {{ s.match }}%</span></sc-if>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{ idle }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:70px 20px;gap:14px">
+                <div style="display:flex;align-items:flex-end;gap:3px;height:34px">
+                  <sc-for list="{{ idleBars }}" as="b" hint-placeholder-count="9">
+                    <div style="width:4px;border-radius:2px;height:{{ b.h }}%;background:#1e2830"></div>
+                  </sc-for>
+                </div>
+                <div style="font-size:13.5px;color:#8a99a5;font-weight:600">No meeting monitored</div>
+                <div style="font-size:12px;color:#5d6d79;max-width:300px;text-align:center;line-height:1.6">Deploy a bot into a Google Meet, Zoom or Teams call — every speaker gets a live authenticity verdict within seconds.</div>
+                <button onClick="{{ toggleDemo }}" style="margin-top:4px;padding:9px 18px;border-radius:9px;border:1px solid rgba(46,229,132,.35);background:rgba(46,229,132,.08);color:#2ee584;font:600 12.5px 'Sora',sans-serif;cursor:pointer" style-hover="background:rgba(46,229,132,.14)">Run a simulated call</button>
+              </div>
+            </sc-if>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:16px">
+            <div style="border:1px solid #161e25;border-radius:14px;background:#0d1319;padding:18px 20px">
+              <div style="font-size:11px;color:#8a99a5;letter-spacing:.09em;font-weight:700;margin-bottom:12px">DEPLOY BOT</div>
+              <div style="display:flex;gap:8px">
+                <input value="{{ meetUrl }}" onChange="{{ setMeetUrl }}" placeholder="Meet / Zoom / Teams link" style="flex:1;min-width:0;padding:10px 13px;border-radius:9px;border:1px solid #1e2830;background:#0a0e12;color:#e8eef2;font:400 12.5px 'Sora',sans-serif;outline:none" style-focus="border-color:#2ee584">
+                <button onClick="{{ deployBot }}" style="padding:10px 16px;border-radius:9px;border:0;background:#2ee584;color:#06130b;font:700 12.5px 'Sora',sans-serif;cursor:pointer;flex-shrink:0" style-hover="background:#4deda0">Deploy</button>
+              </div>
+              <div style="font-size:11px;color:#5d6d79;margin-top:9px;line-height:1.5">The bot joins as a participant, streams per-speaker audio and scores it in real time.</div>
+            </div>
+            <div style="border:1px solid #161e25;border-radius:14px;background:#0d1319;padding:18px 20px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                <div style="font-size:11px;color:#8a99a5;letter-spacing:.09em;font-weight:700">VOICEPRINT ENROLLMENT</div>
+                <span style="font-size:11px;color:#5d6d79;font-family:'IBM Plex Mono',monospace">{{ enrolledCount }} enrolled</span>
+              </div>
+              <div style="display:flex;gap:8px;margin-bottom:12px">
+                <select onChange="{{ setEnrollPick }}" style="flex:1;min-width:0;padding:9px 12px;border-radius:9px;border:1px solid #1e2830;background:#0a0e12;color:#8a99a5;font:400 12px 'Sora',sans-serif;outline:none;cursor:pointer">
+                  <option value="">Select speaker from captures…</option>
+                  <option value="Derek_G">Derek_G</option>
+                  <option value="M_Alvarez">M_Alvarez</option>
+                  <option value="J_Whitfield">J_Whitfield</option>
+                </select>
+                <button onClick="{{ enroll }}" style="padding:9px 14px;border-radius:9px;border:1px solid rgba(46,229,132,.35);background:rgba(46,229,132,.08);color:#2ee584;font:600 12px 'Sora',sans-serif;cursor:pointer;flex-shrink:0" style-hover="background:rgba(46,229,132,.14)">Enroll</button>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:6px">
+                <sc-for list="{{ enrolledList }}" as="e" hint-placeholder-count="2">
+                  <span style="display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border-radius:8px;background:#0a0e12;border:1px solid #1e2830;font-size:11.5px">
+                    <span style="width:6px;height:6px;border-radius:50%;background:#2ee584"></span>
+                    <span style="font-family:'IBM Plex Mono',monospace;color:#c7d2da">{{ e.name }}</span>
+                    <span onClick="{{ e.remove }}" style="color:#5d6d79;cursor:pointer;font-size:13px;line-height:1" style-hover="color:#ff4d5e">×</span>
+                  </span>
+                </sc-for>
+              </div>
+            </div>
+            <div style="border:1px solid #161e25;border-radius:14px;background:#0d1319;padding:18px 20px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                <div style="font-size:11px;color:#8a99a5;letter-spacing:.09em;font-weight:700">RECENT CAPTURES</div>
+                <span onClick="{{ goCapturesLink }}" style="font-size:11.5px;color:#2ee584;cursor:pointer;font-weight:600" style-hover="color:#6ff0ab">View all</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <sc-for list="{{ recentCaptures }}" as="c" hint-placeholder-count="2">
+                  <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-radius:9px;background:#0a0e12;border:1px solid #161e25">
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#c7d2da">{{ c.spk }}</span>
+                    <span style="font-size:10.5px;color:#5d6d79;font-family:'IBM Plex Mono',monospace">{{ c.meta }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isCaptures }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:24px 28px;display:flex;flex-direction:column;gap:12px;max-width:860px">
+        <div style="font-size:12px;color:#5d6d79;margin-bottom:4px">{{ sessionCount }} sessions · every scored window is retained with its verdict for the forensic log.</div>
+        <sc-for list="{{ sessions }}" as="g" hint-placeholder-count="3">
+          <div style="border:1px solid #161e25;border-radius:13px;background:#0d1319;overflow:hidden">
+            <div onClick="{{ g.toggle }}" style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;cursor:pointer" style-hover="background:#111820">
+              <div style="display:flex;align-items:center;gap:11px">
+                <span style="color:#5d6d79;font-size:10px;transform:{{ g.caret }};transition:transform .15s;display:inline-block">▶</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:#e8eef2">{{ g.spk }}</span>
+                <span style="font-size:12px;color:#5d6d79">{{ g.time }}</span>
+              </div>
+              <span style="font-size:11.5px;color:#5d6d79;font-family:'IBM Plex Mono',monospace">{{ g.meta }}</span>
+            </div>
+            <sc-if value="{{ g.open }}" hint-placeholder-val="{{ false }}">
+              <div style="border-top:1px solid #161e25">
+                <sc-for list="{{ g.clips }}" as="cl" hint-placeholder-count="3">
+                  <div style="display:flex;align-items:center;gap:12px;padding:10px 18px;border-top:1px solid #10161c">
+                    <button onClick="{{ cl.play }}" style="width:26px;height:26px;border-radius:50%;border:1px solid #1e2830;background:#111820;color:{{ cl.playColor }};cursor:pointer;font-size:9px;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0" style-hover="border-color:#2ee584;color:#2ee584">{{ cl.playIcon }}</button>
+                    <span style="flex:1;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#8a99a5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ cl.name }}</span>
+                    <span style="font-size:10px;font-weight:800;letter-spacing:.05em;padding:3px 8px;border-radius:5px;background:{{ cl.vBg }};color:{{ cl.vColor }}">{{ cl.verdict }}</span>
+                    <span style="font-size:11px;color:#5d6d79;font-family:'IBM Plex Mono',monospace;flex-shrink:0">{{ cl.dur }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isHistory }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:24px 28px;display:flex;flex-direction:column;gap:14px;max-width:960px">
+        <div style="display:flex;gap:8px">
+          <sc-for list="{{ histFilters }}" as="f" hint-placeholder-count="3">
+            <span onClick="{{ f.go }}" style="padding:7px 15px;border-radius:999px;border:1px solid {{ f.border }};background:{{ f.bg }};color:{{ f.color }};font-size:12px;font-weight:600;cursor:pointer" style-hover="border-color:#2ee584">{{ f.label }}</span>
+          </sc-for>
+        </div>
+        <div style="border:1px solid #161e25;border-radius:14px;background:#0d1319;overflow:hidden">
+          <div style="display:grid;grid-template-columns:1fr 130px 90px 110px 120px;gap:12px;padding:12px 20px;border-bottom:1px solid #161e25;font-size:10px;color:#5d6d79;letter-spacing:.08em;font-weight:700">
+            <span>MEETING</span><span>DATE</span><span>SPEAKERS</span><span>PEAK RISK</span><span>OUTCOME</span>
+          </div>
+          <sc-for list="{{ history }}" as="h" hint-placeholder-count="5">
+            <div style="display:grid;grid-template-columns:1fr 130px 90px 110px 120px;gap:12px;align-items:center;padding:14px 20px;border-bottom:1px solid #10161c;cursor:pointer" style-hover="background:#111820">
+              <div style="min-width:0">
+                <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ h.title }}</div>
+                <div style="font-size:10.5px;color:#5d6d79;margin-top:2px">{{ h.sub }}</div>
+              </div>
+              <span style="font-size:11.5px;color:#8a99a5;font-family:'IBM Plex Mono',monospace">{{ h.date }}</span>
+              <span style="font-size:11.5px;color:#8a99a5;font-family:'IBM Plex Mono',monospace">{{ h.speakers }}</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:600;color:{{ h.riskColor }}">{{ h.risk }}%</span>
+              <span style="font-size:9.5px;font-weight:800;letter-spacing:.05em;padding:4px 10px;border-radius:6px;background:{{ h.badgeBg }};color:{{ h.badgeColor }};text-align:center">{{ h.outcome }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="font-size:11.5px;color:#5d6d79">Incident meetings carry a full forensic log — <a href="Sonave Forensic Report.dc.html">see the exportable report</a>.</div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isLab }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:24px 28px;display:flex;flex-direction:column;gap:18px;max-width:1100px">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">
+          <div style="border:1px solid #161e25;border-radius:13px;padding:16px 18px;background:#0d1319">
+            <div style="font-size:22px;font-weight:800;font-family:'IBM Plex Mono',monospace;color:#2ee584">91%</div>
+            <div style="font-size:11px;color:#5d6d79;margin-top:4px;line-height:1.5">catch on 27 unseen commercial tools (commodity ~2%)</div>
+          </div>
+          <div style="border:1px solid #161e25;border-radius:13px;padding:16px 18px;background:#0d1319">
+            <div style="font-size:22px;font-weight:800;font-family:'IBM Plex Mono',monospace;color:#2ee584">7.5%</div>
+            <div style="font-size:11px;color:#5d6d79;margin-top:4px;line-height:1.5">unseen-generator EER, clean audio</div>
+          </div>
+          <div style="border:1px solid #161e25;border-radius:13px;padding:16px 18px;background:#0d1319">
+            <div style="font-size:22px;font-weight:800;font-family:'IBM Plex Mono',monospace;color:#2ee584">96%</div>
+            <div style="font-size:11px;color:#5d6d79;margin-top:4px;line-height:1.5">real-voice accuracy through Google Meet Opus</div>
+          </div>
+          <div style="border:1px solid #161e25;border-radius:13px;padding:16px 18px;background:#0d1319">
+            <div style="font-size:22px;font-weight:800;font-family:'IBM Plex Mono',monospace;color:#e8eef2">~100<span style="font-size:12px;color:#5d6d79"> ms</span></div>
+            <div style="font-size:11px;color:#5d6d79;margin-top:4px;line-height:1.5">GPU inference per 4 s window</div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start">
+          <div style="border:1px solid #161e25;border-radius:14px;background:#0d1319;overflow:hidden">
+            <div style="padding:14px 20px;border-bottom:1px solid #161e25;font-size:11px;color:#8a99a5;letter-spacing:.09em;font-weight:700">MODEL REGISTRY</div>
+            <div style="padding:14px 20px;display:flex;flex-direction:column;gap:10px">
+              <sc-for list="{{ models }}" as="m" hint-placeholder-count="3">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-radius:10px;background:#0a0e12;border:1px solid {{ m.border }}">
+                  <div>
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:600;color:#e8eef2">{{ m.name }}</div>
+                    <div style="font-size:10.5px;color:#5d6d79;margin-top:3px">{{ m.desc }}</div>
+                  </div>
+                  <span style="font-size:9.5px;font-weight:800;letter-spacing:.06em;padding:4px 9px;border-radius:6px;background:{{ m.tagBg }};color:{{ m.tagColor }};flex-shrink:0">{{ m.tag }}</span>
+                </div>
+              </sc-for>
+              <div style="display:flex;gap:8px;margin-top:4px">
+                <input placeholder="Load from HuggingFace — org/model" style="flex:1;min-width:0;padding:9px 13px;border-radius:9px;border:1px solid #1e2830;background:#0a0e12;color:#e8eef2;font:400 12px 'Sora',sans-serif;outline:none" style-focus="border-color:#2ee584">
+                <button onClick="{{ loadModel }}" style="padding:9px 15px;border-radius:9px;border:1px solid #1e2830;background:#111820;color:#c7d2da;font:600 12px 'Sora',sans-serif;cursor:pointer" style-hover="border-color:#2ee584;color:#2ee584">Load</button>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:18px">
+            <div style="border:1px solid #161e25;border-radius:14px;background:#0d1319;overflow:hidden">
+              <div style="padding:14px 20px;border-bottom:1px solid #161e25;display:flex;align-items:center;justify-content:space-between">
+                <span style="font-size:11px;color:#8a99a5;letter-spacing:.09em;font-weight:700">WEEKLY TRAINING</span>
+                <span style="font-size:11px;color:#5d6d79;font-family:'IBM Plex Mono',monospace">last run Aug 9, 2026</span>
+              </div>
+              <div style="padding:16px 20px;display:flex;flex-direction:column;gap:12px">
+                <div style="display:flex;align-items:baseline;justify-content:space-between">
+                  <span style="font-size:11.5px;color:#8a99a5">Validation accuracy</span>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;color:#2ee584">91.2%</span>
+                </div>
+                <div style="height:6px;background:#131b22;border-radius:3px;overflow:hidden"><div style="height:100%;width:91.2%;background:#2ee584;border-radius:3px"></div></div>
+                <div style="display:flex;gap:8px">
+                  <select style="flex:1;padding:9px 12px;border-radius:9px;border:1px solid #1e2830;background:#0a0e12;color:#8a99a5;font:400 12px 'Sora',sans-serif;outline:none;cursor:pointer">
+                    <option>Weekly (Sundays)</option><option>Daily</option><option>Manual only</option>
+                  </select>
+                  <select style="flex:1;padding:9px 12px;border-radius:9px;border:1px solid #1e2830;background:#0a0e12;color:#8a99a5;font:400 12px 'Sora',sans-serif;outline:none;cursor:pointer">
+                    <option>All captures</option><option>Last 30 days</option><option>Labeled only</option>
+                  </select>
+                </div>
+                <button onClick="{{ queueTraining }}" style="padding:10px;border-radius:9px;border:0;background:#2ee584;color:#06130b;font:700 12.5px 'Sora',sans-serif;cursor:pointer" style-hover="background:#4deda0">Queue training run</button>
+              </div>
+            </div>
+            <div style="border:1px solid #161e25;border-radius:14px;background:#0d1319;overflow:hidden">
+              <div style="padding:14px 20px;border-bottom:1px solid #161e25;font-size:11px;color:#8a99a5;letter-spacing:.09em;font-weight:700">RED-TEAM VOICE GENERATOR</div>
+              <div style="padding:16px 20px;display:flex;flex-direction:column;gap:10px">
+                <div style="font-size:11.5px;color:#5d6d79;line-height:1.6">Generate synthetic clips to probe detector sensitivity. Output is labeled <b style="color:#ff8a95">fake</b> and added to the training pool.</div>
+                <div style="display:flex;gap:8px">
+                  <input placeholder="Text to synthesize" style="flex:1;min-width:0;padding:9px 13px;border-radius:9px;border:1px solid #1e2830;background:#0a0e12;color:#e8eef2;font:400 12px 'Sora',sans-serif;outline:none" style-focus="border-color:#2ee584">
+                  <button onClick="{{ genTts }}" style="padding:9px 15px;border-radius:9px;border:1px solid #1e2830;background:#111820;color:#c7d2da;font:600 12px 'Sora',sans-serif;cursor:pointer;flex-shrink:0" style-hover="border-color:#2ee584;color:#2ee584">Generate</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ toastShow }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;bottom:22px;right:22px;padding:12px 18px;border-radius:11px;background:#111820;border:1px solid {{ toastBorder }};color:#e8eef2;font-size:12.5px;box-shadow:0 10px 30px rgba(0,0,0,.5);z-index:100">{{ toastText }}</div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;scenario&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;default&quot;: &quot;deepfake attack&quot;, &quot;options&quot;: [&quot;deepfake attack&quot;, &quot;clean call&quot;], &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Simulation&quot;}}">
+class Component extends DCLogic {
+  state = {
+    view: 'monitor', live: false, tick: 0, windows: 0, meetUrl: '', enrollPick: '',
+    enrolled: ['Derek_G', 'M_Alvarez'],
+    incident: null, incidentAcked: false,
+    toast: null, playing: null, clockNow: new Date(),
+    openSess: { 0: true },
+    speakers: []
+  };
+  componentDidMount() { this._clk = setInterval(() => this.setState({ clockNow: new Date() }), 1000); }
+  componentWillUnmount() { clearInterval(this._clk); clearInterval(this._t); clearTimeout(this._toastT); }
+  toast(text, err) {
+    clearTimeout(this._toastT);
+    this.setState({ toast: { text, err: !!err } });
+    this._toastT = setTimeout(() => this.setState({ toast: null }), 3200);
+  }
+  startLive() {
+    if (this.state.live) return;
+    const mk = (name, sub, base, enrolled) => ({ name, sub, base, p: base, enrolled, hist: [], speech: 20 + Math.round(Math.random() * 40), sec: 0, clips: 0 });
+    const speakers = [
+      mk('Derek Gallardo', 'Host · approver', 0.05, true),
+      mk('M. Alvarez', 'CFO · enrolled', 0.08, true),
+      mk('J. Whitfield', 'Counterparty', 0.16, false),
+      mk('Unknown caller', 'Joined by phone', 0.22, false)
+    ];
+    this.setState({ live: true, tick: 0, windows: 0, incident: null, incidentAcked: false, speakers });
+    this._t = setInterval(() => this.step(), 1200);
+  }
+  stopLive() { clearInterval(this._t); this.setState({ live: false, incident: null, speakers: [] }); }
+  step() {
+    const attack = (this.props.scenario ?? 'deepfake attack') === 'deepfake attack';
+    this.setState(st => {
+      const tick = st.tick + 1;
+      const speakers = st.speakers.map((s, i) => {
+        let target = s.base;
+        if (attack && i === 3) target = Math.min(0.86, 0.22 + Math.max(0, tick - 8) * 0.055);
+        const p = Math.max(0.01, Math.min(0.97, target + (Math.random() - 0.5) * 0.07));
+        const hist = s.hist.concat(p).slice(-22);
+        return { ...s, p, hist, sec: s.sec + 1.2, clips: Math.floor((s.sec + 1.2) / 8), speech: Math.max(8, Math.min(70, s.speech + Math.round((Math.random() - 0.5) * 6))) };
+      });
+      let incident = st.incident;
+      if (!incident && !st.incidentAcked) {
+        const bad = speakers.find(s => s.p >= 0.7);
+        if (bad) incident = { speaker: bad.name, risk: Math.round(bad.p * 100) };
+      }
+      if (incident) { const bad = speakers.find(s => s.name === incident.speaker); if (bad) incident = { ...incident, risk: Math.round(bad.p * 100) }; }
+      return { tick, speakers, incident, windows: st.windows + speakers.filter(s => s.speech > 10).length };
+    });
+  }
+  vcolor(p) { return p >= 0.7 ? '#ff4d5e' : p >= 0.4 ? '#ffb224' : '#2ee584'; }
+  vname(p) { return p >= 0.7 ? 'FAKE' : p >= 0.4 ? 'SUSPECT' : 'REAL'; }
+  fmt(sec) { const m = Math.floor(sec / 60), s = Math.round(sec % 60); return m ? m + 'm ' + (s < 10 ? '0' : '') + s + 's' : s + 's'; }
+  renderVals() {
+    const st = this.state, v = st.view;
+    const go = view => () => this.setState({ view });
+    const nav = [
+      { label: 'Live Monitor', icon: '◉', view: 'monitor' },
+      { label: 'Captures', icon: '≣', view: 'captures' },
+      { label: 'History', icon: '◷', view: 'history' },
+      { label: 'Model Lab', icon: '⬡', view: 'lab' }
+    ].map(n => ({ ...n, go: go(n.view), bg: v === n.view ? '#131b22' : 'transparent', color: v === n.view ? '#e8eef2' : '#8a99a5', weight: v === n.view ? 700 : 500 }));
+
+    const speakers = st.speakers.map(s => {
+      const p = s.p, c = this.vcolor(p), badge = this.vname(p);
+      const bars = s.hist.map(h => ({ h: Math.max(6, Math.round(h * 100)), c: this.vcolor(h) }));
+      while (bars.length < 22) bars.unshift({ h: 4, c: '#1e2830' });
+      return {
+        name: s.name, sub: s.sub, initial: s.name.charAt(0),
+        badge, color: c, pct: Math.round(p * 100),
+        badgeBg: badge === 'REAL' ? 'rgba(46,229,132,.1)' : badge === 'FAKE' ? 'rgba(255,77,94,.12)' : 'rgba(255,178,36,.1)',
+        badgeColor: c, badgeBorder: badge === 'REAL' ? 'rgba(46,229,132,.25)' : badge === 'FAKE' ? 'rgba(255,77,94,.35)' : 'rgba(255,178,36,.25)',
+        cardBorder: badge === 'FAKE' ? 'rgba(255,77,94,.45)' : '#161e25',
+        cardAnim: badge === 'FAKE' ? 'redPulse 1.6s infinite' : 'none',
+        bars, speech: s.speech, dur: this.fmt(s.sec), clips: s.clips,
+        match: s.enrolled ? 94 + (Math.round(s.p * 100) % 5) : 0
+      };
+    });
+    const maxP = st.speakers.length ? Math.max(...st.speakers.map(s => s.p)) : 0;
+    const roomVerdict = st.live ? this.vname(maxP) : '—';
+
+    const clipData = (spk, n, base) => Array.from({ length: n }, (_, i) => {
+      const p = Math.max(0.02, Math.min(0.95, base + Math.sin(i * 2.7) * 0.12));
+      const verdict = this.vname(p);
+      const name = 'meet_' + spk + '_1755024' + (300 + i * 17) + '_' + String(i + 1).padStart(3, '0') + '.wav';
+      return {
+        name, verdict, dur: (18 + (i * 13) % 40) + 's',
+        vColor: this.vcolor(p),
+        vBg: verdict === 'REAL' ? 'rgba(46,229,132,.1)' : verdict === 'FAKE' ? 'rgba(255,77,94,.12)' : 'rgba(255,178,36,.1)',
+        play: () => this.setState(s2 => ({ playing: s2.playing === name ? null : name })),
+        playIcon: st.playing === name ? '❚❚' : '▶',
+        playColor: st.playing === name ? '#2ee584' : '#8a99a5'
+      };
+    });
+    const sessRaw = [
+      { spk: 'Derek_G', time: 'Today · 2:41 PM', clips: clipData('Derek_G', 5, 0.08), meta: '5 clips · 6.2 MB · 3m 10s' },
+      { spk: 'Unknown_caller', time: 'Today · 2:41 PM', clips: clipData('Unknown_caller', 4, 0.68), meta: '4 clips · 4.8 MB · 2m 30s' },
+      { spk: 'M_Alvarez', time: 'Yesterday · 11:05 AM', clips: clipData('M_Alvarez', 6, 0.11), meta: '6 clips · 7.9 MB · 4m 02s' },
+      { spk: 'J_Whitfield', time: 'Aug 10 · 4:18 PM', clips: clipData('J_Whitfield', 3, 0.3), meta: '3 clips · 3.1 MB · 1m 44s' }
+    ];
+    const sessions = sessRaw.map((g, i) => ({
+      ...g, open: !!st.openSess[i], caret: st.openSess[i] ? 'rotate(90deg)' : 'rotate(0deg)',
+      toggle: () => this.setState(s2 => ({ openSess: { ...s2.openSess, [i]: !s2.openSess[i] } }))
+    }));
+
+    const models = [
+      { name: 'sonave-xlsr-meet', desc: 'XLS-R-300M + SLS head · τ 0.40 / 0.70 · Meet-domain fine-tune', tag: 'PRODUCTION', tagBg: 'rgba(46,229,132,.1)', tagColor: '#2ee584', border: 'rgba(46,229,132,.3)' },
+      { name: 'sonave-xlsr-rw', desc: '87-generator diverse fine-tune · higher cross-source catch', tag: 'CANDIDATE', tagBg: 'rgba(255,178,36,.1)', tagColor: '#ffb224', border: '#161e25' },
+      { name: 'wav2vec2-ASV', desc: 'Commodity baseline · ~2% catch on modern tools', tag: 'LEGACY', tagBg: '#131b22', tagColor: '#5d6d79', border: '#161e25' }
+    ];
+
+    const h = st.clockNow.getHours() % 12 || 12, mm = String(st.clockNow.getMinutes()).padStart(2, '0'), ss = String(st.clockNow.getSeconds()).padStart(2, '0');
+    return {
+      nav,
+      isMonitor: v === 'monitor', isCaptures: v === 'captures', isLab: v === 'lab', isHistory: v === 'history',
+      viewTitle: v === 'monitor' ? 'Live Monitor' : v === 'captures' ? 'Captures & Forensic Log' : v === 'history' ? 'Meeting History' : 'Model Lab',
+      histFilters: ['All', 'Incidents', 'Clear'].map(label => ({
+        label, go: () => this.setState({ histFilter: label }),
+        bg: (st.histFilter || 'All') === label ? 'rgba(46,229,132,.1)' : 'transparent',
+        border: (st.histFilter || 'All') === label ? 'rgba(46,229,132,.35)' : '#1e2830',
+        color: (st.histFilter || 'All') === label ? '#2ee584' : '#8a99a5'
+      })),
+      history: [
+        { title: 'Wire approval — Q3 counterparty settlement', sub: 'Google Meet · 31 min · wire-hold webhook fired', date: 'Aug 12, 2:41 PM', speakers: 4, risk: 86, outcome: 'WIRE HELD' },
+        { title: 'Vendor payment authorization — Meridian LLC', sub: 'Zoom · 18 min', date: 'Aug 11, 10:02 AM', speakers: 3, risk: 12, outcome: 'CLEAR' },
+        { title: 'Treasury ops weekly sync', sub: 'Google Meet · 44 min', date: 'Aug 10, 3:00 PM', speakers: 6, risk: 9, outcome: 'CLEAR' },
+        { title: 'Escrow release call — Hartwell acquisition', sub: 'Teams · 26 min · suspect band, resolved on re-auth', date: 'Aug 8, 1:15 PM', speakers: 5, risk: 58, outcome: 'INCIDENT' },
+        { title: 'FX settlement approval — APAC desk', sub: 'Google Meet · 12 min', date: 'Aug 7, 8:30 AM', speakers: 3, risk: 15, outcome: 'CLEAR' },
+        { title: 'Loan disbursement verification', sub: 'Zoom · 22 min', date: 'Aug 5, 4:45 PM', speakers: 4, risk: 11, outcome: 'CLEAR' }
+      ].filter(hh => {
+        const f = st.histFilter || 'All';
+        return f === 'All' || (f === 'Incidents' ? hh.outcome !== 'CLEAR' : hh.outcome === 'CLEAR');
+      }).map(hh => ({
+        ...hh,
+        riskColor: this.vcolor(hh.risk / 100),
+        badgeBg: hh.outcome === 'CLEAR' ? 'rgba(46,229,132,.1)' : hh.outcome === 'WIRE HELD' ? 'rgba(255,77,94,.12)' : 'rgba(255,178,36,.1)',
+        badgeColor: hh.outcome === 'CLEAR' ? '#2ee584' : hh.outcome === 'WIRE HELD' ? '#ff4d5e' : '#ffb224'
+      })),
+      clock: h + ':' + mm + ':' + ss + (st.clockNow.getHours() < 12 ? ' AM' : ' PM'),
+      live: st.live, idle: !st.live,
+      demoLabel: st.live ? 'End simulation' : 'Simulate call',
+      toggleDemo: () => st.live ? this.stopLive() : this.startLive(),
+      statusDot: st.live ? '#2ee584' : '#5d6d79',
+      statusAnim: st.live ? 'livePulse 2s infinite' : 'none',
+      statusText: st.live ? st.speakers.length + ' speakers monitoring' : 'idle · scale-to-zero',
+      updateNote: st.live ? 'updating · 1.2s' : 'standby',
+      speakers,
+      idleBars: [30, 55, 80, 45, 95, 60, 35, 70, 25].map(x => ({ h: x })),
+      roomVerdict, roomColor: st.live ? this.vcolor(maxP) : '#5d6d79', roomRisk: Math.round(maxP * 100),
+      liveCount: st.speakers.length, enrolledCount: st.enrolled.length,
+      windowsScored: st.windows.toLocaleString(), latency: 94 + (st.tick % 4) * 3,
+      incidentOpen: !!st.incident, incidentSpeaker: st.incident ? st.incident.speaker : '', incidentRisk: st.incident ? st.incident.risk : 0,
+      ackIncident: () => { this.setState({ incident: null, incidentAcked: true }); this.toast('Incident acknowledged — logged to forensic trail.'); },
+      exportReport: () => this.toast('Forensic report exported (PDF) — scores, timestamps, snippets.'),
+      meetUrl: st.meetUrl, setMeetUrl: e => this.setState({ meetUrl: e.target.value }),
+      deployBot: () => {
+        if (!st.meetUrl.trim()) { this.toast('Paste a meeting link first.', true); return; }
+        this.toast('✓ Bot deployed — joining meeting…'); this.setState({ meetUrl: '' }); setTimeout(() => this.startLive(), 900);
+      },
+      setEnrollPick: e => this.setState({ enrollPick: e.target.value }),
+      enroll: () => {
+        const p = this.state.enrollPick;
+        if (!p) { this.toast('Select a speaker first.', true); return; }
+        if (this.state.enrolled.includes(p)) { this.toast(p + ' is already enrolled.', true); return; }
+        this.setState(s2 => ({ enrolled: s2.enrolled.concat(p) })); this.toast('✓ Voiceprint enrolled: ' + p);
+      },
+      enrolledList: st.enrolled.map(name => ({ name, remove: () => { this.setState(s2 => ({ enrolled: s2.enrolled.filter(x => x !== name) })); this.toast('Removed enrollment: ' + name); } })),
+      recentCaptures: [{ spk: 'Derek_G', meta: '5 clips · 2:41 PM' }, { spk: 'Unknown_caller', meta: '4 clips · 2:41 PM' }],
+      goCapturesLink: go('captures'),
+      sessions, sessionCount: sessions.length,
+      models,
+      loadModel: () => this.toast('Downloading model from HuggingFace…'),
+      queueTraining: () => this.toast('✓ Training queued — you will be notified on completion.'),
+      genTts: () => this.toast('✓ Clip generated — labeled fake, added to training pool.'),
+      toastShow: !!st.toast, toastText: st.toast ? st.toast.text : '',
+      toastBorder: st.toast && st.toast.err ? 'rgba(255,77,94,.4)' : 'rgba(46,229,132,.35)'
+    };
+  }
+}
+</script>
+</body>
+</html>

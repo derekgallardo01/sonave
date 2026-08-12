@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0a0e12;color:#e8eef2;font-family:'Sora',sans-serif}
+a{color:#2ee584;text-decoration:none}a:hover{color:#6ff0ab}
+@keyframes wave{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1)}}
+</style>
+</helmet>
+<div style="min-height:100vh;background:#0a0e12">
+  <div style="max-width:1080px;margin:0 auto;padding:0 28px">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:22px 0">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#2ee584,#0d9e56);display:flex;align-items:center;justify-content:center">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 8h1.5M5 4.5v7M8 2v12M11 4.5v7M14 8h-1.5" stroke="#06130b" stroke-width="1.8" stroke-linecap="round"></path></svg>
+        </div>
+        <span style="font-size:16px;font-weight:700">Sonave</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:22px;font-size:13px;color:#8a99a5">
+        <span>How it works</span><span>Results</span>
+        <a href="Sonave Console.dc.html" style="padding:8px 16px;border-radius:8px;background:#2ee584;color:#06130b;font-weight:700;font-size:12.5px" style-hover="background:#4deda0">Open console</a>
+      </div>
+    </div>
+
+    <div style="padding:84px 0 70px;max-width:720px">
+      <div style="display:inline-flex;align-items:center;gap:8px;padding:6px 13px;border-radius:999px;border:1px solid rgba(46,229,132,.3);background:rgba(46,229,132,.06);font-size:11.5px;color:#2ee584;font-weight:600;margin-bottom:26px">
+        <span style="width:6px;height:6px;border-radius:50%;background:#2ee584"></span>Live on Google Meet, Zoom &amp; Teams
+      </div>
+      <div style="font-size:52px;font-weight:800;letter-spacing:-.03em;line-height:1.08;text-wrap:balance">Catch cloned voices on the calls that move money.</div>
+      <div style="font-size:17px;color:#8a99a5;line-height:1.65;margin-top:22px;max-width:600px;text-wrap:pretty">Real-time deepfake-voice detection for video meetings — engineered to work on the compressed, processed audio real calls actually produce. Every speaker gets a live <b style="color:#2ee584">REAL</b> / <b style="color:#ffb224">SUSPECT</b> / <b style="color:#ff4d5e">FAKE</b> verdict, and a wire hold fires before the fraud clears.</div>
+      <div style="display:flex;gap:12px;margin-top:32px">
+        <a href="Sonave Console.dc.html" style="padding:13px 24px;border-radius:10px;background:#2ee584;color:#06130b;font-weight:700;font-size:14px" style-hover="background:#4deda0">See the live console</a>
+        <span style="padding:13px 24px;border-radius:10px;border:1px solid #1e2830;color:#c7d2da;font-weight:600;font-size:14px;cursor:pointer" style-hover="border-color:#2ee584;color:#2ee584">Talk to us</span>
+      </div>
+    </div>
+
+    <div style="border:1px solid #161e25;border-radius:16px;background:#0d1319;padding:26px 30px;display:grid;grid-template-columns:repeat(4,1fr);gap:24px">
+      <div>
+        <div style="font-size:30px;font-weight:800;font-family:'IBM Plex Mono',monospace;color:#2ee584">91%</div>
+        <div style="font-size:12px;color:#5d6d79;line-height:1.55;margin-top:6px">catch rate on 27 unseen commercial voice-clone tools</div>
+      </div>
+      <div>
+        <div style="font-size:30px;font-weight:800;font-family:'IBM Plex Mono',monospace;color:#5d6d79">~2%</div>
+        <div style="font-size:12px;color:#5d6d79;line-height:1.55;margin-top:6px">what commodity detectors catch on the same fakes</div>
+      </div>
+      <div>
+        <div style="font-size:30px;font-weight:800;font-family:'IBM Plex Mono',monospace;color:#2ee584">96%</div>
+        <div style="font-size:12px;color:#5d6d79;line-height:1.55;margin-top:6px">real-voice accuracy through Google Meet's Opus codec</div>
+      </div>
+      <div>
+        <div style="font-size:30px;font-weight:800;font-family:'IBM Plex Mono',monospace;color:#e8eef2">&lt;1s</div>
+        <div style="font-size:12px;color:#5d6d79;line-height:1.55;margin-top:6px">from spoken word to verdict — ~100 ms GPU inference per window</div>
+      </div>
+    </div>
+
+    <div style="padding:90px 0 20px">
+      <div style="font-size:11px;color:#2ee584;letter-spacing:.12em;font-weight:700;margin-bottom:14px">HOW IT WORKS</div>
+      <div style="font-size:30px;font-weight:800;letter-spacing:-.02em;max-width:520px;line-height:1.2">A bot joins. Every voice is scored. Suspicion holds the wire.</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:40px">
+        <div style="border:1px solid #161e25;border-radius:14px;background:#0d1319;padding:24px">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#2ee584;margin-bottom:14px">01</div>
+          <div style="font-size:16px;font-weight:700;margin-bottom:10px">Capture</div>
+          <div style="font-size:13px;color:#8a99a5;line-height:1.65">A meeting bot joins the call as a participant and streams per-speaker audio out — no plugins, no installs for anyone on the call.</div>
+        </div>
+        <div style="border:1px solid #161e25;border-radius:14px;background:#0d1319;padding:24px">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#2ee584;margin-bottom:14px">02</div>
+          <div style="font-size:16px;font-weight:700;margin-bottom:10px">Detect</div>
+          <div style="font-size:13px;color:#8a99a5;line-height:1.65">A fine-tuned XLS-R detector scores 4-second windows of each speaker's voice, trained on real meeting-codec audio — not lab recordings.</div>
+        </div>
+        <div style="border:1px solid #161e25;border-radius:14px;background:#0d1319;padding:24px">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#2ee584;margin-bottom:14px">03</div>
+          <div style="font-size:16px;font-weight:700;margin-bottom:10px">Act</div>
+          <div style="font-size:13px;color:#8a99a5;line-height:1.65">Rolling per-speaker verdicts drive live badges, alerts, and a webhook that can hold a wire transfer pending re-authentication.</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="padding:70px 0">
+      <div style="border:1px solid #161e25;border-radius:16px;background:#0d1319;padding:34px;display:grid;grid-template-columns:1fr 380px;gap:40px;align-items:center">
+        <div>
+          <div style="font-size:11px;color:#2ee584;letter-spacing:.12em;font-weight:700;margin-bottom:14px">BUILT FOR WIRE-FRAUD DESKS</div>
+          <div style="font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1.25;text-wrap:balance">When a deepfaked CEO asks for $2M, the verdict is on screen before the approval.</div>
+          <div style="font-size:14px;color:#8a99a5;line-height:1.7;margin-top:16px;text-wrap:pretty">Every scored window lands in an immutable forensic log — score, verdict, timestamp, audio snippet — with a one-click exportable report per meeting. Voiceprint enrollment adds a second factor: is this even the executive's voice?</div>
+        </div>
+        <div style="border:1px solid rgba(255,77,94,.35);border-radius:13px;background:#0a0e12;padding:20px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:10px">
+              <div style="width:32px;height:32px;border-radius:50%;background:#131b22;border:1px solid #1e2830;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#8a99a5">U</div>
+              <div>
+                <div style="font-size:13.5px;font-weight:700">Unknown caller</div>
+                <div style="font-size:10.5px;color:#5d6d79">Joined by phone</div>
+              </div>
+            </div>
+            <span style="font-size:10px;font-weight:800;letter-spacing:.05em;padding:4px 10px;border-radius:6px;background:rgba(255,77,94,.12);color:#ff4d5e;border:1px solid rgba(255,77,94,.35)">FAKE</span>
+          </div>
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin-top:14px">
+            <span style="font-size:10px;color:#5d6d79;letter-spacing:.07em;font-weight:600">DEEPFAKE RISK</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:17px;font-weight:600;color:#ff4d5e">84%</span>
+          </div>
+          <div style="height:6px;background:#131b22;border-radius:3px;margin-top:6px;overflow:hidden"><div style="height:100%;width:84%;background:#ff4d5e;border-radius:3px"></div></div>
+          <div style="display:flex;align-items:flex-end;gap:2px;height:26px;margin-top:12px">
+            <sc-for list="{{ demoBars }}" as="b" hint-placeholder-count="10">
+              <div style="flex:1;border-radius:1.5px;min-height:2px;height:{{ b.h }}%;background:{{ b.c }}"></div>
+            </sc-for>
+          </div>
+          <div style="margin-top:14px;padding:10px 12px;border-radius:9px;background:rgba(255,77,94,.08);border:1px solid rgba(255,77,94,.25);font-size:11.5px;color:#ff8a95;font-weight:600">⛔ Wire hold triggered — re-authentication required</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="border-top:1px solid #161e25;padding:60px 0 80px;text-align:center">
+      <div style="font-size:28px;font-weight:800;letter-spacing:-.02em">Put a verdict on every voice.</div>
+      <div style="font-size:14px;color:#8a99a5;margin-top:10px">Fully hosted — no laptop in the loop. Design-partner slots open for finance teams.</div>
+      <div style="display:flex;gap:12px;justify-content:center;margin-top:26px">
+        <a href="Sonave Console.dc.html" style="padding:13px 26px;border-radius:10px;background:#2ee584;color:#06130b;font-weight:700;font-size:14px" style-hover="background:#4deda0">Open the console</a>
+      </div>
+      <div style="font-size:11.5px;color:#3d4a54;margin-top:50px;font-family:'IBM Plex Mono',monospace">Sonave · Voice Authenticity Engine</div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const bars = [12,18,30,26,44,58,52,70,78,84,80,88,74,82,90,86,78,84,88,92].map(h => ({ h, c: h >= 70 ? '#ff4d5e' : h >= 40 ? '#ffb224' : '#2ee584' }));
+    return { demoBars: bars };
+  }
+}
+</script>
+</body>
+</html>

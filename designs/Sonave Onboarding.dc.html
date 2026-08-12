@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0a0e12;color:#e8eef2;font-family:'Sora',sans-serif}
+a{color:#2ee584;text-decoration:none}a:hover{color:#6ff0ab}
+input[type=range]{accent-color:#2ee584}
+</style>
+</helmet>
+<div style="min-height:100vh;background:#0a0e12;display:flex">
+  <div style="width:300px;flex-shrink:0;border-right:1px solid #161e25;padding:34px 30px;display:flex;flex-direction:column;gap:4px;box-sizing:border-box">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:36px">
+      <div style="width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#2ee584,#0d9e56);display:flex;align-items:center;justify-content:center">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 8h1.5M5 4.5v7M8 2v12M11 4.5v7M14 8h-1.5" stroke="#06130b" stroke-width="1.8" stroke-linecap="round"></path></svg>
+      </div>
+      <div>
+        <div style="font-size:15px;font-weight:700">Sonave</div>
+        <div style="font-size:10px;color:#5d6d79;letter-spacing:.04em">WORKSPACE SETUP</div>
+      </div>
+    </div>
+    <sc-for list="{{ steps }}" as="s" hint-placeholder-count="4">
+      <div onClick="{{ s.go }}" style="display:flex;gap:13px;padding:13px 12px;border-radius:11px;cursor:pointer;background:{{ s.bg }}">
+        <div style="width:26px;height:26px;border-radius:50%;border:1.5px solid {{ s.circBorder }};background:{{ s.circBg }};color:{{ s.circInk }};display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:700;flex-shrink:0">{{ s.mark }}</div>
+        <div>
+          <div style="font-size:13px;font-weight:{{ s.weight }};color:{{ s.color }}">{{ s.title }}</div>
+          <div style="font-size:10.5px;color:#5d6d79;margin-top:2px;line-height:1.45">{{ s.sub }}</div>
+        </div>
+      </div>
+    </sc-for>
+    <div style="flex:1"></div>
+    <div style="font-size:11px;color:#3d4a54;line-height:1.6">Setup takes about 5 minutes. Nothing goes live until you deploy your first bot.</div>
+  </div>
+
+  <div style="flex:1;display:flex;align-items:flex-start;justify-content:center;padding:60px 40px;box-sizing:border-box">
+    <div style="width:100%;max-width:620px">
+
+      <sc-if value="{{ is1 }}" hint-placeholder-val="{{ true }}">
+        <div style="font-size:11px;color:#2ee584;letter-spacing:.12em;font-weight:700;margin-bottom:12px">STEP 1 OF 4</div>
+        <div style="font-size:28px;font-weight:800;letter-spacing:-.02em;line-height:1.15">Connect your calendar</div>
+        <div style="font-size:14px;color:#8a99a5;line-height:1.65;margin-top:12px">Sonave watches your calendar and auto-joins the meetings you flag for monitoring — bots only enter calls you choose.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:30px">
+          <div onClick="{{ pickGoogle }}" style="border:1px solid {{ googleBorder }};border-radius:14px;background:#0d1319;padding:24px;cursor:pointer" style-hover="border-color:#2ee584">
+            <div style="font-size:22px;margin-bottom:12px">📅</div>
+            <div style="font-size:15px;font-weight:700">Google Workspace</div>
+            <div style="font-size:12px;color:#5d6d79;margin-top:5px;line-height:1.55">Google Calendar + Meet. Best coverage — per-speaker audio.</div>
+            <sc-if value="{{ googlePicked }}" hint-placeholder-val="{{ false }}"><div style="margin-top:12px;font-size:11.5px;color:#2ee584;font-weight:700">✓ Selected</div></sc-if>
+          </div>
+          <div onClick="{{ pickMs }}" style="border:1px solid {{ msBorder }};border-radius:14px;background:#0d1319;padding:24px;cursor:pointer" style-hover="border-color:#2ee584">
+            <div style="font-size:22px;margin-bottom:12px">🗓</div>
+            <div style="font-size:15px;font-weight:700">Microsoft 365</div>
+            <div style="font-size:12px;color:#5d6d79;margin-top:5px;line-height:1.55">Outlook Calendar + Teams. Zoom links on either calendar work too.</div>
+            <sc-if value="{{ msPicked }}" hint-placeholder-val="{{ false }}"><div style="margin-top:12px;font-size:11.5px;color:#2ee584;font-weight:700">✓ Selected</div></sc-if>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ is2 }}" hint-placeholder-val="{{ false }}">
+        <div style="font-size:11px;color:#2ee584;letter-spacing:.12em;font-weight:700;margin-bottom:12px">STEP 2 OF 4</div>
+        <div style="font-size:28px;font-weight:800;letter-spacing:-.02em;line-height:1.15">Admin consent</div>
+        <div style="font-size:14px;color:#8a99a5;line-height:1.65;margin-top:12px">Sonave joins calls as a visible participant — everyone on the call sees it. Your Workspace admin enables third-party media access once, org-wide.</div>
+        <div style="border:1px solid #161e25;border-radius:14px;background:#0d1319;padding:22px 24px;margin-top:28px;display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;gap:13px">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#2ee584;flex-shrink:0">01</span>
+            <div style="font-size:13px;color:#c7d2da;line-height:1.6">In the Admin console, open <b>Apps → Google Workspace → Google Meet</b>.</div>
+          </div>
+          <div style="display:flex;gap:13px">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#2ee584;flex-shrink:0">02</span>
+            <div style="font-size:13px;color:#c7d2da;line-height:1.6">Enable <b>"Let third-party apps that join a Meet call use the audio and video of the call."</b></div>
+          </div>
+          <div style="display:flex;gap:13px">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#2ee584;flex-shrink:0">03</span>
+            <div style="font-size:13px;color:#c7d2da;line-height:1.6">Approve Sonave in the allowed-apps list. Changes can take up to 24 hours.</div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #161e25;padding-top:16px">
+            <div style="font-size:12px;color:#5d6d79">Not the admin?</div>
+            <button onClick="{{ sendAdmin }}" style="padding:8px 15px;border-radius:8px;border:1px solid #1e2830;background:#111820;color:#c7d2da;font:600 12px 'Sora',sans-serif;cursor:pointer" style-hover="border-color:#2ee584;color:#2ee584">Email these steps to your admin</button>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:18px;padding:13px 16px;border-radius:11px;border:1px solid rgba(46,229,132,.25);background:rgba(46,229,132,.05)">
+          <span style="font-size:14px">🛡</span>
+          <span style="font-size:12px;color:#8a99a5;line-height:1.55">Participants are always notified when Sonave is on a call, and any of them can turn it off. Consent is a feature, not friction.</span>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ is3 }}" hint-placeholder-val="{{ false }}">
+        <div style="font-size:11px;color:#2ee584;letter-spacing:.12em;font-weight:700;margin-bottom:12px">STEP 3 OF 4</div>
+        <div style="font-size:28px;font-weight:800;letter-spacing:-.02em;line-height:1.15">Set your detection policy</div>
+        <div style="font-size:14px;color:#8a99a5;line-height:1.65;margin-top:12px">How aggressively should Sonave flag? Catching more fakes means occasionally questioning a real voice — pick the tradeoff for your desk.</div>
+        <div style="display:flex;flex-direction:column;gap:12px;margin-top:28px">
+          <sc-for list="{{ policies }}" as="p" hint-placeholder-count="3">
+            <div onClick="{{ p.pick }}" style="border:1px solid {{ p.border }};border-radius:13px;background:#0d1319;padding:18px 20px;cursor:pointer;display:flex;align-items:center;gap:16px" style-hover="border-color:#2ee584">
+              <div style="width:18px;height:18px;border-radius:50%;border:2px solid {{ p.dotBorder }};background:{{ p.dotBg }};flex-shrink:0;box-sizing:border-box"></div>
+              <div style="flex:1">
+                <div style="font-size:14px;font-weight:700">{{ p.name }}</div>
+                <div style="font-size:12px;color:#5d6d79;margin-top:3px;line-height:1.5">{{ p.desc }}</div>
+              </div>
+              <div style="text-align:right;flex-shrink:0">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:#2ee584">{{ p.catch }}</div>
+                <div style="font-size:10px;color:#5d6d79;margin-top:2px">fake catch · {{ p.fa }} false alarms</div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="margin-top:20px;padding:14px 18px;border-radius:11px;border:1px solid #161e25;background:#0d1319;display:flex;align-items:center;justify-content:space-between">
+          <span style="font-size:12px;color:#8a99a5">Thresholds for this policy</span>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#e8eef2">suspect τ {{ tau1 }} · fake τ {{ tau2 }}</span>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ is4 }}" hint-placeholder-val="{{ false }}">
+        <div style="font-size:11px;color:#2ee584;letter-spacing:.12em;font-weight:700;margin-bottom:12px">STEP 4 OF 4</div>
+        <div style="font-size:28px;font-weight:800;letter-spacing:-.02em;line-height:1.15">Invite your team</div>
+        <div style="font-size:14px;color:#8a99a5;line-height:1.65;margin-top:12px">Approvers see live verdicts on their calls; compliance gets the forensic reports and incident alerts.</div>
+        <div style="display:flex;gap:8px;margin-top:28px">
+          <input value="{{ invite }}" onChange="{{ setInvite }}" placeholder="colleague@yourbank.com" style="flex:1;padding:11px 14px;border-radius:10px;border:1px solid #1e2830;background:#0d1319;color:#e8eef2;font:400 13px 'Sora',sans-serif;outline:none" style-focus="border-color:#2ee584">
+          <select onChange="{{ setRole }}" style="padding:11px 12px;border-radius:10px;border:1px solid #1e2830;background:#0d1319;color:#8a99a5;font:400 12.5px 'Sora',sans-serif;outline:none;cursor:pointer">
+            <option>Approver</option><option>Compliance</option><option>Admin</option>
+          </select>
+          <button onClick="{{ addInvite }}" style="padding:11px 18px;border-radius:10px;border:0;background:#2ee584;color:#06130b;font:700 13px 'Sora',sans-serif;cursor:pointer" style-hover="background:#4deda0">Invite</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:18px">
+          <sc-for list="{{ invites }}" as="i" hint-placeholder-count="2">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 15px;border-radius:10px;border:1px solid #161e25;background:#0d1319">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#c7d2da">{{ i.email }}</span>
+              <div style="display:flex;align-items:center;gap:10px">
+                <span style="font-size:10px;font-weight:800;letter-spacing:.05em;padding:4px 9px;border-radius:6px;background:#131b22;color:#8a99a5">{{ i.role }}</span>
+                <span onClick="{{ i.remove }}" style="color:#5d6d79;cursor:pointer;font-size:14px" style-hover="color:#ff4d5e">×</span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <div style="display:flex;justify-content:space-between;margin-top:44px">
+        <sc-if value="{{ canBack }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ back }}" style="padding:11px 20px;border-radius:10px;border:1px solid #1e2830;background:transparent;color:#8a99a5;font:600 13px 'Sora',sans-serif;cursor:pointer" style-hover="color:#e8eef2">Back</button>
+        </sc-if>
+        <sc-if value="{{ noBack }}" hint-placeholder-val="{{ true }}"><span></span></sc-if>
+        <sc-if value="{{ notLast }}" hint-placeholder-val="{{ true }}">
+          <button onClick="{{ next }}" style="padding:11px 26px;border-radius:10px;border:0;background:#2ee584;color:#06130b;font:700 13px 'Sora',sans-serif;cursor:pointer" style-hover="background:#4deda0">Continue</button>
+        </sc-if>
+        <sc-if value="{{ isLast }}" hint-placeholder-val="{{ false }}">
+          <a href="Sonave Console.dc.html" style="padding:11px 26px;border-radius:10px;background:#2ee584;color:#06130b;font-weight:700;font-size:13px" style-hover="background:#4deda0">Finish — open the console</a>
+        </sc-if>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { step: 1, provider: 'google', policy: 'Balanced', invite: '', role: 'Approver',
+    invites: [{ email: 'compliance@yourbank.com', role: 'Compliance' }] };
+  renderVals() {
+    const st = this.state;
+    const meta = [
+      { title: 'Connect calendar', sub: 'Google Workspace or Microsoft 365' },
+      { title: 'Admin consent', sub: 'Enable third-party media access' },
+      { title: 'Detection policy', sub: 'Set the recall / false-alarm dial' },
+      { title: 'Invite team', sub: 'Approvers, compliance, admins' }
+    ];
+    const steps = meta.map((m, i) => {
+      const n = i + 1, done = n < st.step, cur = n === st.step;
+      return { ...m, mark: done ? '✓' : String(n), go: () => this.setState({ step: n }),
+        bg: cur ? '#131b22' : 'transparent',
+        circBorder: done || cur ? '#2ee584' : '#1e2830',
+        circBg: done ? '#2ee584' : 'transparent',
+        circInk: done ? '#06130b' : cur ? '#2ee584' : '#5d6d79',
+        color: cur ? '#e8eef2' : done ? '#8a99a5' : '#5d6d79', weight: cur ? 700 : 500 };
+    });
+    const pols = [
+      { name: 'High recall', desc: 'Catch everything — accepts more real voices flagged for review. For high-value wire desks.', catch: '~high', fa: 'more', t1: '0.30', t2: '0.55' },
+      { name: 'Balanced', desc: 'The production default — validated on real Meet-codec audio.', catch: '91%', fa: '~8%', t1: '0.40', t2: '0.70' },
+      { name: 'Low false alarms', desc: 'Only flag when confident. For exec-heavy calls where crying wolf is costly.', catch: 'lower', fa: 'rare', t1: '0.55', t2: '0.80' }
+    ];
+    const cur = pols.find(p => p.name === st.policy);
+    return {
+      steps,
+      is1: st.step === 1, is2: st.step === 2, is3: st.step === 3, is4: st.step === 4,
+      canBack: st.step > 1, noBack: st.step === 1, notLast: st.step < 4, isLast: st.step === 4,
+      back: () => this.setState(s => ({ step: s.step - 1 })),
+      next: () => this.setState(s => ({ step: Math.min(4, s.step + 1) })),
+      pickGoogle: () => this.setState({ provider: 'google' }),
+      pickMs: () => this.setState({ provider: 'ms' }),
+      googlePicked: st.provider === 'google', msPicked: st.provider === 'ms',
+      googleBorder: st.provider === 'google' ? 'rgba(46,229,132,.45)' : '#161e25',
+      msBorder: st.provider === 'ms' ? 'rgba(46,229,132,.45)' : '#161e25',
+      sendAdmin: () => {},
+      policies: pols.map(p => ({ ...p, pick: () => this.setState({ policy: p.name }),
+        border: st.policy === p.name ? 'rgba(46,229,132,.45)' : '#161e25',
+        dotBorder: st.policy === p.name ? '#2ee584' : '#1e2830',
+        dotBg: st.policy === p.name ? '#2ee584' : 'transparent' })),
+      tau1: cur.t1, tau2: cur.t2,
+      invite: st.invite, setInvite: e => this.setState({ invite: e.target.value }),
+      setRole: e => this.setState({ role: e.target.value }),
+      addInvite: () => { const v = this.state.invite.trim(); if (!v) return;
+        this.setState(s => ({ invites: s.invites.concat({ email: v, role: s.role }), invite: '' })); },
+      invites: st.invites.map((iv, idx) => ({ ...iv, remove: () => this.setState(s => ({ invites: s.invites.filter((_, j) => j !== idx) })) }))
+    };
+  }
+}
+</script>
+</body>
+</html>
