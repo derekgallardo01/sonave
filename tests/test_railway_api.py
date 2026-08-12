@@ -12,7 +12,7 @@ def test_index_renders_with_no_leftover_placeholders(railway_mod):
     assert r.status_code == 200
     for ph in ("__DOMAIN__", "__KEY__", "__FAVICON__"):
         assert ph not in r.text
-    assert "Live authenticity" in r.text
+    assert "Sonave" in r.text
 
 
 def test_post_verdict_stores_it(railway_mod):
