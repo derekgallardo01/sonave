@@ -3,526 +3,739 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sonave — Voice Authenticity for Meetings</title>
+<title>Sonave Console — Voice Authenticity</title>
 <link rel="icon" href="data:image/svg+xml;base64,__FAVICON__">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0b0f19;--surface:#111827;--surface-hover:#1a2236;--border:#1e293b;--ink:#f1f5f9;--ink2:#94a3b8;--muted:#64748b;--blue:#3b82f6;--blue2:#60a5fa;--green:#22c55e;--amber:#f59e0b;--red:#ef4444;--font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+:root{
+ --bg:#0a0e12;--panel:#0d1319;--panel2:#111820;--chip:#131b22;--line:#161e25;--line2:#1e2830;
+ --ink:#e8eef2;--ink2:#8a99a5;--muted:#5d6d79;--dim:#3d4a54;
+ --green:#2ee584;--green-hover:#4deda0;--green-dark:#0d9e56;--on-green:#06130b;
+ --amber:#ffb224;--red:#ff4d5e;--red-soft:#ff8a95;
+ --font:'Sora',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+ --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+}
 *{box-sizing:border-box;margin:0}
-body{font:14px/1.5 var(--font);background:var(--bg);color:var(--ink);min-height:100vh}
-a{color:var(--blue2);text-decoration:none}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;line-height:1.5;display:flex;min-height:100vh}
+a{color:var(--green);text-decoration:none}
+a:hover{color:var(--green-hover)}
+@keyframes livePulse{0%{box-shadow:0 0 0 0 rgba(46,229,132,.45)}70%{box-shadow:0 0 0 7px rgba(46,229,132,0)}100%{box-shadow:0 0 0 0 rgba(46,229,132,0)}}
+@keyframes redPulse{0%,100%{box-shadow:0 0 0 1px rgba(255,77,94,.35)}50%{box-shadow:0 0 0 5px rgba(255,77,94,.08)}}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:var(--line2);border-radius:4px}::-webkit-scrollbar-track{background:transparent}
 
-/* Header */
-.header{position:sticky;top:0;z-index:50;background:rgba(11,15,25,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
-.header-inner{max-width:1200px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px}
-.brand{display:flex;align-items:center;gap:10px}
-.brand-icon{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--blue),#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 2px 8px rgba(59,130,246,.35)}
-.brand-text{font-size:16px;font-weight:700;letter-spacing:-.01em}
-.brand-sub{font-size:11px;color:var(--muted);font-weight:500}
-.status-pill{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:var(--surface);border:1px solid var(--border);font-size:12px;font-weight:600;color:var(--ink2)}
-.status-dot{width:7px;height:7px;border-radius:50%;background:var(--muted)}
-.status-dot.live{background:var(--green);box-shadow:0 0 0 0 rgba(34,197,94,.4);animation:pulse 2s infinite}
-@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,.5)}70%{box-shadow:0 0 0 6px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}
+/* ---- sidebar ---- */
+.sidebar{width:224px;flex-shrink:0;border-right:1px solid var(--line);display:flex;flex-direction:column;padding:20px 14px;gap:6px;position:sticky;top:0;height:100vh}
+.brand{display:flex;align-items:center;gap:10px;padding:4px 8px 18px}
+.brand-tile{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.brand-name{font-size:15px;font-weight:700;letter-spacing:-.01em}
+.brand-sub{font-size:10px;color:var(--muted);font-weight:500;letter-spacing:.04em}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:9px;cursor:pointer;font-size:13.5px;font-weight:500;color:var(--ink2)}
+.nav-item:hover{background:var(--chip)}
+.nav-item.active{background:var(--chip);color:var(--ink);font-weight:700}
+.nav-ic{width:16px;text-align:center;font-size:13px;opacity:.9}
+.side-spacer{flex:1}
+.model-card{border:1px solid var(--line);border-radius:11px;padding:12px;background:var(--panel);display:flex;flex-direction:column;gap:8px}
+.model-lbl{font-size:10px;color:var(--muted);letter-spacing:.08em;font-weight:600}
+.model-name{font-family:var(--mono);font-size:12px;color:var(--green)}
+.model-status{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--ink2)}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0}
+.status-dot.live{background:var(--green);animation:livePulse 2s infinite}
 
-/* Layout */
-.container{max-width:1200px;margin:0 auto;padding:24px 20px 60px;display:grid;grid-template-columns:1fr 380px;gap:20px}
-@media(max-width:900px){.container{grid-template-columns:1fr}}
+/* ---- main / topbar ---- */
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 28px;border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(10,14,18,.9);backdrop-filter:blur(10px);z-index:20}
+.view-title{font-size:16px;font-weight:700;letter-spacing:-.01em}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.clock{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.view{padding:24px 28px;display:none;flex-direction:column;gap:18px}
+.view.on{display:flex}
 
-/* Cards */
-.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:16px}
-.card-hd{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px}
-.card-hd h3{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink2);font-weight:700}
-.card-bd{padding:16px 18px}
+/* ---- buttons / inputs ---- */
+.btn{padding:9px 15px;border-radius:9px;border:1px solid var(--line2);background:var(--panel2);color:#c7d2da;font:600 12px var(--font);cursor:pointer}
+.btn:hover{border-color:var(--green);color:var(--green)}
+.btn:disabled{opacity:.5;cursor:default}
+.btn-primary{padding:10px 16px;border-radius:9px;border:0;background:var(--green);color:var(--on-green);font:700 12.5px var(--font);cursor:pointer;flex-shrink:0}
+.btn-primary:hover{background:var(--green-hover)}
+.btn-primary:disabled{opacity:.6;cursor:default}
+.btn-soft{padding:9px 14px;border-radius:9px;border:1px solid rgba(46,229,132,.35);background:rgba(46,229,132,.08);color:var(--green);font:600 12px var(--font);cursor:pointer;flex-shrink:0}
+.btn-soft:hover{background:rgba(46,229,132,.14)}
+.btn-danger{padding:8px 16px;border-radius:8px;border:0;background:var(--red);color:#fff;font:600 12px var(--font);cursor:pointer}
+.btn-danger:hover{background:#ff6572}
+.btn-quiet{padding:8px 14px;border-radius:8px;border:1px solid var(--line2);background:transparent;color:var(--ink2);font:600 12px var(--font);cursor:pointer}
+.btn-quiet:hover{color:var(--ink)}
+.inp{flex:1;min-width:0;padding:10px 13px;border-radius:9px;border:1px solid var(--line2);background:var(--bg);color:var(--ink);font:400 12.5px var(--font);outline:none}
+.inp:focus{border-color:var(--green)}
+.sel{flex:1;min-width:0;padding:9px 12px;border-radius:9px;border:1px solid var(--line2);background:var(--bg);color:var(--ink2);font:400 12px var(--font);outline:none;cursor:pointer}
+.mono{font-family:var(--mono)}
 
-/* Inputs & buttons */
-.inp{width:100%;padding:10px 14px;border-radius:10px;border:1px solid var(--border);background:#0b0f19;color:var(--ink);font:14px var(--font);outline:none;transition:border-color .15s}
-.inp:focus{border-color:var(--blue)}
-.btn{padding:10px 18px;border-radius:10px;border:0;font:14px var(--font);font-weight:600;cursor:pointer;transition:all .15s;background:var(--blue);color:#fff}
-.btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(59,130,246,.35)}
-.btn:active{transform:translateY(0)}
-.btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
-.btn-sec{background:var(--surface-hover);border:1px solid var(--border);color:var(--ink)}
-.btn-sm{padding:7px 14px;font-size:13px}
-.row-flex{display:flex;gap:8px;align-items:center}
+/* ---- cards / tiles ---- */
+.card{border:1px solid var(--line);border-radius:14px;background:var(--panel);overflow:hidden}
+.card-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line)}
+.card-lbl{font-size:11px;color:var(--ink2);letter-spacing:.09em;font-weight:700}
+.card-pad{border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:18px 20px}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.tile{border:1px solid var(--line);border-radius:13px;padding:16px 18px;background:var(--panel)}
+.tile-lbl{font-size:10.5px;color:var(--muted);letter-spacing:.08em;font-weight:600;margin-bottom:8px}
+.tile-val{font-size:24px;font-weight:800;letter-spacing:-.01em}
+.tile-val.mono{font-family:var(--mono)}
+.tile-sub{font-size:11.5px;color:var(--muted);margin-top:3px}
+.hint{font-size:11px;color:var(--muted);margin-top:9px;line-height:1.5}
 
-/* Gauge */
-.gauge-wrap{display:flex;align-items:center;justify-content:center;padding:20px 0}
-.gauge{position:relative;width:180px;height:180px}
-.gauge-bg{fill:none;stroke:var(--border);stroke-width:12}
-.gauge-fill{fill:none;stroke-width:12;stroke-linecap:round;transition:stroke-dasharray .6s ease,stroke .4s}
-.gauge-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
-.gauge-val{font-size:38px;font-weight:800;letter-spacing:-.02em}
-.gauge-lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+/* ---- incident banner ---- */
+.banner{display:flex;align-items:center;justify-content:space-between;gap:14px;border:1px solid rgba(255,77,94,.4);background:rgba(255,77,94,.07);border-radius:12px;padding:14px 18px;animation:redPulse 1.6s infinite;margin-bottom:12px}
+.banner:last-child{margin-bottom:0}
+.banner-left{display:flex;align-items:center;gap:12px}
+.banner-ic{width:34px;height:34px;border-radius:9px;background:rgba(255,77,94,.15);display:flex;align-items:center;justify-content:center;color:var(--red);font-size:15px;font-weight:800;flex-shrink:0}
+.banner-title{font-size:13.5px;font-weight:700;color:var(--red-soft)}
+.banner-sub{font-size:12px;color:var(--ink2);margin-top:2px}
+.banner-btns{display:flex;gap:8px;flex-shrink:0}
 
-/* Participant cards */
-.speaker-card{padding:14px 16px;border-radius:12px;background:#0b0f19;border:1px solid var(--border);margin-bottom:10px;transition:border-color .2s}
-.speaker-card:hover{border-color:var(--border)}
-.speaker-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
-.speaker-name{font-weight:700;font-size:15px;display:flex;align-items:center;gap:8px}
-.speaker-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--blue),#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff}
-.badge{font-size:11px;font-weight:800;padding:4px 10px;border-radius:6px;text-transform:uppercase;letter-spacing:.03em}
-.badge-real{background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.25)}
-.badge-suspect{background:rgba(245,158,11,.15);color:var(--amber);border:1px solid rgba(245,158,11,.25)}
-.badge-fake{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.25)}
-.mini-bar{height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:8px}
-.mini-bar i{display:block;height:100%;border-radius:3px;transition:width .4s}
-.speaker-meta{display:flex;gap:14px;margin-top:8px;font-size:12px;color:var(--muted)}
+/* ---- monitor grid ---- */
+.mon-grid{display:grid;grid-template-columns:1fr 336px;gap:18px;align-items:start}
+.spk-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:16px 20px 20px}
+.spk-card{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:var(--bg)}
+.spk-card.fake{border-color:rgba(255,77,94,.45);animation:redPulse 1.6s infinite}
+.spk-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.spk-who{display:flex;align-items:center;gap:9px;min-width:0}
+.avatar{width:30px;height:30px;border-radius:50%;background:var(--chip);border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--ink2);flex-shrink:0}
+.spk-name{font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.spk-sub{font-size:10.5px;color:var(--muted)}
+.badge{font-size:10px;font-weight:800;letter-spacing:.05em;padding:4px 9px;border-radius:6px;flex-shrink:0;border:1px solid transparent}
+.b-real{background:rgba(46,229,132,.1);color:var(--green);border-color:rgba(46,229,132,.25)}
+.b-suspect{background:rgba(255,178,36,.1);color:var(--amber);border-color:rgba(255,178,36,.25)}
+.b-fake{background:rgba(255,77,94,.12);color:var(--red);border-color:rgba(255,77,94,.35)}
+.b-pending{background:var(--chip);color:var(--muted);border-color:var(--line2)}
+.risk-row{display:flex;align-items:baseline;justify-content:space-between;margin-top:12px}
+.risk-lbl{font-size:10px;color:var(--muted);letter-spacing:.07em;font-weight:600}
+.risk-pct{font-family:var(--mono);font-size:16px;font-weight:600}
+.risk-track{height:6px;background:var(--chip);border-radius:3px;margin-top:6px;overflow:hidden}
+.risk-fill{height:100%;border-radius:3px;transition:width .5s ease}
+.spark{display:flex;align-items:flex-end;gap:2px;height:26px;margin-top:10px}
+.spark-b{flex:1;border-radius:1.5px;min-height:2px}
+.spk-meta{display:flex;gap:12px;margin-top:10px;font-size:10.5px;color:var(--muted);font-family:var(--mono)}
+.spk-meta .match{color:var(--green)}
+.sim-chip{font-size:9.5px;font-weight:800;letter-spacing:.06em;padding:3px 8px;border-radius:5px;background:rgba(255,178,36,.12);color:var(--amber);border:1px solid rgba(255,178,36,.3);margin-left:8px;display:none}
+.update-note{font-size:11px;color:var(--muted);font-family:var(--mono)}
+.idle{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:70px 20px;gap:14px}
+.idle-bars{display:flex;align-items:flex-end;gap:3px;height:34px}
+.idle-bars i{width:4px;border-radius:2px;background:var(--line2);display:block}
+.idle-t1{font-size:13.5px;color:var(--ink2);font-weight:600}
+.idle-t2{font-size:12px;color:var(--muted);max-width:300px;text-align:center;line-height:1.6}
+.side-col{display:flex;flex-direction:column;gap:16px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.tag{display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border-radius:8px;background:var(--bg);border:1px solid var(--line2);font-size:11.5px}
+.tag .dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
+.tag .name{font-family:var(--mono);color:#c7d2da}
+.tag .x{color:var(--muted);cursor:pointer;font-size:13px;line-height:1;background:none;border:0;padding:0}
+.tag .x:hover{color:var(--red)}
+.recent-row{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-radius:9px;background:var(--bg);border:1px solid var(--line);margin-bottom:8px}
+.recent-row:last-child{margin-bottom:0}
+.recent-spk{font-family:var(--mono);font-size:11.5px;color:#c7d2da}
+.recent-meta{font-size:10.5px;color:var(--muted);font-family:var(--mono)}
+.link{font-size:11.5px;color:var(--green);cursor:pointer;font-weight:600;background:none;border:0;padding:0;font-family:var(--font)}
+.link:hover{color:var(--green-hover)}
+.empty-st{padding:14px 0;font-size:12px;color:var(--muted)}
 
-/* Captures */
-.sess-group{border:1px solid var(--border);border-radius:12px;margin-bottom:10px;overflow:hidden;background:var(--surface)}
-.sess-hd{padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;user-select:none}
-.sess-hd:hover{background:var(--surface-hover)}
-.sess-title{font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px}
-.sess-meta{font-size:12px;color:var(--muted);white-space:nowrap}
-.caret{color:var(--muted);transition:transform .15s;font-size:11px}
+/* ---- captures view ---- */
+.cap-wrap{max-width:860px;display:flex;flex-direction:column;gap:12px}
+.cap-note{font-size:12px;color:var(--muted)}
+.sess{border:1px solid var(--line);border-radius:13px;background:var(--panel);overflow:hidden}
+.sess-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;cursor:pointer}
+.sess-hd:hover{background:var(--panel2)}
+.sess-left{display:flex;align-items:center;gap:11px}
+.caret{color:var(--muted);font-size:10px;transition:transform .15s;display:inline-block}
 .caret.open{transform:rotate(90deg)}
-.sess-body{border-top:1px solid var(--border)}
-.clip-row{display:flex;align-items:center;gap:10px;padding:9px 16px;font-size:13px;border-top:1px solid var(--border)}
+.sess-spk{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--ink)}
+.sess-time{font-size:12px;color:var(--muted)}
+.sess-meta{font-size:11.5px;color:var(--muted);font-family:var(--mono)}
+.sess-body{border-top:1px solid var(--line)}
+.clip-row{display:flex;align-items:center;gap:12px;padding:10px 18px;border-top:1px solid #10161c}
 .clip-row:first-child{border-top:0}
-.clip-play{width:28px;height:28px;border-radius:50%;background:var(--surface-hover);border:1px solid var(--border);color:var(--ink);cursor:pointer;font-size:10px;padding:0;display:flex;align-items:center;justify-content:center}
-.clip-play:hover{background:var(--blue);border-color:var(--blue);color:#fff}
-.clip-name{color:var(--ink2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
-.clip-dur{color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
+.clip-play{width:26px;height:26px;border-radius:50%;border:1px solid var(--line2);background:var(--panel2);color:var(--ink2);cursor:pointer;font-size:9px;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0}
+.clip-play:hover{border-color:var(--green);color:var(--green)}
+.clip-name{flex:1;font-family:var(--mono);font-size:11.5px;color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.clip-dur{font-size:11px;color:var(--muted);font-family:var(--mono);flex-shrink:0}
 
-/* Enrolled tags */
-.tag{display:inline-flex;align-items:center;gap:5px;background:#0b0f19;border:1px solid var(--border);border-radius:8px;padding:5px 12px;font-size:12px;margin:4px 4px 0 0}
-.tag button{background:transparent;border:0;color:var(--red);font-size:15px;padding:0 0 0 4px;cursor:pointer;line-height:1}
+/* ---- history view ---- */
+.hist-wrap{max-width:960px;display:flex;flex-direction:column;gap:14px}
+.pills{display:flex;gap:8px}
+.pill{padding:7px 15px;border-radius:999px;border:1px solid var(--line2);background:transparent;color:var(--ink2);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)}
+.pill:hover{border-color:var(--green)}
+.pill.on{border-color:rgba(46,229,132,.35);background:rgba(46,229,132,.1);color:var(--green)}
+.hist-grid{display:grid;grid-template-columns:1fr 150px 150px 100px 120px;gap:12px;align-items:center;padding:14px 20px;border-bottom:1px solid #10161c}
+.hist-grid:last-child{border-bottom:0}
+.hist-head{padding:12px 20px;border-bottom:1px solid var(--line);font-size:10px;color:var(--muted);letter-spacing:.08em;font-weight:700}
+.hist-spk{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hist-model{font-size:10.5px;color:var(--muted);margin-top:2px;font-family:var(--mono)}
+.hist-cell{font-size:11.5px;color:var(--ink2);font-family:var(--mono)}
+.hist-risk{font-family:var(--mono);font-size:12.5px;font-weight:600}
+.hist-badge{font-size:9.5px;font-weight:800;letter-spacing:.05em;padding:4px 10px;border-radius:6px;text-align:center}
 
-/* Risk magnitude bar */
-.risk-wrap{display:flex;align-items:center;gap:10px;margin:10px 0 6px}
-.risk-track{flex:1;height:22px;background:#0b0f19;border-radius:6px;overflow:hidden;position:relative;border:1px solid var(--border)}
-.risk-fill{height:100%;border-radius:5px;transition:width .5s ease,background .4s;position:relative}
-.risk-fill::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.08) 50%,transparent 100%)}
-.risk-pct{font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;min-width:42px;text-align:right}
-.risk-label{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:2px}
+/* ---- lab view ---- */
+.lab-wrap{max-width:1100px;display:flex;flex-direction:column;gap:18px}
+.lab-tile-val{font-size:22px;font-weight:800;font-family:var(--mono)}
+.lab-tile-sub{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5}
+.lab-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+.model-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-radius:10px;background:var(--bg);border:1px solid var(--line)}
+.model-row.prod{border-color:rgba(46,229,132,.3)}
+.model-row-name{font-family:var(--mono);font-size:12.5px;font-weight:600;color:var(--ink)}
+.model-row-desc{font-size:10.5px;color:var(--muted);margin-top:3px}
+.model-tag{font-size:9.5px;font-weight:800;letter-spacing:.06em;padding:4px 9px;border-radius:6px;flex-shrink:0}
+.t-prod{background:rgba(46,229,132,.1);color:var(--green)}
+.t-cand{background:rgba(255,178,36,.1);color:var(--amber)}
+.t-legacy{background:var(--chip);color:var(--muted)}
+.train-row{display:flex;align-items:baseline;justify-content:space-between}
+.bar-track{height:6px;background:var(--chip);border-radius:3px;overflow:hidden}
+.bar-fill{height:100%;background:var(--green);border-radius:3px}
 
-/* Sparkline */
-.spark{display:flex;align-items:flex-end;gap:2px;height:28px;margin-top:8px;padding:4px 0}
-.spark-b{flex:1;border-radius:2px;transition:height .4s ease,background .3s;min-height:2px}
+/* ---- toast / login ---- */
+.toast{position:fixed;bottom:22px;right:22px;padding:12px 18px;border-radius:11px;background:var(--panel2);border:1px solid rgba(46,229,132,.35);color:var(--ink);font-size:12.5px;box-shadow:0 10px 30px rgba(0,0,0,.5);z-index:100;opacity:0;transform:translateY(8px);transition:all .2s;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.err{border-color:rgba(255,77,94,.4)}
+.login-overlay{display:none;position:fixed;inset:0;background:rgba(10,14,18,.92);backdrop-filter:blur(8px);z-index:200;align-items:center;justify-content:center}
+.login-box{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:36px;width:340px;display:flex;flex-direction:column;gap:14px;align-items:center;text-align:center}
+.login-box h2{font-size:18px;font-weight:700;letter-spacing:-.01em}
+.login-box p{font-size:12.5px;color:var(--ink2)}
+.login-box .inp{width:100%}
+.login-box .btn-primary{width:100%}
 
-/* Pulsing border for fake */
-.speaker-card.fake-border{border-color:rgba(239,68,68,.5);box-shadow:0 0 0 1px rgba(239,68,68,.15);animation:borderPulse 1.5s infinite}
-@keyframes borderPulse{0%{box-shadow:0 0 0 1px rgba(239,68,68,.15)}50%{box-shadow:0 0 0 4px rgba(239,68,68,.08)}100%{box-shadow:0 0 0 1px rgba(239,68,68,.15)}}
-.alert-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:12px;padding:14px 16px;margin-bottom:16px}
-.alert-banner b{color:var(--red)}
-.alert-banner .btn{background:var(--red);padding:7px 14px;font-size:12px}
-
-/* Empty state */
-.empty-st{text-align:center;padding:30px 20px;color:var(--muted);font-size:13px}
-
-/* Collapsible sections */
-.collap-hd{padding:14px 18px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;border-bottom:1px solid var(--border)}
-.collap-hd:hover{background:var(--surface-hover)}
-.collap-hd h3{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink2);font-weight:700}
-.collap-body{padding:16px 18px}
-.collap-body.hidden{display:none}
-
-/* Model selector */
-.model-sel{padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:#0b0f19;color:var(--ink);font:13px var(--font);cursor:pointer}
-
-/* Login overlay */
-.login-overlay{position:fixed;inset:0;background:rgba(11,15,25,.96);z-index:100;display:none;align-items:center;justify-content:center}
-.login-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:36px 32px;max-width:360px;width:90%;text-align:center}
-.login-box .brand-icon{width:44px;height:44px;border-radius:12px;font-size:20px;margin:0 auto 16px}
-.login-box h2{font-size:18px;margin-bottom:6px}
-.login-box p{color:var(--ink2);font-size:13px;margin-bottom:20px}
-.login-box .inp{margin-bottom:12px;text-align:center}
-.login-box .btn{width:100%}
-
-/* Toast */
-.toast{position:fixed;bottom:20px;right:20px;padding:12px 18px;border-radius:10px;background:var(--surface);border:1px solid var(--border);color:var(--ink);font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.4);transform:translateY(80px);opacity:0;transition:all .3s;z-index:90}
-.toast.show{transform:translateY(0);opacity:1}
-.toast.ok{border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.08)}
-.toast.err{border-color:rgba(239,68,68,.3);background:rgba(239,68,68,.08)}
-
-/* Scrollbar */
-::-webkit-scrollbar{width:6px}
-::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+@media (max-width:1100px){
+ .tiles{grid-template-columns:repeat(2,1fr)}
+ .mon-grid{grid-template-columns:1fr}
+ .spk-grid{grid-template-columns:1fr}
+ .hist-grid{grid-template-columns:1fr 110px 90px 100px}
+ .hist-grid .hide-sm{display:none}
+}
+@media (max-width:760px){
+ body{flex-direction:column}
+ .sidebar{width:100%;height:auto;position:static;flex-direction:row;align-items:center;padding:10px 14px;border-right:0;border-bottom:1px solid var(--line)}
+ .brand{padding:0 10px 0 0}
+ .side-spacer,.model-card{display:none}
+ .nav-item{padding:8px 10px;font-size:12.5px}
+}
 </style>
 </head>
 <body>
 
-<!-- Header -->
-<div class="header">
- <div class="header-inner">
-  <div class="brand">
-   <div class="brand-icon">&#9670;</div>
-   <div>
-    <div class="brand-text">Sonave</div>
-    <div class="brand-sub">Voice Authenticity Engine</div>
-   </div>
+<aside class="sidebar">
+ <div class="brand">
+  <div class="brand-tile">
+   <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 8h1.5M5 4.5v7M8 2v12M11 4.5v7M14 8h-1.5" stroke="#06130b" stroke-width="1.8" stroke-linecap="round"></path></svg>
   </div>
-  <div class="row-flex" style="gap:12px">
-   <select class="model-sel" id="modelSel"><option>sonave-xlsr-meet</option><option>wav2vec2-ASV (legacy)</option></select>
-   <div class="status-pill"><span id="statusDot" class="status-dot"></span><span id="statusTxt">idle</span></div>
+  <div>
+   <div class="brand-name">Sonave</div>
+   <div class="brand-sub">VOICE AUTHENTICITY</div>
   </div>
  </div>
-</div>
+ <div class="nav-item active" id="nav-monitor" onclick="setView('monitor')"><span class="nav-ic">&#9673;</span>Live Monitor</div>
+ <div class="nav-item" id="nav-captures" onclick="setView('captures')"><span class="nav-ic">&#8803;</span>Captures</div>
+ <div class="nav-item" id="nav-history" onclick="setView('history')"><span class="nav-ic">&#9719;</span>History</div>
+ <div class="nav-item" id="nav-lab" onclick="setView('lab')"><span class="nav-ic">&#11041;</span>Model Lab</div>
+ <div class="side-spacer"></div>
+ <div class="model-card">
+  <div class="model-lbl">ACTIVE MODEL</div>
+  <div class="model-name">sonave-xlsr-meet</div>
+  <div class="model-status"><span id="statusDot" class="status-dot"></span><span id="statusText">idle &#183; scale-to-zero</span></div>
+ </div>
+</aside>
 
-<div class="container">
- <!-- LEFT COLUMN: Live monitoring -->
- <div>
-  <div class="card">
-   <div class="card-hd"><h3>Live Authenticity Monitor</h3><span style="font-size:12px;color:var(--muted)">updates every 1.5s</span></div>
-   <div class="card-bd">
-    <div class="gauge-wrap">
-     <div class="gauge">
-      <svg viewBox="0 0 180 180" style="transform:rotate(-90deg)">
-       <circle cx="90" cy="90" r="78" class="gauge-bg"></circle>
-       <circle id="gaugeArc" cx="90" cy="90" r="78" class="gauge-fill" stroke="#22c55e" stroke-dasharray="0 490"></circle>
-      </svg>
-      <div class="gauge-center">
-       <div id="gaugeVal" class="gauge-val" style="color:var(--muted)">&#8212;</div>
-       <div class="gauge-lbl">authenticity</div>
+<div class="main">
+ <div class="topbar">
+  <div class="view-title" id="viewTitle">Live Monitor</div>
+  <div class="topbar-right">
+   <div class="clock" id="clock"></div>
+   <button class="btn" id="demoBtn" onclick="demoToggle()">Simulate call</button>
+  </div>
+ </div>
+
+ <!-- ============ LIVE MONITOR ============ -->
+ <section class="view on" id="view-monitor">
+  <div id="incidentBanners"></div>
+
+  <div class="tiles">
+   <div class="tile">
+    <div class="tile-lbl">ROOM VERDICT</div>
+    <div class="tile-val" id="tileVerdict" style="color:var(--muted)">&#8212;</div>
+    <div class="tile-sub">peak risk <span class="mono" id="tileRisk" style="color:var(--muted)">0%</span></div>
+   </div>
+   <div class="tile">
+    <div class="tile-lbl">SPEAKERS LIVE</div>
+    <div class="tile-val mono" id="tileLive">0</div>
+    <div class="tile-sub"><span id="tileEnrolled">0</span> voiceprint-enrolled</div>
+   </div>
+   <div class="tile">
+    <div class="tile-lbl">WINDOWS SCORED</div>
+    <div class="tile-val mono" id="tileWindows">&#8212;</div>
+    <div class="tile-sub">8 s windows &#183; 10 s hop</div>
+   </div>
+   <div class="tile">
+    <div class="tile-lbl">MEDIAN LATENCY</div>
+    <div class="tile-val mono" id="tileLatency">&#8212;</div>
+    <div class="tile-sub">GPU &#183; scale-to-zero T4</div>
+   </div>
+  </div>
+
+  <div class="mon-grid">
+   <div class="card">
+    <div class="card-hd">
+     <div style="display:flex;align-items:center"><span class="card-lbl">LIVE AUTHENTICITY MONITOR</span><span class="sim-chip" id="simChip">SIMULATED DATA</span></div>
+     <span class="update-note" id="updateNote">standby</span>
+    </div>
+    <div class="spk-grid" id="speakersGrid" style="display:none"></div>
+    <div class="idle" id="idleState">
+     <div class="idle-bars"><i style="height:30%"></i><i style="height:55%"></i><i style="height:80%"></i><i style="height:45%"></i><i style="height:95%"></i><i style="height:60%"></i><i style="height:35%"></i><i style="height:70%"></i><i style="height:25%"></i></div>
+     <div class="idle-t1">No meeting monitored</div>
+     <div class="idle-t2">Deploy a bot into a Google Meet, Zoom or Teams call &#8212; every speaker gets a live authenticity verdict within seconds.</div>
+     <button class="btn-soft" onclick="demoToggle()">Run a simulated call</button>
+    </div>
+   </div>
+
+   <div class="side-col">
+    <div class="card-pad">
+     <div class="card-lbl" style="margin-bottom:12px">DEPLOY BOT</div>
+     <div style="display:flex;gap:8px">
+      <input id="meetUrl" class="inp" placeholder="Meet / Zoom / Teams link">
+      <button class="btn-primary" id="deployBtn" onclick="deployBot()">Deploy</button>
+     </div>
+     <div class="hint">The bot joins as a participant, streams per-speaker audio and scores it in real time.</div>
+    </div>
+
+    <div class="card-pad">
+     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <span class="card-lbl">VOICEPRINT ENROLLMENT</span>
+      <span class="update-note"><span id="enrolledCount">0</span> enrolled</span>
+     </div>
+     <div style="display:flex;gap:8px;margin-bottom:12px">
+      <select id="enrollSel" class="sel"><option value="">Select speaker from captures&#8230;</option></select>
+      <button class="btn-soft" onclick="enrollSpk()">Enroll</button>
+     </div>
+     <div class="chips" id="enrolledList"></div>
+     <div style="margin-top:10px"><button class="link" onclick="enrollCustom()">Enroll a custom speaker name&#8230;</button></div>
+    </div>
+
+    <div class="card-pad">
+     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <span class="card-lbl">RECENT CAPTURES</span>
+      <button class="link" onclick="setView('captures')">View all</button>
+     </div>
+     <div id="recentCaptures"><div class="empty-st">No captures yet.</div></div>
+    </div>
+   </div>
+  </div>
+ </section>
+
+ <!-- ============ CAPTURES ============ -->
+ <section class="view" id="view-captures">
+  <div class="cap-wrap">
+   <div class="cap-note"><span id="sessionCount">0 sessions</span> &#183; every capture is retained for the forensic log and training pool.</div>
+   <div id="sessionList"><div class="empty-st">No captures yet.</div></div>
+  </div>
+ </section>
+
+ <!-- ============ HISTORY ============ -->
+ <section class="view" id="view-history">
+  <div class="hist-wrap">
+   <div class="pills" id="histPills">
+    <button class="pill on" onclick="setHistFilter('All')">All</button>
+    <button class="pill" onclick="setHistFilter('Open')">Open</button>
+    <button class="pill" onclick="setHistFilter('Acknowledged')">Acknowledged</button>
+   </div>
+   <div class="card">
+    <div class="hist-grid hist-head" style="border-bottom:1px solid var(--line)">
+     <span>SPEAKER</span><span>FIRST SEEN</span><span class="hide-sm">LAST SEEN</span><span>PEAK RISK</span><span>STATUS</span>
+    </div>
+    <div id="histRows"><div class="empty-st" style="padding:20px">No incidents recorded.</div></div>
+   </div>
+   <div class="cap-note">Incidents are recorded whenever a speaker's rolling risk crosses the red threshold; wire holds clear on acknowledgement.</div>
+  </div>
+ </section>
+
+ <!-- ============ MODEL LAB ============ -->
+ <section class="view" id="view-lab">
+  <div class="lab-wrap">
+   <div class="tiles">
+    <div class="tile"><div class="lab-tile-val" style="color:var(--green)">91%</div><div class="lab-tile-sub">catch on 27 unseen commercial tools (commodity ~2%)</div></div>
+    <div class="tile"><div class="lab-tile-val" style="color:var(--green)">7.5%</div><div class="lab-tile-sub">unseen-generator EER, clean audio</div></div>
+    <div class="tile"><div class="lab-tile-val" style="color:var(--green)">96%</div><div class="lab-tile-sub">real-voice accuracy through Google Meet Opus</div></div>
+    <div class="tile"><div class="lab-tile-val">~100<span style="font-size:12px;color:var(--muted)"> ms</span></div><div class="lab-tile-sub">GPU inference per 4 s window</div></div>
+   </div>
+
+   <div class="lab-grid">
+    <div class="card">
+     <div class="card-hd"><span class="card-lbl">MODEL REGISTRY</span></div>
+     <div style="padding:14px 20px;display:flex;flex-direction:column;gap:10px">
+      <div class="model-row prod">
+       <div><div class="model-row-name">sonave-xlsr-meet</div><div class="model-row-desc">XLS-R-300M + SLS head &#183; &#964; 0.40 / 0.70 &#183; Meet-domain fine-tune</div></div>
+       <span class="model-tag t-prod">PRODUCTION</span>
+      </div>
+      <div class="model-row">
+       <div><div class="model-row-name">sonave-xlsr-rw</div><div class="model-row-desc">87-generator diverse fine-tune &#183; higher cross-source catch</div></div>
+       <span class="model-tag t-cand">CANDIDATE</span>
+      </div>
+      <div class="model-row">
+       <div><div class="model-row-name">wav2vec2-ASV</div><div class="model-row-desc">Commodity baseline &#183; ~2% catch on modern tools</div></div>
+       <span class="model-tag t-legacy">LEGACY</span>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:4px">
+       <input class="inp" placeholder="Load from HuggingFace &#8212; org/model">
+       <button class="btn" onclick="toast('Model loading is not wired up yet — registry is informational.','err')">Load</button>
       </div>
      </div>
     </div>
-    <div id="speakersBox"><div class="empty-st">Send a bot into a meeting to begin monitoring.</div></div>
-   </div>
-  </div>
 
-  <div id="alerts"></div>
- </div>
-
- <!-- RIGHT COLUMN: Controls -->
- <div>
-  <!-- Send Bot -->
-  <div class="card">
-   <div class="card-hd"><h3>Deploy Bot</h3></div>
-   <div class="card-bd">
-    <div class="row-flex"><input id="u" class="inp" placeholder="Paste Google Meet / Zoom / Teams link..."><button id="sendb" class="btn" onclick="send()">Send</button></div>
-    <p id="msg" style="font-size:12px;color:var(--muted);margin-top:8px;min-height:16px"></p>
-   </div>
-  </div>
-
-  <!-- Speaker Enrollment -->
-  <div class="card">
-   <div class="card-hd"><h3>Speaker Enrollment</h3></div>
-   <div class="card-bd">
-    <div class="row-flex" style="margin-bottom:10px">
-     <select id="enrollSpk" class="model-sel" style="flex:1"><option value="">&#8212; select speaker from captures &#8212;</option></select>
-     <button class="btn btn-sm" onclick="enrollSpk()">Enroll</button>
-     <button class="btn btn-sm btn-sec" onclick="enrollCustom()">Custom</button>
-    </div>
-    <p id="enrollMsg" style="font-size:12px;color:var(--muted);min-height:16px;margin-bottom:8px"></p>
-    <div id="enrolledList"></div>
-   </div>
-  </div>
-
-  <!-- Captures -->
-  <div class="card">
-   <div class="card-hd"><h3>Captures</h3><span id="captureCount" style="font-size:12px;color:var(--muted)">0 sessions</span></div>
-   <div class="card-bd" id="list"><div class="empty-st">No captures yet.</div></div>
-  </div>
- </div>
-</div>
-
-<!-- Collapsible: Model Lab -->
-<div class="container" style="padding-top:0">
- <div class="card" style="grid-column:1/-1">
-  <div class="collap-hd" onclick="toggleCollap('modelLab')">
-   <h3>&#128300; Model Lab</h3><span class="caret" id="caret-modelLab">&#9656;</span>
-  </div>
-  <div class="collap-body hidden" id="modelLab">
-   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px">
-    <div>
-     <h4 style="font-size:13px;color:var(--ink2);margin-bottom:10px">Active Model</h4>
-     <div class="speaker-card">
-      <div class="speaker-top">
-       <span class="speaker-name"><span class="speaker-avatar" style="font-size:10px">&#127942;</span> sonave-xlsr-meet</span>
-       <span class="badge badge-real">PRODUCTION</span>
+    <div style="display:flex;flex-direction:column;gap:18px">
+     <div class="card">
+      <div class="card-hd"><span class="card-lbl">WEEKLY TRAINING</span><span class="update-note">last run Aug 9, 2026</span></div>
+      <div style="padding:16px 20px;display:flex;flex-direction:column;gap:12px">
+       <div class="train-row"><span style="font-size:11.5px;color:var(--ink2)">Validation accuracy</span><span class="mono" style="font-size:14px;font-weight:600;color:var(--green)">91.2%</span></div>
+       <div class="bar-track"><div class="bar-fill" style="width:91.2%"></div></div>
+       <div style="display:flex;gap:8px">
+        <select class="sel"><option>Weekly (Sundays)</option><option>Daily</option><option>Manual only</option></select>
+        <select class="sel"><option>All captures</option><option>Last 30 days</option><option>Labeled only</option></select>
+       </div>
+       <button class="btn-primary" onclick="toast('Training runs are driven offline — see results/detector_v2_progress.md.','err')">Queue training run</button>
       </div>
-      <div class="speaker-meta">
-       <span>Backbone: XLS-R-300M</span>
-       <span>Head: SLS</span>
-       <span>Tau: 0.40 / 0.70</span>
+     </div>
+     <div class="card">
+      <div class="card-hd"><span class="card-lbl">RED-TEAM VOICE GENERATOR</span></div>
+      <div style="padding:16px 20px;display:flex;flex-direction:column;gap:10px">
+       <div class="hint" style="margin:0">Generate synthetic clips to probe detector sensitivity. Output is labeled <b style="color:var(--red-soft)">fake</b> and added to the training pool.</div>
+       <div style="display:flex;gap:8px">
+        <input class="inp" placeholder="Text to synthesize">
+        <button class="btn" onclick="toast('Generation runs offline via tools/ — not wired to the console yet.','err')">Generate</button>
+       </div>
       </div>
      </div>
     </div>
-    <div>
-     <h4 style="font-size:13px;color:var(--ink2);margin-bottom:10px">Load from HuggingFace</h4>
-     <div class="row-flex"><input id="hfModel" class="inp" placeholder="org/model-name"><button class="btn" onclick="loadModel()">Load</button></div>
-     <p style="font-size:11px;color:var(--muted);margin-top:6px">Downloads the model and registers it for scoring.</p>
-    </div>
    </div>
   </div>
- </div>
+ </section>
 </div>
 
-<!-- Collapsible: Training -->
-<div class="container" style="padding-top:0">
- <div class="card" style="grid-column:1/-1">
-  <div class="collap-hd" onclick="toggleCollap('trainPanel')">
-   <h3>&#128260; Weekly Training</h3><span class="caret" id="caret-trainPanel">&#9656;</span>
-  </div>
-  <div class="collap-body hidden" id="trainPanel">
-   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px">
-    <div>
-     <h4 style="font-size:13px;color:var(--ink2);margin-bottom:10px">Training Status</h4>
-     <div class="speaker-card">
-      <div class="speaker-top">
-       <span class="speaker-name">Last training</span>
-       <span style="font-size:12px;color:var(--muted)">Aug 4, 2026</span>
-      </div>
-      <div class="speaker-meta"><span>Accuracy: 91.2%</span><span>EER: 7.5%</span></div>
-      <div class="mini-bar" style="margin-top:10px"><i style="width:91%;background:var(--green)"></i></div>
-     </div>
-    </div>
-    <div>
-     <h4 style="font-size:13px;color:var(--ink2);margin-bottom:10px">Schedule</h4>
-     <div class="row-flex" style="margin-bottom:8px"><span style="font-size:13px;color:var(--ink2);width:80px">Cadence</span><select class="model-sel" style="flex:1"><option>Weekly (Sundays)</option><option>Daily</option><option>Manual only</option></select></div>
-     <div class="row-flex" style="margin-bottom:8px"><span style="font-size:13px;color:var(--ink2);width:80px">Dataset</span><select class="model-sel" style="flex:1"><option>All captures</option><option>Last 30 days</option><option>Labeled only</option></select></div>
-     <button class="btn" onclick="toast('Training queued &#8212; you will be notified when complete.','ok')">Queue Training</button>
-    </div>
-   </div>
-  </div>
- </div>
-</div>
-
-<!-- Collapsible: Voice Generator -->
-<div class="container" style="padding-top:0">
- <div class="card" style="grid-column:1/-1">
-  <div class="collap-hd" onclick="toggleCollap('genPanel')">
-   <h3>&#127917; Synthetic Voice Generator</h3><span class="caret" id="caret-genPanel">&#9656;</span>
-  </div>
-  <div class="collap-body hidden" id="genPanel">
-   <p style="font-size:12px;color:var(--muted);margin-bottom:14px">Generate synthetic speech clips to test detector sensitivity and calibrate thresholds. These clips are labeled as <b>fake</b> and added to the training pool.</p>
-   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px">
-    <div class="row-flex"><input class="inp" placeholder="Text to synthesize (e.g. 'Transfer $10,000 to...')" style="flex:1"><button class="btn">Generate TTS</button></div>
-    <div class="row-flex"><input class="inp" placeholder="Clone voice from speaker ID" style="flex:1"><button class="btn btn-sec">Voice Clone</button></div>
-   </div>
-  </div>
- </div>
-</div>
-
-<!-- Toast -->
 <div class="toast" id="toast"></div>
 
-<!-- Login overlay -->
 <div class="login-overlay" id="login">
  <div class="login-box">
-  <div class="brand-icon" style="width:48px;height:48px;border-radius:14px;font-size:22px">&#9670;</div>
+  <div class="brand-tile" style="width:48px;height:48px;border-radius:14px">
+   <svg width="22" height="22" viewBox="0 0 16 16" fill="none"><path d="M2 8h1.5M5 4.5v7M8 2v12M11 4.5v7M14 8h-1.5" stroke="#06130b" stroke-width="1.8" stroke-linecap="round"></path></svg>
+  </div>
   <h2>Welcome to Sonave</h2>
   <p>Enter your access token to continue.</p>
   <input id="tok" class="inp" type="password" placeholder="Access token" onkeydown="if(event.key=='Enter')dologin()">
-  <button class="btn" onclick="dologin()">Unlock</button>
+  <button class="btn-primary" onclick="dologin()">Unlock</button>
  </div>
 </div>
 
 <script>
-var SKIP=/HealthCheck|FIXCHECK|WSTEST|deploycheck/i,AUTH='__AUTH__'==='1',lastAudio=null,open={};
+var SKIP=/HealthCheck|FIXCHECK|WSTEST|deploycheck/i,AUTH='__AUTH__'==='1',lastAudio=null,openSess={};
 function cookie(n){return(document.cookie.match('(^|;)\\s*'+n+'\\s*=\\s*([^;]+)')||[])[2]}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function needlogin(){document.getElementById('login').style.display='flex'}
 async function jget(u){var r=await fetch(u);if(r.status===401){needlogin();throw'auth'}return r.json()}
 function dologin(){var t=document.getElementById('tok').value.trim();if(!t)return;document.cookie='sonave_token='+t+';path=/;SameSite=Strict;Max-Age=2592000';document.getElementById('login').style.display='none';start()}
-function toast(msg,type){var el=document.getElementById('toast');el.textContent=msg;el.className='toast '+(type||'');setTimeout(function(){el.classList.add('show')},10);setTimeout(function(){el.classList.remove('show')},3500)}
+function toast(msg,type){var el=document.getElementById('toast');clearTimeout(el._t1);clearTimeout(el._t2);el.textContent=msg;el.className='toast '+(type||'');el._t1=setTimeout(function(){el.classList.add('show')},10);el._t2=setTimeout(function(){el.classList.remove('show')},3500)}
 
 var _started=0;
 function start(){if(_started)return;_started=1;list();quality();incidents();enrolled();setInterval(list,5000);setInterval(quality,1500);setInterval(incidents,3000);setInterval(enrolled,10000)}
 
-function avcolor(v){return v=='real'?'#22c55e':v=='fake'?'#ef4444':'#f59e0b'}
-function avbadge(v){return v=='real'?'badge-real':v=='fake'?'badge-fake':'badge-suspect'}
-function qcolor(v){return v=='good'?'#22c55e':/CLIP/.test(v)?'#ef4444':/QUIET|silence/i.test(v)?'#f59e0b':'#64748b'}
+/* ---- verdict formatting (thresholds match backend tau 0.40 / 0.70) ---- */
+function vcolor(p){return p>=0.7?'var(--red)':p>=0.4?'var(--amber)':'var(--green)'}
+function vname(p){return p>=0.7?'FAKE':p>=0.4?'SUSPECT':'REAL'}
+function bcolor(v){return v=='fake'?'var(--red)':v=='suspect'?'var(--amber)':v=='real'?'var(--green)':'var(--muted)'}
+function bcls(v){return v=='fake'?'b-fake':v=='suspect'?'b-suspect':v=='real'?'b-real':'b-pending'}
 function hms(s){s=Math.round(s);var h=s/3600|0,m=(s%3600)/60|0,x=s%60;return h?h+'h '+m+'m':m?m+'m '+(x<10?'0':'')+x+'s':x+'s'}
 function tod(ms){var d=new Date(ms);var h=d.getHours(),m=d.getMinutes();var ap=h<12?'AM':'PM';h=h%12||12;return h+':'+(m<10?'0':'')+m+' '+ap}
+function dtd(ms){var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],d=new Date(ms);return M[d.getMonth()]+' '+d.getDate()+', '+tod(ms)}
 
+/* ---- view switching ---- */
+var TITLES={monitor:'Live Monitor',captures:'Captures & Forensic Log',history:'Meeting History',lab:'Model Lab'};
+function setView(name){
+ ['monitor','captures','history','lab'].forEach(function(v){
+  document.getElementById('view-'+v).classList.toggle('on',v===name);
+  document.getElementById('nav-'+v).classList.toggle('active',v===name);
+ });
+ document.getElementById('viewTitle').textContent=TITLES[name];
+}
+
+/* ---- clock (cosmetic, client-local) ---- */
+function tickClock(){var d=new Date(),h=d.getHours()%12||12,m=String(d.getMinutes()).padStart(2,'0'),s=String(d.getSeconds()).padStart(2,'0');document.getElementById('clock').textContent=h+':'+m+':'+s+(d.getHours()<12?' AM':' PM')}
+setInterval(tickClock,1000);tickClock();
+
+/* ---- shared render pipeline (real + demo feed the same functions) ---- */
+function renderSpeakers(items){
+ var grid=document.getElementById('speakersGrid'),idle=document.getElementById('idleState');
+ if(!items.length){grid.style.display='none';idle.style.display='flex';return}
+ idle.style.display='none';grid.style.display='grid';
+ grid.innerHTML=items.map(function(s){
+  var pct=Math.round(s.p*100),c=vcolor(s.p);
+  var bars=s.bars.slice(-22);while(bars.length<22)bars.unshift(null);
+  var spark=bars.map(function(b){
+   return b==null?'<div class="spark-b" style="height:4%;background:var(--line2)"></div>'
+    :'<div class="spark-b" style="height:'+Math.max(6,Math.round(b*100))+'%;background:'+vcolor(b)+'"></div>';
+  }).join('');
+  var meta='<span>'+esc(s.speech)+'% speech</span><span>'+esc(s.dur)+'</span><span>'+esc(s.clips)+' clips</span>'+
+   (s.match?'<span class="match">match '+esc(s.match)+'%</span>':'');
+  return '<div class="spk-card'+(s.verdict=='fake'?' fake':'')+'">'+
+   '<div class="spk-top"><div class="spk-who">'+
+    '<div class="avatar">'+esc(s.name.charAt(0).toUpperCase())+'</div>'+
+    '<div style="min-width:0"><div class="spk-name">'+esc(s.name)+'</div><div class="spk-sub">'+esc(s.sub)+'</div></div>'+
+   '</div><span class="badge '+bcls(s.verdict)+'">'+esc(s.verdict.toUpperCase())+'</span></div>'+
+   '<div class="risk-row"><span class="risk-lbl">DEEPFAKE RISK</span><span class="risk-pct" style="color:'+c+'">'+pct+'%</span></div>'+
+   '<div class="risk-track"><div class="risk-fill" style="width:'+pct+'%;background:'+c+'"></div></div>'+
+   '<div class="spark">'+spark+'</div>'+
+   '<div class="spk-meta">'+meta+'</div>'+
+  '</div>';
+ }).join('');
+}
+function renderTiles(t){
+ var v=document.getElementById('tileVerdict');v.textContent=t.verdict;v.style.color=t.color;
+ var r=document.getElementById('tileRisk');r.textContent=t.risk+'%';r.style.color=t.color;
+ document.getElementById('tileLive').textContent=t.live;
+ document.getElementById('tileEnrolled').textContent=t.enrolled;
+ document.getElementById('tileWindows').textContent=t.windows;
+ document.getElementById('tileLatency').textContent=t.latency;
+}
+function setStatus(n,note){
+ var on=n>0;
+ document.getElementById('statusDot').className='status-dot'+(on?' live':'');
+ document.getElementById('statusText').textContent=on?(n+' speakers monitoring'):'idle · scale-to-zero';
+ document.getElementById('updateNote').textContent=note;
+}
+function renderIncidentBanners(rows,isDemo){
+ document.getElementById('incidentBanners').innerHTML=rows.map(function(i){
+  var title=i.hold?'Wire hold triggered — suspected deepfake':'Alert — suspected deepfake';
+  var tail=i.hold?' · webhook fired to approval system':'';
+  return '<div class="banner"><div class="banner-left"><div class="banner-ic">!</div><div>'+
+   '<div class="banner-title">'+title+'</div>'+
+   '<div class="banner-sub">Speaker <b style="color:var(--ink)">'+esc(i.speaker)+'</b> crossed the red threshold · rolling risk <span class="mono" style="color:var(--red)">'+i.risk+'%</span>'+tail+'</div>'+
+  '</div></div><div class="banner-btns">'+
+   '<button class="btn-quiet" onclick="toast(\'Report export is not wired up yet — incident stays in the forensic log.\',\'err\')">Export report</button>'+
+   '<button class="btn-danger" onclick="'+(isDemo?'demoAck()':'ack('+i.id+')')+'">Acknowledge</button>'+
+  '</div></div>';
+ }).join('');
+}
+
+/* ---- real data: live monitor ---- */
 var _sparkHistory={};
-function sparkHtml(k,p){
- var h=_sparkHistory[k]=(_sparkHistory[k]||[]);
- h.push(p);if(h.length>20)h.shift();
- return '<div class="spark">'+h.map(function(v){
-  var pct=Math.round(v*100),c=avcolor(v>=0.7?'fake':v>=0.4?'suspect':'real');
-  return '<div class="spark-b" style="height:'+Math.max(4,pct)+'%;background:'+c+'"></div>'
- }).join('')+'</div>';
-}
-
-function riskBar(p){
- var pct=Math.round(p*100),c=avcolor(p>=0.7?'fake':p>=0.4?'suspect':'real');
- return '<div class="risk-label">Deepfake Risk</div><div class="risk-wrap"><div class="risk-track"><div class="risk-fill" style="width:'+pct+'%;background:'+c+'"></div></div><span class="risk-pct" style="color:'+c+'">'+pct+'%</span></div>';
-}
-
 async function quality(){
+ if(DEMO)return;
  var d;try{d=await jget('/api/quality')}catch(e){return}
  var ks=Object.keys(d).filter(function(k){return!SKIP.test(k)});
  if(!ks.length){
-  document.getElementById('speakersBox').innerHTML='<div class="empty-st">Send a bot into a meeting to begin monitoring.</div>';
-  setGauge(0,null);
-  setLive(0);return
+  renderSpeakers([]);
+  renderTiles({verdict:'—',color:'var(--muted)',risk:0,live:0,enrolled:0,windows:'—',latency:'—'});
+  setStatus(0,'standby');
+  return;
  }
- var html='',maxP=0,overallVerdict='real',active=0;
+ var items=[],maxP=0,maxV='real',active=0,windows=0,enrolledLive=0;
  ks.forEach(function(k){
   var s=d[k];
   if(s.level>0.01)active++;
+  if(s.enrolled)enrolledLive++;
+  windows+=Math.floor((s.total_sec||0)/10);
   var p=s.auth_p!=null?s.auth_p:(s.verdict=='fake'?0.85:s.verdict=='suspect'?0.55:0.2);
-  if(p>maxP){maxP=p;overallVerdict=s.auth_verdict||'real'}
-  var v=s.auth_verdict||'pending';
-  var badge=avbadge(v);
-  var enrollBadge=s.enrolled?'<span style="font-size:10px;color:#3b82f6;margin-left:6px">\u25cf enrolled</span>':'';
-  var speakerCheck='';
-  if(s.speaker_check&&s.speaker_check.enrolled){
-   speakerCheck='<div style="font-size:11px;color:var(--ink2);margin-top:4px">\uD83D\uDD10 Voiceprint match '+Math.round(s.speaker_check.similarity*100)+'%</div>';
-  }
-  var borderClass=v=='fake'?' fake-border':'';
-  html+='<div class="speaker-card'+borderClass+'">'+
-   '<div class="speaker-top">'+
-    '<div class="speaker-name"><span class="speaker-avatar">'+esc(k.charAt(0).toUpperCase())+'</span>'+esc(k)+enrollBadge+'</div>'+
-    '<span class="badge '+badge+'">'+esc(v.toUpperCase())+'</span>'+
-   '</div>'+
-   riskBar(p)+
-   sparkHtml(k,p)+
-   '<div class="speaker-meta">'+
-    '<span>\uD83C\uDFA4 '+((s.speech_pct||0)+'% speech')+'</span>'+
-    '<span>\u23F1 '+hms(s.total_sec||0)+'</span>'+
-    '<span>\uD83D\uDCCE '+(s.clips||0)+' clips</span>'+
-   '</div>'+
-   '<div class="mini-bar"><i style="width:'+Math.min(100,Math.round((s.level||0)*300))+'%;background:'+qcolor(s.verdict)+'"></i></div>'+
-   speakerCheck+
-  '</div>';
+  if(p>maxP){maxP=p;maxV=s.auth_verdict||vname(p).toLowerCase()}
+  var h=_sparkHistory[k]=(_sparkHistory[k]||[]);
+  h.push(p);if(h.length>22)h.shift();
+  var match=(s.speaker_check&&s.speaker_check.enrolled)?Math.round(s.speaker_check.similarity*100):(s.match_conf?Math.round(s.match_conf*100):0);
+  items.push({
+   name:k,sub:s.enrolled?'voiceprint enrolled':'audio '+(s.verdict||'—'),
+   verdict:s.auth_verdict||'pending',p:p,bars:h.slice(),
+   speech:s.speech_pct||0,dur:hms(s.total_sec||0),clips:s.clips||0,match:match
+  });
  });
- document.getElementById('speakersBox').innerHTML=html;
- setGauge(maxP,overallVerdict);
- setLive(active);
-}
- var max=490,arc=max*Math.min(1,Math.max(0,p));
- var el=document.getElementById('gaugeArc');
- el.style.strokeDasharray=arc+' '+max;
- el.style.stroke=avcolor(verdict);
- var v=document.getElementById('gaugeVal');
- v.textContent=verdict?verdict.toUpperCase():'\u2014';
- v.style.color=avcolor(verdict);
+ renderSpeakers(items);
+ renderTiles({verdict:maxV.toUpperCase(),color:bcolor(maxV),risk:Math.round(maxP*100),live:ks.length,enrolled:enrolledLive,windows:windows.toLocaleString(),latency:'—'});
+ setStatus(active,'updating · 1.5s');
 }
 
-async function quality(){
- var d;try{d=await jget('/api/quality')}catch(e){return}
- var ks=Object.keys(d).filter(function(k){return!SKIP.test(k)});
- if(!ks.length){
-  document.getElementById('speakersBox').innerHTML='<div class="empty-st">Send a bot into a meeting to begin monitoring.</div>';
-  setGauge(0,null);
-  setLive(0);return
- }
- var html='',maxP=0,overallVerdict='real',active=0;
- ks.forEach(function(k){
-  var s=d[k];
-  if(s.level>0.01)active++;
-  var p=s.auth_p!=null?s.auth_p:(s.verdict=='fake'?0.85:s.verdict=='suspect'?0.55:0.2);
-  if(p>maxP){maxP=p;overallVerdict=s.auth_verdict||'real'}
-  var v=s.auth_verdict||'pending';
-  var badge=avbadge(v);
-  var enrollBadge=s.enrolled?'<span style="font-size:10px;color:#3b82f6;margin-left:6px">\u25cf enrolled</span>':'';
-  var speakerCheck='';
-  if(s.speaker_check&&s.speaker_check.enrolled){
-   speakerCheck='<div style="font-size:11px;color:var(--ink2);margin-top:4px">\uD83D\uDD10 Voiceprint match '+Math.round(s.speaker_check.similarity*100)+'%</div>';
-  }
-  html+='<div class="speaker-card">'+
-   '<div class="speaker-top">'+
-    '<div class="speaker-name"><span class="speaker-avatar">'+esc(k.charAt(0).toUpperCase())+'</span>'+esc(k)+enrollBadge+'</div>'+
-    '<span class="badge '+badge+'">'+esc(v.toUpperCase())+'</span>'+
-   '</div>'+
-   '<div class="speaker-meta">'+
-    '<span>\uD83C\uDFA4 '+((s.speech_pct||0)+'% speech')+'</span>'+
-    '<span>\u23F1 '+hms(s.total_sec||0)+'</span>'+
-    '<span>\uD83D\uDCCE '+(s.clips||0)+' clips</span>'+
-   '</div>'+
-   '<div class="mini-bar"><i style="width:'+Math.min(100,Math.round((s.level||0)*300))+'%;background:'+qcolor(s.verdict)+'"></i></div>'+
-   speakerCheck+
-  '</div>';
- });
- document.getElementById('speakersBox').innerHTML=html;
- setGauge(maxP,overallVerdict);
- setLive(active);
-}
-function setLive(n){var on=n>0;document.getElementById('statusDot').className='status-dot'+(on?' live':'');document.getElementById('statusTxt').textContent=on?(n+' monitoring'):'idle'}
-
+/* ---- real data: incidents (banner gated by demo; history always real) ---- */
+var _incAll=[],_histFilter='All';
 async function incidents(){
  var d;try{d=await jget('/api/incidents')}catch(e){return}
- var open=(d.incidents||[]).filter(function(i){return i.status=='open'});
- document.getElementById('alerts').innerHTML=open.map(function(i){
-  return '<div class="alert-banner"><div><b>\u26D4 '+(i.hold?'WIRE HELD':'ALERT')+'</b> \u2014 suspected deepfake: <b>'+esc(i.speaker)+'</b> \u00B7 risk '+Math.round(i.rolling*100)+'%</div><button class="btn" onclick="ack('+i.id+')">Ack</button></div>'
- }).join('')
+ _incAll=d.incidents||[];
+ if(!DEMO){
+  renderIncidentBanners(_incAll.filter(function(i){return i.status=='open'}).map(function(i){
+   return {id:i.id,speaker:i.speaker,risk:Math.round(i.rolling*100),hold:!!i.hold};
+  }),false);
+ }
+ renderHistory();
 }
 async function ack(id){await fetch('/api/incidents/ack',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id})});incidents()}
 
-var _captureSpeakers=new Set();
+function setHistFilter(f){
+ _histFilter=f;
+ var pills=document.getElementById('histPills').children;
+ for(var i=0;i<pills.length;i++)pills[i].classList.toggle('on',pills[i].textContent===f);
+ renderHistory();
+}
+function renderHistory(){
+ var rows=_incAll.filter(function(i){
+  return _histFilter=='All'||(_histFilter=='Open'?i.status=='open':i.status!='open');
+ });
+ var el=document.getElementById('histRows');
+ if(!rows.length){el.innerHTML='<div class="empty-st" style="padding:20px">'+(_incAll.length?'Nothing matches this filter.':'No incidents recorded.')+'</div>';return}
+ el.innerHTML=rows.map(function(i){
+  var open=i.status=='open';
+  var badge=open?(i.hold?'WIRE HELD':'OPEN'):'ACKED';
+  var bStyle=badge=='WIRE HELD'?'background:rgba(255,77,94,.12);color:var(--red)':badge=='OPEN'?'background:rgba(255,178,36,.1);color:var(--amber)':'background:var(--chip);color:var(--muted)';
+  var risk=Math.round(i.rolling*100);
+  return '<div class="hist-grid">'+
+   '<div style="min-width:0"><div class="hist-spk">'+esc(i.speaker)+'</div><div class="hist-model">'+esc(i.model||'')+'</div></div>'+
+   '<span class="hist-cell">'+dtd(i.first_ts*1000)+'</span>'+
+   '<span class="hist-cell hide-sm">'+dtd(i.last_ts*1000)+'</span>'+
+   '<span class="hist-risk" style="color:'+vcolor(i.rolling)+'">'+risk+'%</span>'+
+   '<span class="hist-badge" style="'+bStyle+'">'+badge+'</span>'+
+  '</div>';
+ }).join('');
+}
+
+/* ---- real data: enrollment ---- */
 async function enrolled(){
  var d;try{d=await jget('/api/enrolled')}catch(e){return}
- var list=document.getElementById('enrolledList');
- list.innerHTML=(d.enrolled||[]).map(function(e){
-  return '<span class="tag"><b>'+esc(e.speaker_id)+'</b> \u00B7 '+e.created_at+' <button onclick="delEnroll(\''+esc(e.speaker_id)+'\')">\u00D7</button></span>'
+ var rows=d.enrolled||[];
+ document.getElementById('enrolledCount').textContent=rows.length;
+ document.getElementById('enrolledList').innerHTML=rows.map(function(e){
+  return '<span class="tag"><span class="dot"></span><span class="name">'+esc(e.speaker_id)+'</span><button class="x" onclick="delEnroll(\''+esc(e.speaker_id)+'\')">×</button></span>';
  }).join('');
 }
 async function delEnroll(spk){if(!confirm('Delete enrollment for '+spk+'?'))return;await fetch('/api/enroll/'+encodeURIComponent(spk),{method:'DELETE'});enrolled()}
 async function enrollSpk(){
- var sel=document.getElementById('enrollSpk'),spk=sel.value;
+ var sel=document.getElementById('enrollSel'),spk=sel.value;
  if(!spk){toast('Select a speaker first.','err');return}
  var r=await fetch('/api/enroll',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({speaker_id:spk})});
  var d=await r.json();
- toast(d.ok?'\u2713 Enrolled '+d.speaker+' from '+d.clips+' clips':'\u2715 '+d.detail,d.ok?'ok':'err');
+ toast(d.ok?'✓ Enrolled '+d.speaker+' from '+d.clips+' clips':'✕ '+d.detail,d.ok?'ok':'err');
  enrolled();
 }
 async function enrollCustom(){
  var spk=prompt('Speaker name to enroll (uses all captures with this name):');if(!spk)return;
  var r=await fetch('/api/enroll',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({speaker_id:spk})});
- var d=await r.json();toast(d.ok?'\u2713 Enrolled '+d.speaker:'\u2715 '+d.detail,d.ok?'ok':'err');enrolled();
+ var d=await r.json();toast(d.ok?'✓ Enrolled '+d.speaker:'✕ '+d.detail,d.ok?'ok':'err');enrolled();
 }
 function updateEnrollDropdown(files){
- var sel=document.getElementById('enrollSpk');
+ var sel=document.getElementById('enrollSel');
  var speakers=new Set();
- files.forEach(function(f){var m=f.name.match(/^meet_([A-Za-z0-9_]+)_/);if(m)speakers.add(m[1])});
- _captureSpeakers=speakers;
- var opts='<option value="">\u2014 select speaker from captures \u2014</option>';
+ files.forEach(function(f){var m=f.name.match(/^meet_([A-Za-z0-9_-]+)_/);if(m)speakers.add(m[1])});
+ var opts='<option value="">Select speaker from captures…</option>';
  speakers.forEach(function(s){opts+='<option value="'+esc(s)+'">'+esc(s)+'</option>'});
- sel.innerHTML=opts;
+ var cur=sel.value;sel.innerHTML=opts;if(cur)sel.value=cur;
 }
 
+/* ---- real data: captures ---- */
 function play(name,btn){
- if(lastAudio){lastAudio.pause();if(lastAudio._b)lastAudio._b.textContent='\u25B6'}
- var a=new Audio('/download/'+name);a._b=btn;a.play();btn.textContent='\u23F8\u23F8';lastAudio=a;
- a.onended=function(){btn.textContent='\u25B6';if(lastAudio==a)lastAudio=null}
+ if(lastAudio){lastAudio.pause();if(lastAudio._b)lastAudio._b.textContent='▶'}
+ var a=new Audio('/download/'+name);a._b=btn;a.play();btn.textContent='❚❚';lastAudio=a;
+ a.onended=function(){btn.textContent='▶';if(lastAudio==a)lastAudio=null}
 }
-function toggle(id){open[id]=!open[id];list(true)}
+function toggle(id){openSess[id]=!openSess[id];list(true)}
 var _cache=null;
 async function list(fromToggle){
  if(!fromToggle){try{_cache=(await jget('/captures')).files}catch(e){return}}
  var files=(_cache||[]).filter(function(f){return!SKIP.test(f.name)});
- if(!files.length){document.getElementById('list').innerHTML='<div class="empty-st">No captures yet.</div>';document.getElementById('captureCount').textContent='0 sessions';return}
+ if(!files.length){
+  document.getElementById('sessionList').innerHTML='<div class="empty-st">No captures yet.</div>';
+  document.getElementById('sessionCount').textContent='0 sessions';
+  document.getElementById('recentCaptures').innerHTML='<div class="empty-st">No captures yet.</div>';
+  return;
+ }
  updateEnrollDropdown(files);
- var sess={},totalSessions=0;
+ var sess={};
  files.forEach(function(f){var p=f.name.replace(/\.wav$/,'').split('_');var ts=p.length>=3?+p[p.length-2]:0,spk=p.slice(1,-2).join('_')||'?';var key=spk+'@'+ts;(sess[key]=sess[key]||{spk:spk,ts:ts,items:[]}).items.push(f)});
  var groups=Object.values(sess).sort(function(a,b){return b.ts-a.ts});
- totalSessions=groups.length;
- document.getElementById('captureCount').textContent=totalSessions+' session'+(totalSessions==1?'':'s');
- document.getElementById('list').innerHTML=groups.map(function(g,i){
+ document.getElementById('sessionCount').textContent=groups.length+' session'+(groups.length==1?'':'s');
+ document.getElementById('sessionList').innerHTML=groups.map(function(g,i){
   var id=g.spk+g.ts,mb=g.items.reduce(function(s,f){return s+f.mb},0),dur=mb*1e6/32000;
-  var isopen=i in open?open[id]:(i==0);open[id]=isopen;
+  var isopen=id in openSess?openSess[id]:(i==0);openSess[id]=isopen;
   var body=isopen?'<div class="sess-body">'+g.items.map(function(f){
    var d=f.mb*1e6/32000;
-   return '<div class="clip-row"><button class="clip-play" onclick="play(\''+esc(f.name)+'\',this)">\u25B6</button><span class="clip-name">'+esc(f.name)+'</span><span class="clip-dur">'+hms(d)+' \u00B7 '+f.mb+' MB</span></div>'
+   return '<div class="clip-row"><button class="clip-play" onclick="play(\''+esc(f.name)+'\',this)">▶</button><span class="clip-name">'+esc(f.name)+'</span><span class="clip-dur">'+hms(d)+' · '+f.mb+' MB</span></div>';
   }).join('')+'</div>':'';
-  return '<div class="sess-group"><div class="sess-hd" onclick="toggle(\''+esc(id)+'\')">'+
-   '<span class="sess-title"><span class="caret'+(isopen?' open':'')+'">\u9656;</span> '+esc(g.spk)+' \u00B7 '+(g.ts?tod(g.ts*1000):'session')+'</span>'+
-   '<span class="sess-meta">'+g.items.length+' clips \u00B7 '+mb.toFixed(1)+' MB \u00B7 '+hms(dur)+'</span></div>'+body+'</div>'
- }).join('')
+  return '<div class="sess"><div class="sess-hd" onclick="toggle(\''+esc(id)+'\')">'+
+   '<div class="sess-left"><span class="caret'+(isopen?' open':'')+'">▶</span><span class="sess-spk">'+esc(g.spk)+'</span><span class="sess-time">'+(g.ts?tod(g.ts*1000):'session')+'</span></div>'+
+   '<span class="sess-meta">'+g.items.length+' clips · '+mb.toFixed(1)+' MB · '+hms(dur)+'</span></div>'+body+'</div>';
+ }).join('');
+ document.getElementById('recentCaptures').innerHTML=groups.slice(0,3).map(function(g){
+  return '<div class="recent-row"><span class="recent-spk">'+esc(g.spk)+'</span><span class="recent-meta">'+g.items.length+' clips · '+(g.ts?tod(g.ts*1000):'session')+'</span></div>';
+ }).join('');
 }
 
-async function send(){
- var b=document.getElementById('sendb'),u=document.getElementById('u').value.trim();
+/* ---- deploy bot (always real, even mid-demo) ---- */
+async function deployBot(){
+ var b=document.getElementById('deployBtn'),u=document.getElementById('meetUrl').value.trim();
  if(!u){toast('Paste a meeting link first.','err');return}
- b.disabled=true;b.textContent='Sending\u2026';
+ b.disabled=true;b.textContent='Sending…';
  try{var r=await fetch('/bot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({meeting_url:u})});
-  if(r.status===401){needlogin();b.disabled=false;b.textContent='Send';return}
+  if(r.status===401){needlogin();b.disabled=false;b.textContent='Deploy';return}
   var d=await r.json();
-  toast(d.ok?'\u2713 Bot deployed \u00B7 '+d.bot_id:'\u2715 '+esc(d.detail||d.error||d.status),d.ok?'ok':'err')}
- catch(e){toast('\u2715 '+e,'err')}
- b.disabled=false;b.textContent='Send';
+  toast(d.ok?'✓ Bot deployed · '+d.bot_id:'✕ '+esc(d.detail||d.error||d.status),d.ok?'ok':'err')}
+ catch(e){toast('✕ '+e,'err')}
+ b.disabled=false;b.textContent='Deploy';
 }
 
-function toggleCollap(id){
- var el=document.getElementById(id),caret=document.getElementById('caret-'+id);
- if(el.classList.contains('hidden')){el.classList.remove('hidden');caret.classList.add('open')}
- else{el.classList.add('hidden');caret.classList.remove('open')}
+/* ---- simulate-call demo: purely client-side, never touches the backend ---- */
+var DEMO=false,_demoT=null,demoSt=null;
+function demoToggle(){DEMO?demoStop():demoStart()}
+function demoStart(){
+ var mk=function(name,sub,base,enr){return{name:name,sub:sub,base:base,p:base,enrolled:enr,hist:[],speech:20+Math.round(Math.random()*40),sec:0,clips:0}};
+ demoSt={tick:0,windows:0,incident:null,acked:false,speakers:[
+  mk('Derek Gallardo','Host · approver',0.05,true),
+  mk('M. Alvarez','CFO · enrolled',0.08,true),
+  mk('J. Whitfield','Counterparty',0.16,false),
+  mk('Unknown caller','Joined by phone',0.22,false)
+ ]};
+ DEMO=true;
+ document.getElementById('demoBtn').textContent='End simulation';
+ document.getElementById('simChip').style.display='inline-block';
+ _demoT=setInterval(demoStep,1200);
+ demoStep();
 }
-function loadModel(){toast('Loading model from HuggingFace\u2026','ok')}
+function demoStop(){
+ clearInterval(_demoT);DEMO=false;demoSt=null;
+ document.getElementById('demoBtn').textContent='Simulate call';
+ document.getElementById('simChip').style.display='none';
+ renderSpeakers([]);
+ renderIncidentBanners([],false);
+ renderTiles({verdict:'—',color:'var(--muted)',risk:0,live:0,enrolled:0,windows:'—',latency:'—'});
+ setStatus(0,'standby');
+ quality();incidents();
+}
+function demoStep(){
+ var st=demoSt;st.tick++;
+ st.speakers.forEach(function(s,i){
+  var target=s.base;
+  if(i===3)target=Math.min(0.86,0.22+Math.max(0,st.tick-8)*0.055);
+  s.p=Math.max(0.01,Math.min(0.97,target+(Math.random()-0.5)*0.07));
+  s.hist.push(s.p);if(s.hist.length>22)s.hist.shift();
+  s.sec+=1.2;s.clips=Math.floor(s.sec/8);
+  s.speech=Math.max(8,Math.min(70,s.speech+Math.round((Math.random()-0.5)*6)));
+ });
+ if(!st.incident&&!st.acked){
+  var bad=st.speakers.find(function(s){return s.p>=0.7});
+  if(bad)st.incident={speaker:bad.name,risk:Math.round(bad.p*100)};
+ }
+ if(st.incident){
+  var b2=st.speakers.find(function(s){return s.name===st.incident.speaker});
+  if(b2)st.incident.risk=Math.round(b2.p*100);
+ }
+ st.windows+=st.speakers.filter(function(s){return s.speech>10}).length;
+ var items=st.speakers.map(function(s){
+  return {name:s.name,sub:s.sub,verdict:vname(s.p).toLowerCase(),p:s.p,bars:s.hist.slice(),
+   speech:s.speech,dur:hms(s.sec),clips:s.clips,match:s.enrolled?94+(Math.round(s.p*100)%5):0};
+ });
+ var maxP=Math.max.apply(null,st.speakers.map(function(s){return s.p}));
+ renderSpeakers(items);
+ renderTiles({verdict:vname(maxP),color:vcolor(maxP),risk:Math.round(maxP*100),live:4,enrolled:2,windows:st.windows.toLocaleString(),latency:(94+(st.tick%4)*3)+' ms'});
+ setStatus(4,'simulated · 1.2s');
+ renderIncidentBanners(st.incident?[{speaker:st.incident.speaker,risk:st.incident.risk,hold:true}]:[],true);
+}
+function demoAck(){
+ demoSt.incident=null;demoSt.acked=true;
+ renderIncidentBanners([],true);
+ toast('Simulated incident acknowledged — nothing was written to the forensic log.','ok');
+}
 
 if(AUTH&&!cookie('sonave_token'))needlogin();else start();
 </script>
