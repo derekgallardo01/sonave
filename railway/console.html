@@ -356,11 +356,12 @@ a:hover{color:var(--green-hover)}
  <section class="view" id="view-lab">
   <div class="lab-wrap">
    <div class="tiles">
-    <div class="tile"><div class="lab-tile-val" style="color:var(--green)">91%</div><div class="lab-tile-sub">catch on 27 unseen commercial tools (commodity ~2%)</div></div>
-    <div class="tile"><div class="lab-tile-val" style="color:var(--green)">7.5%</div><div class="lab-tile-sub">unseen-generator EER, clean audio</div></div>
-    <div class="tile"><div class="lab-tile-val" style="color:var(--green)">96%</div><div class="lab-tile-sub">real-voice accuracy through Google Meet Opus</div></div>
-    <div class="tile"><div class="lab-tile-val">~100<span style="font-size:12px;color:var(--muted)"> ms</span></div><div class="lab-tile-sub">GPU inference per 4 s window</div></div>
+    <div class="tile"><div class="lab-tile-val" style="color:var(--green)">95%</div><div class="lab-tile-sub">catch on 27 unseen commercial tools (commodity 2%, same set)</div></div>
+    <div class="tile"><div class="lab-tile-val" style="color:var(--green)">7.0%</div><div class="lab-tile-sub">unseen-generator EER, clean audio</div></div>
+    <div class="tile"><div class="lab-tile-val" style="color:var(--green)">94%</div><div class="lab-tile-sub">real-voice accuracy through the Opus meeting codec</div></div>
+    <div class="tile"><div class="lab-tile-val" style="color:var(--amber)">59%</div><div class="lab-tile-sub">catch on hard real-world deepfakes (In-the-Wild) at 93% real-acc</div></div>
    </div>
+   <div style="font-size:10.5px;color:var(--dim);font-family:var(--mono)">measured 2026-08-12 on the deployed checkpoint · src/eval_xlsr.py</div>
 
    <div class="lab-grid">
     <div class="card">
@@ -371,7 +372,7 @@ a:hover{color:var(--green-hover)}
        <span class="model-tag t-prod">PRODUCTION</span>
       </div>
       <div class="model-row">
-       <div><div class="model-row-name">sonave-xlsr-rw</div><div class="model-row-desc">87-generator diverse fine-tune &#183; higher cross-source catch</div></div>
+       <div><div class="model-row-name">sonave-xlsr-rw</div><div class="model-row-desc">Real-world robust fine-tune (VoxPopuli) &#183; pre-Meet lineage</div></div>
        <span class="model-tag t-cand">CANDIDATE</span>
       </div>
       <div class="model-row">
@@ -387,10 +388,10 @@ a:hover{color:var(--green-hover)}
 
     <div style="display:flex;flex-direction:column;gap:18px">
      <div class="card">
-      <div class="card-hd"><span class="card-lbl">WEEKLY TRAINING</span><span class="update-note">last run Aug 9, 2026</span></div>
+      <div class="card-hd"><span class="card-lbl">TRAINING</span><span class="update-note">last run Aug 1, 2026</span></div>
       <div style="padding:16px 20px;display:flex;flex-direction:column;gap:12px">
-       <div class="train-row"><span style="font-size:11.5px;color:var(--ink2)">Validation accuracy</span><span class="mono" style="font-size:14px;font-weight:600;color:var(--green)">91.2%</span></div>
-       <div class="bar-track"><div class="bar-fill" style="width:91.2%"></div></div>
+       <div class="train-row"><span style="font-size:11.5px;color:var(--ink2)">Unseen-tool catch (27 tools)</span><span class="mono" style="font-size:14px;font-weight:600;color:var(--green)">95.2%</span></div>
+       <div class="bar-track"><div class="bar-fill" style="width:95.2%"></div></div>
        <div style="display:flex;gap:8px">
         <select class="sel"><option>Weekly (Sundays)</option><option>Daily</option><option>Manual only</option></select>
         <select class="sel"><option>All captures</option><option>Last 30 days</option><option>Labeled only</option></select>
@@ -522,19 +523,21 @@ var _sparkHistory={};
 async function quality(){
  if(DEMO)return;
  var d;try{d=await jget('/api/quality')}catch(e){return}
- var ks=Object.keys(d).filter(function(k){return!SKIP.test(k)});
+ var scorerOff=d._scorer&&!d._scorer.configured;
+ var ks=Object.keys(d).filter(function(k){return k[0]!=='_'&&!SKIP.test(k)});
  if(!ks.length){
   renderSpeakers([]);
   renderTiles({verdict:'—',color:'var(--muted)',risk:0,live:0,enrolled:0,windows:'—',latency:'—'});
-  setStatus(0,'standby');
+  setStatus(0,scorerOff?'no scorer configured':'standby');
   return;
  }
- var items=[],maxP=0,maxV='real',active=0,windows=0,enrolledLive=0;
+ var items=[],maxP=0,maxV='real',active=0,windows=0,enrolledLive=0,lats=[];
  ks.forEach(function(k){
   var s=d[k];
   if(s.level>0.01)active++;
   if(s.enrolled)enrolledLive++;
   windows+=Math.floor((s.total_sec||0)/10);
+  if(s.latency_ms!=null)lats.push(s.latency_ms);
   var p=s.auth_p!=null?s.auth_p:(s.verdict=='fake'?0.85:s.verdict=='suspect'?0.55:0.2);
   if(p>maxP){maxP=p;maxV=s.auth_verdict||vname(p).toLowerCase()}
   var h=_sparkHistory[k]=(_sparkHistory[k]||[]);
@@ -546,9 +549,11 @@ async function quality(){
    speech:s.speech_pct||0,dur:hms(s.total_sec||0),clips:s.clips||0,match:match
   });
  });
+ lats.sort(function(a,b){return a-b});
+ var medLat=lats.length?Math.round(lats[lats.length>>1])+' ms':'—';
  renderSpeakers(items);
- renderTiles({verdict:maxV.toUpperCase(),color:bcolor(maxV),risk:Math.round(maxP*100),live:ks.length,enrolled:enrolledLive,windows:windows.toLocaleString(),latency:'—'});
- setStatus(active,'updating · 1.5s');
+ renderTiles({verdict:maxV.toUpperCase(),color:bcolor(maxV),risk:Math.round(maxP*100),live:ks.length,enrolled:enrolledLive,windows:windows.toLocaleString(),latency:medLat});
+ setStatus(active,scorerOff?'no scorer configured':'updating · 1.5s');
 }
 
 /* ---- real data: incidents (banner gated by demo; history always real) ---- */
@@ -727,7 +732,7 @@ function demoStep(){
  });
  var maxP=Math.max.apply(null,st.speakers.map(function(s){return s.p}));
  renderSpeakers(items);
- renderTiles({verdict:vname(maxP),color:vcolor(maxP),risk:Math.round(maxP*100),live:4,enrolled:2,windows:st.windows.toLocaleString(),latency:(94+(st.tick%4)*3)+' ms'});
+ renderTiles({verdict:vname(maxP),color:vcolor(maxP),risk:Math.round(maxP*100),live:4,enrolled:2,windows:st.windows.toLocaleString(),latency:(180+(st.tick%5)*15)+' ms'});
  setStatus(4,'simulated · 1.2s');
  renderIncidentBanners(st.incident?[{speaker:st.incident.speaker,risk:st.incident.risk,hold:true}]:[],true);
 }

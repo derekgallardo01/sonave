@@ -129,22 +129,23 @@ a:hover{color:var(--green-hover)}
 
   <section class="stats" id="results">
     <div>
-      <div class="stat-num v-real">91%</div>
+      <div class="stat-num v-real">95%</div>
       <div class="stat-sub">catch rate on 27 unseen commercial voice-clone tools</div>
     </div>
     <div>
-      <div class="stat-num" style="color:var(--muted)">~2%</div>
-      <div class="stat-sub">what commodity detectors catch on the same fakes</div>
+      <div class="stat-num" style="color:var(--muted)">2%</div>
+      <div class="stat-sub">what a commodity detector catches on the same 27 tools</div>
     </div>
     <div>
-      <div class="stat-num v-real">96%</div>
-      <div class="stat-sub">real-voice accuracy through Google Meet's Opus codec</div>
+      <div class="stat-num v-real">94%</div>
+      <div class="stat-sub">real-voice accuracy through the Opus meeting codec</div>
     </div>
     <div>
-      <div class="stat-num">&lt;1s</div>
-      <div class="stat-sub">from spoken word to verdict — ~100 ms GPU inference per window</div>
+      <div class="stat-num">10s</div>
+      <div class="stat-sub">rolling re-score cadence per speaker — verdicts in seconds, not after the call</div>
     </div>
   </section>
+  <div style="font-size:11px;color:var(--dim);margin-top:10px;font-family:var(--mono)">Benchmarked Aug 2026 on the deployed production checkpoint. On the hardest public real-world deepfakes (In-the-Wild), the current model catches ~59% at 93%+ real-voice accuracy — a second factor alongside callbacks, not a replacement for them.</div>
 
   <section class="how" id="how">
     <div class="eyebrow">HOW IT WORKS</div>
@@ -158,7 +159,7 @@ a:hover{color:var(--green-hover)}
       <div class="step">
         <div class="step-num">02</div>
         <div class="step-title">Detect</div>
-        <div class="step-body">A fine-tuned XLS-R detector scores 4-second windows of each speaker's voice, trained on real meeting-codec audio — not lab recordings.</div>
+        <div class="step-body">A fine-tuned XLS-R detector scores short windows of each speaker's voice, trained on meeting-codec audio — Opus-compressed and processed the way real calls sound.</div>
       </div>
       <div class="step">
         <div class="step-num">03</div>

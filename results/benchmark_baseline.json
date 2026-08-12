@@ -1,0 +1,12 @@
+{
+  "model": "models/sonave_xlsr_meet",
+  "measured": "2026-08-12",
+  "source": "src/eval_xlsr.py -> results/xlsr_eval.csv",
+  "tolerance_pts": 2.0,
+  "metrics": {
+    "mlaad_unseen_only": {"catch_%": 95.2},
+    "unseen_gens": {"catch_%": 95.4, "real_acc_%": 90.0},
+    "in_the_wild": {"catch_%": 58.7, "real_acc_%": 93.3},
+    "in_the_wild_opus24k": {"catch_%": 59.3, "real_acc_%": 94.0}
+  }
+}

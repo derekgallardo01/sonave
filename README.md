@@ -14,8 +14,11 @@ scores each speaker → a live **REAL / SUSPECT / FAKE** verdict.
 Full history and every honest caveat live in
 [`results/detector_v2_progress.md`](results/detector_v2_progress.md). Highlights:
 
-- **Modern-fake detection (clean audio):** ~91% catch on *unseen* commercial tools
-  (ElevenLabs / Cartesia / Gemini) vs commodity ~2%; unseen-generator EER ~7.5%.
+- **Modern-fake detection (clean audio):** 95% catch on 27 *unseen* commercial tools
+  vs commodity 2% on the same set; unseen-generator EER 7.0%. (Deployed checkpoint,
+  measured 2026-08-12 — `src/eval_xlsr.py`, baseline in `results/benchmark_baseline.json`.)
+  Hard real-world deepfakes (In-the-Wild) remain the honest ceiling: ~59% catch at
+  ~93% real-voice accuracy.
 - **Real-call robustness:** holds through Google-Meet Opus; real-world false-alarms
   cut ~55% → ~8% by adding real-world real speech to training.
 - **Meet domain (Stage 6–7):** a real+fake corpus captured through a **live Meet**
@@ -26,7 +29,8 @@ Full history and every honest caveat live in
   yet that gain costs real-acc (98% → 86%) in a way rebalancing *cannot* undo (an inherent
   precision/recall tradeoff, Stage 7b). Production stays on the high-real-acc model; the
   next lever is *diverse real-through-Meet* to close it symmetrically. General non-Meet
-  performance held throughout (91% catch on 27 unseen commercial tools).
+  performance held throughout (95% catch on 27 unseen commercial tools for the Stage-8
+  deployed checkpoint; real-voice accuracy through the Opus codec 94%).
 - **Product (fully hosted):** CPU-only capture service on **Railway**
   ([`railway/`](railway/)) → GPU scoring on **Modal** (scale-to-zero T4,
   [`modal_app.py`](modal_app.py)) → live authenticity badge on the page, no laptop in the

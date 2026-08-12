@@ -2,7 +2,8 @@
 
 *From working detector → shippable product. Grounds the original brief (Recall.ai
 capture → detection → orchestration → wire-fraud workflow) in what we've actually
-built: `models/sonave_xlsr_rw/`.*
+built and deployed: `models/sonave_xlsr_meet/` (Stage 8; numbers below measured
+2026-08-12 on the deployed checkpoint — `src/eval_xlsr.py`).*
 
 ---
 
@@ -10,14 +11,16 @@ built: `models/sonave_xlsr_rw/`.*
 
 The product's core asset exists and is validated:
 
-- **Catches ~91% of fakes from unseen modern commercial tools** (ElevenLabs, Cartesia,
-  Gemini) where commodity detectors catch ~2%.
-- **~64% catch / ~92% real-voice accuracy on hard real-world deepfakes** at a
-  calibrated threshold (commodity ~5%).
-- **Compression-robust** — holds through the Google-Meet Opus codec (our detector was
-  trained on real Meet-codec + real-world audio).
-- **Cheap to run** — it's OUR wav2vec2/XLS-R model on a GPU (~50–150 ms per 4 s clip),
-  not a commodity API. This is the economic moat (see §4).
+- **Catches 95% of fakes from 27 unseen modern commercial tools** where a commodity
+  detector catches 2% on the same set; unseen-generator EER 7.0%.
+- **~59% catch / ~93% real-voice accuracy on hard real-world deepfakes**
+  (In-the-Wild; commodity 4%). This is the honest ceiling — the number a
+  wire-fraud desk will experience on the hardest audio.
+- **Compression-robust** — 94% real-voice accuracy through the Opus meeting codec
+  (trained on codec-processed audio).
+- **Cheap to run** — it's OUR wav2vec2/XLS-R model on a GPU, not a commodity API.
+  This is the economic moat (see §4). (Per-window GPU latency on the production T4
+  is not yet measured; the console now surfaces it live.)
 
 Everything below wraps this asset. Nothing here requires a new detector.
 
