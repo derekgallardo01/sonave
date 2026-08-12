@@ -87,7 +87,21 @@ a{color:var(--blue2);text-decoration:none}
 .tag{display:inline-flex;align-items:center;gap:5px;background:#0b0f19;border:1px solid var(--border);border-radius:8px;padding:5px 12px;font-size:12px;margin:4px 4px 0 0}
 .tag button{background:transparent;border:0;color:var(--red);font-size:15px;padding:0 0 0 4px;cursor:pointer;line-height:1}
 
-/* Alert banner */
+/* Risk magnitude bar */
+.risk-wrap{display:flex;align-items:center;gap:10px;margin:10px 0 6px}
+.risk-track{flex:1;height:22px;background:#0b0f19;border-radius:6px;overflow:hidden;position:relative;border:1px solid var(--border)}
+.risk-fill{height:100%;border-radius:5px;transition:width .5s ease,background .4s;position:relative}
+.risk-fill::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.08) 50%,transparent 100%)}
+.risk-pct{font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;min-width:42px;text-align:right}
+.risk-label{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:2px}
+
+/* Sparkline */
+.spark{display:flex;align-items:flex-end;gap:2px;height:28px;margin-top:8px;padding:4px 0}
+.spark-b{flex:1;border-radius:2px;transition:height .4s ease,background .3s;min-height:2px}
+
+/* Pulsing border for fake */
+.speaker-card.fake-border{border-color:rgba(239,68,68,.5);box-shadow:0 0 0 1px rgba(239,68,68,.15);animation:borderPulse 1.5s infinite}
+@keyframes borderPulse{0%{box-shadow:0 0 0 1px rgba(239,68,68,.15)}50%{box-shadow:0 0 0 4px rgba(239,68,68,.08)}100%{box-shadow:0 0 0 1px rgba(239,68,68,.15)}}
 .alert-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:12px;padding:14px 16px;margin-bottom:16px}
 .alert-banner b{color:var(--red)}
 .alert-banner .btn{background:var(--red);padding:7px 14px;font-size:12px}
@@ -313,7 +327,63 @@ function qcolor(v){return v=='good'?'#22c55e':/CLIP/.test(v)?'#ef4444':/QUIET|si
 function hms(s){s=Math.round(s);var h=s/3600|0,m=(s%3600)/60|0,x=s%60;return h?h+'h '+m+'m':m?m+'m '+(x<10?'0':'')+x+'s':x+'s'}
 function tod(ms){var d=new Date(ms);var h=d.getHours(),m=d.getMinutes();var ap=h<12?'AM':'PM';h=h%12||12;return h+':'+(m<10?'0':'')+m+' '+ap}
 
-function setGauge(p,verdict){
+var _sparkHistory={};
+function sparkHtml(k,p){
+ var h=_sparkHistory[k]=(_sparkHistory[k]||[]);
+ h.push(p);if(h.length>20)h.shift();
+ return '<div class="spark">'+h.map(function(v){
+  var pct=Math.round(v*100),c=avcolor(v>=0.7?'fake':v>=0.4?'suspect':'real');
+  return '<div class="spark-b" style="height:'+Math.max(4,pct)+'%;background:'+c+'"></div>'
+ }).join('')+'</div>';
+}
+
+function riskBar(p){
+ var pct=Math.round(p*100),c=avcolor(p>=0.7?'fake':p>=0.4?'suspect':'real');
+ return '<div class="risk-label">Deepfake Risk</div><div class="risk-wrap"><div class="risk-track"><div class="risk-fill" style="width:'+pct+'%;background:'+c+'"></div></div><span class="risk-pct" style="color:'+c+'">'+pct+'%</span></div>';
+}
+
+async function quality(){
+ var d;try{d=await jget('/api/quality')}catch(e){return}
+ var ks=Object.keys(d).filter(function(k){return!SKIP.test(k)});
+ if(!ks.length){
+  document.getElementById('speakersBox').innerHTML='<div class="empty-st">Send a bot into a meeting to begin monitoring.</div>';
+  setGauge(0,null);
+  setLive(0);return
+ }
+ var html='',maxP=0,overallVerdict='real',active=0;
+ ks.forEach(function(k){
+  var s=d[k];
+  if(s.level>0.01)active++;
+  var p=s.auth_p!=null?s.auth_p:(s.verdict=='fake'?0.85:s.verdict=='suspect'?0.55:0.2);
+  if(p>maxP){maxP=p;overallVerdict=s.auth_verdict||'real'}
+  var v=s.auth_verdict||'pending';
+  var badge=avbadge(v);
+  var enrollBadge=s.enrolled?'<span style="font-size:10px;color:#3b82f6;margin-left:6px">\u25cf enrolled</span>':'';
+  var speakerCheck='';
+  if(s.speaker_check&&s.speaker_check.enrolled){
+   speakerCheck='<div style="font-size:11px;color:var(--ink2);margin-top:4px">\uD83D\uDD10 Voiceprint match '+Math.round(s.speaker_check.similarity*100)+'%</div>';
+  }
+  var borderClass=v=='fake'?' fake-border':'';
+  html+='<div class="speaker-card'+borderClass+'">'+
+   '<div class="speaker-top">'+
+    '<div class="speaker-name"><span class="speaker-avatar">'+esc(k.charAt(0).toUpperCase())+'</span>'+esc(k)+enrollBadge+'</div>'+
+    '<span class="badge '+badge+'">'+esc(v.toUpperCase())+'</span>'+
+   '</div>'+
+   riskBar(p)+
+   sparkHtml(k,p)+
+   '<div class="speaker-meta">'+
+    '<span>\uD83C\uDFA4 '+((s.speech_pct||0)+'% speech')+'</span>'+
+    '<span>\u23F1 '+hms(s.total_sec||0)+'</span>'+
+    '<span>\uD83D\uDCCE '+(s.clips||0)+' clips</span>'+
+   '</div>'+
+   '<div class="mini-bar"><i style="width:'+Math.min(100,Math.round((s.level||0)*300))+'%;background:'+qcolor(s.verdict)+'"></i></div>'+
+   speakerCheck+
+  '</div>';
+ });
+ document.getElementById('speakersBox').innerHTML=html;
+ setGauge(maxP,overallVerdict);
+ setLive(active);
+}
  var max=490,arc=max*Math.min(1,Math.max(0,p));
  var el=document.getElementById('gaugeArc');
  el.style.strokeDasharray=arc+' '+max;
