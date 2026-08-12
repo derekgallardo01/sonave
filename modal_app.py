@@ -68,7 +68,7 @@ image = (
     )
     .run_function(_cache_backbone, secrets=[_HF_SECRET])   # bake backbone (HF_TOKEN if set)
     .env({
-        "SONAVE_MODEL": "/root/models/sonave_xlsr_meet",   # the balanced Meet model (Stage 6)
+        "SONAVE_MODEL": "/root/models/sonave_xlsr_meet",   # the combined Meet model (Stage 8)
         "SONAVE_TAU_REAL": "0.40",
         "SONAVE_TAU_FAKE": "0.70",
         "PYTHONPATH": "/root",

@@ -136,10 +136,3 @@ def fused_risk_with_voiceprint(p_fake: float, speaker_id: str, source,
     out["risk"] = round(risk, 3)
     out["verdict"] = "fake" if risk >= 0.7 else "suspect" if risk >= 0.4 else "real"
     return out
-    """Build + persist a voiceprint from several real clips of one person."""
-    ENROLL_DIR.mkdir(parents=True, exist_ok=True)
-    embs = [embed(p) for p in wav_paths]
-    vp = np.mean(embs, axis=0)
-    vp = vp / (np.linalg.norm(vp) + 1e-8)
-    np.save(ENROLL_DIR / f"{speaker_id}.npy", vp)
-    return vp

@@ -171,6 +171,8 @@ def send_bot(req: BotReq, request: Request):
         resp = json.loads(urllib.request.urlopen(r, timeout=20).read())
         bot_id = resp.get("id")
         logger.info("bot created id=%s for %s", bot_id, req.meeting_url)
+        if SCORER_URL:                      # pre-warm the scale-to-zero scorer so the
+            threading.Thread(target=_warm_scorer, daemon=True).start()  # first verdict skips the cold start
         return {"ok": True, "bot_id": bot_id, "ws": ws}
     except urllib.error.HTTPError as e:
         logger.error("bot creation failed: HTTP %s", e.code)
@@ -196,6 +198,16 @@ SCORE_WIN_SEC = int(os.environ.get("SONAVE_SCORE_WIN_SEC", "8"))  # window lengt
 SCORE_EMA = float(os.environ.get("SONAVE_SCORE_EMA", "0.6"))     # weight on the newest score
 _SCORE_HOP_BYTES = SCORE_SEC * SR * 2
 _SCORE_WIN_BYTES = SCORE_WIN_SEC * SR * 2
+
+# An incident (and the wire-hold webhook) needs this many CONSECUTIVE fake-band
+# rolling verdicts — one hot window on a cold EMA must not hold a wire.
+INCIDENT_STREAK = int(os.environ.get("SONAVE_INCIDENT_STREAK", "3"))
+FAKE_STREAK: dict[str, int] = {}   # speaker -> consecutive fake verdicts (guarded by _STATE_LOCK)
+_INFLIGHT: set[str] = set()        # speakers with a scorer request in flight (guarded by _STATE_LOCK)
+
+if not SCORER_URL:
+    logger.warning("SONAVE_SCORER_URL unset — live authenticity scoring is DISABLED; "
+                   "the console will show PENDING for every speaker")
 
 
 def _quality(spk: str, pcm: bytes):
@@ -244,6 +256,8 @@ async def ws_audio(ws: WebSocket):
         return
     await ws.accept()
     buffers: dict[str, bytearray] = {}
+    tails: dict[str, bytearray] = {}  # trailing SCORE_WIN_SEC per speaker — scoring reads this,
+                                      # never the capture buffer (which flushes+clears every 2 min)
     idx: dict[str, int] = {}
     seen: dict[str, int] = {}        # cumulative bytes per speaker (drives scoring cadence)
     scored: dict[str, int] = {}      # cumulative bytes at last score
@@ -268,11 +282,22 @@ async def ws_audio(ws: WebSocket):
                     idx[spk] = idx.get(spk, 0) + 1
                     b.clear()
                 # real-time scoring: every SCORE_SEC, score the last ~SCORE_WIN_SEC off-path
+                t = tails.setdefault(spk, bytearray())
+                t.extend(raw)
+                if len(t) > _SCORE_WIN_BYTES:
+                    del t[:-_SCORE_WIN_BYTES]
                 seen[spk] = seen.get(spk, 0) + len(raw)
                 if SCORER_URL and seen[spk] - scored.get(spk, 0) >= _SCORE_HOP_BYTES:
                     scored[spk] = seen[spk]
-                    window = _pcm_to_wav(bytes(b[-_SCORE_WIN_BYTES:]))
-                    threading.Thread(target=_score_and_store, args=(spk, window), daemon=True).start()
+                    # one request in flight per speaker — during a scorer outage the
+                    # cadence just drops instead of piling up retrying threads
+                    with _STATE_LOCK:
+                        busy = spk in _INFLIGHT
+                        if not busy:
+                            _INFLIGHT.add(spk)
+                    if not busy:
+                        window = _pcm_to_wav(bytes(t))
+                        threading.Thread(target=_score_and_store, args=(spk, window), daemon=True).start()
                 try:
                     _quality(spk, raw)                   # quality is best-effort, never breaks capture
                 except Exception:
@@ -321,6 +346,16 @@ def _pcm_to_wav(pcm: bytes) -> bytes:
 def _rand_boundary() -> str:
     """Random multipart boundary to avoid collisions."""
     return "----sonave_" + "".join(random.choices(string.ascii_letters + string.digits, k=16))
+
+
+def _warm_scorer():
+    """Best-effort GET /healthz so the Modal container is warm before audio arrives."""
+    try:
+        with urllib.request.urlopen(f"{SCORER_URL}/healthz", timeout=30) as r:
+            r.read()
+        logger.info("scorer pre-warmed")
+    except Exception as e:  # noqa: BLE001
+        logger.warning("scorer pre-warm failed: %s", repr(e)[:80])
 
 
 def _score_and_store(spk: str, wav_bytes: bytes):
@@ -384,22 +419,27 @@ def _score_and_store(spk: str, wav_bytes: bytes):
             roll = p if prev is None else SCORE_EMA * p + (1 - SCORE_EMA) * prev
             ROLL[spk] = roll
             verdict = _av(roll)
+            streak = FAKE_STREAK[spk] = FAKE_STREAK.get(spk, 0) + 1 if verdict == "fake" else 0
             VERDICTS[spk] = {
                 "p_fake": round(res.get("p_fake", p), 3),
                 "rolling": round(roll, 3),
                 "verdict": verdict,
+                "latency_ms": res.get("latency_ms"),
                 "speaker_check": res.get("speaker_check"),
                 "match_conf": res.get("match_conf"),
             }
-        logger.info("score %s: p_fake=%.3f risk=%.3f rolling=%.3f -> %s (match=%s)",
-                    spk, res.get("p_fake", p), p, roll, verdict,
+        logger.info("score %s: p_fake=%.3f risk=%.3f rolling=%.3f -> %s (streak=%d match=%s)",
+                    spk, res.get("p_fake", p), p, roll, verdict, streak,
                     res.get("speaker_check", {}).get("match") if res.get("speaker_check") else None)
-        if verdict == "fake":                         # sustained deepfake -> open incident + alert
+        if verdict == "fake" and streak >= INCIDENT_STREAK:   # sustained deepfake -> incident + alert
             inc = incidents.record(spk, roll, res.get("model_version", "?"))
             if inc:
                 incidents.notify(inc)
     except Exception as e:  # noqa: BLE001 — scoring must never crash capture
         logger.warning("score skip %s: %s", spk, repr(e)[:80])
+    finally:
+        with _STATE_LOCK:
+            _INFLIGHT.discard(spk)
 
 
 # --- enrollment endpoints ----------------------------------------------------
@@ -523,12 +563,16 @@ def api_quality():
         if av:
             row["auth_verdict"] = av["verdict"]
             row["auth_p"] = av["rolling"]
+            if av.get("latency_ms") is not None:
+                row["latency_ms"] = av["latency_ms"]
             if av.get("speaker_check"):
                 row["speaker_check"] = av["speaker_check"]
                 row["match_conf"] = av.get("match_conf")
         # show enrollment status
         row["enrolled"] = enroll.is_enrolled(spk)
         out[spk] = row
+    # meta row (underscore prefix = not a speaker; the console filters these out)
+    out["_scorer"] = {"configured": bool(SCORER_URL)}
     return out
 
 

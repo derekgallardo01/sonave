@@ -68,7 +68,8 @@ def test_incident_endpoints(railway_mod, tmp_path, monkeypatch):
     assert c.get("/api/incidents").json()["incidents"][0]["status"] == "acknowledged"
 
 
-def test_score_fake_opens_incident_and_alerts(railway_mod, tmp_path, monkeypatch):
+def test_sustained_fake_opens_incident_and_alerts(railway_mod, tmp_path, monkeypatch):
+    """One fake window must NOT hold a wire; INCIDENT_STREAK consecutive ones must."""
     import incidents
     monkeypatch.setattr(incidents, "DB_PATH", tmp_path / "i.db")
     fired = {"n": 0}
@@ -82,9 +83,32 @@ def test_score_fake_opens_incident_and_alerts(railway_mod, tmp_path, monkeypatch
     monkeypatch.setattr(railway_mod.urllib.request, "urlopen",
                         lambda req, timeout=None: _R(json.dumps({"p_fake": 1.0, "model_version": "m"}).encode()))
     railway_mod.ROLL["Derek"] = 0.9                      # already high -> EMA lands in 'fake'
-    railway_mod._score_and_store("Derek", b"wavbytes")
+    for i in range(railway_mod.INCIDENT_STREAK - 1):
+        railway_mod._score_and_store("Derek", b"wavbytes")
+        assert incidents.list_incidents() == []          # not sustained yet -> no incident
+    railway_mod._score_and_store("Derek", b"wavbytes")   # streak reached
     assert incidents.list_incidents()[0]["speaker"] == "Derek"
     assert fired["n"] == 1                               # alerted exactly once
+
+
+def test_real_window_resets_fake_streak(railway_mod, tmp_path, monkeypatch):
+    import incidents
+    monkeypatch.setattr(incidents, "DB_PATH", tmp_path / "i3.db")
+    railway_mod.SCORER_URL = "http://scorer.test"
+
+    class _R(io.BytesIO):
+        def __enter__(self): return self
+        def __exit__(self, *a): self.close()
+
+    payloads = iter([{"p_fake": 1.0}, {"p_fake": 1.0}, {"p_fake": 0.0}, {"p_fake": 1.0}])
+    monkeypatch.setattr(railway_mod.urllib.request, "urlopen",
+                        lambda req, timeout=None: _R(json.dumps(next(payloads) | {"model_version": "m"}).encode()))
+    railway_mod.ROLL["Derek"] = 0.95
+    railway_mod.FAKE_STREAK.clear()
+    for _ in range(4):
+        railway_mod._score_and_store("Derek", b"wavbytes")
+    # streak was broken by the clean window -> never reached INCIDENT_STREAK
+    assert incidents.list_incidents() == []
 
 
 def test_score_real_opens_no_incident(railway_mod, tmp_path, monkeypatch):
