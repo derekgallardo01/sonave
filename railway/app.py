@@ -572,3 +572,9 @@ def console():
     return html.replace("__AUTH__", "1" if API_TOKEN else "0").replace("__FAVICON__", _FAVICON_B64)
 
 
+@app.get("/onboarding", response_class=HTMLResponse)
+def onboarding():
+    html = (_HERE / "onboarding.html").read_text(encoding="utf-8")
+    return html.replace("__FAVICON__", _FAVICON_B64)
+
+

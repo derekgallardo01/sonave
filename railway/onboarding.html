@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sonave — Workspace Setup</title>
+<link rel="icon" href="data:image/svg+xml;base64,__FAVICON__">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+ --bg:#0a0e12;--panel:#0d1319;--panel2:#111820;--chip:#131b22;--line:#161e25;--line2:#1e2830;
+ --ink:#e8eef2;--ink2:#8a99a5;--muted:#5d6d79;--dim:#3d4a54;
+ --green:#2ee584;--green-hover:#4deda0;--green-dark:#0d9e56;--on-green:#06130b;
+ --red:#ff4d5e;
+ --font:'Sora',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+ --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);min-height:100vh;display:flex}
+a{color:var(--green);text-decoration:none}
+a:hover{color:var(--green-hover)}
+
+.side{width:300px;flex-shrink:0;border-right:1px solid var(--line);padding:34px 30px;display:flex;flex-direction:column;gap:4px}
+.brand{display:flex;align-items:center;gap:10px;margin-bottom:36px}
+.brand-tile{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center}
+.brand-name{font-size:15px;font-weight:700}
+.brand-sub{font-size:10px;color:var(--muted);letter-spacing:.04em}
+.step{display:flex;gap:13px;padding:13px 12px;border-radius:11px;cursor:pointer}
+.step.cur{background:var(--chip)}
+.step-circ{width:26px;height:26px;border-radius:50%;border:1.5px solid var(--line2);background:transparent;color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:700;flex-shrink:0}
+.step.cur .step-circ{border-color:var(--green);color:var(--green)}
+.step.done .step-circ{border-color:var(--green);background:var(--green);color:var(--on-green)}
+.step-title{font-size:13px;font-weight:500;color:var(--muted)}
+.step.cur .step-title{font-weight:700;color:var(--ink)}
+.step.done .step-title{color:var(--ink2)}
+.step-sub{font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.45}
+.side-spacer{flex:1}
+.side-note{font-size:11px;color:var(--dim);line-height:1.6}
+
+.main{flex:1;display:flex;align-items:flex-start;justify-content:center;padding:60px 40px}
+.panel-wrap{width:100%;max-width:620px}
+.eyebrow{font-size:11px;color:var(--green);letter-spacing:.12em;font-weight:700;margin-bottom:12px}
+h1{font-size:28px;font-weight:800;letter-spacing:-.02em;line-height:1.15}
+.lede{font-size:14px;color:var(--ink2);line-height:1.65;margin-top:12px}
+.panel{display:none}
+.panel.on{display:block}
+
+.providers{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:30px}
+.provider{border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:24px;cursor:pointer}
+.provider:hover{border-color:var(--green)}
+.provider.picked{border-color:rgba(46,229,132,.45)}
+.provider-ico{font-size:22px;margin-bottom:12px}
+.provider-name{font-size:15px;font-weight:700}
+.provider-desc{font-size:12px;color:var(--muted);margin-top:5px;line-height:1.55}
+.picked-mark{margin-top:12px;font-size:11.5px;color:var(--green);font-weight:700;visibility:hidden}
+.provider.picked .picked-mark{visibility:visible}
+
+.consent-card{border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:22px 24px;margin-top:28px;display:flex;flex-direction:column;gap:16px}
+.consent-row{display:flex;gap:13px}
+.consent-num{font-family:var(--mono);font-size:12px;color:var(--green);flex-shrink:0}
+.consent-txt{font-size:13px;color:#c7d2da;line-height:1.6}
+.consent-foot{display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--line);padding-top:16px}
+.shield{display:flex;align-items:center;gap:10px;margin-top:18px;padding:13px 16px;border-radius:11px;border:1px solid rgba(46,229,132,.25);background:rgba(46,229,132,.05)}
+.shield span:last-child{font-size:12px;color:var(--ink2);line-height:1.55}
+
+.policies{display:flex;flex-direction:column;gap:12px;margin-top:28px}
+.policy{border:1px solid var(--line);border-radius:13px;background:var(--panel);padding:18px 20px;cursor:pointer;display:flex;align-items:center;gap:16px}
+.policy:hover{border-color:var(--green)}
+.policy.picked{border-color:rgba(46,229,132,.45)}
+.radio{width:18px;height:18px;border-radius:50%;border:2px solid var(--line2);flex-shrink:0}
+.policy.picked .radio{border-color:var(--green);background:var(--green)}
+.policy-name{font-size:14px;font-weight:700}
+.policy-desc{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.5}
+.policy-nums{text-align:right;flex-shrink:0}
+.policy-catch{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--green)}
+.policy-fa{font-size:10px;color:var(--muted);margin-top:2px}
+.tau{margin-top:20px;padding:14px 18px;border-radius:11px;border:1px solid var(--line);background:var(--panel);display:flex;align-items:center;justify-content:space-between}
+.tau-lbl{font-size:12px;color:var(--ink2)}
+.tau-val{font-family:var(--mono);font-size:12.5px;color:var(--ink)}
+
+.invite-row{display:flex;gap:8px;margin-top:28px}
+.inp{flex:1;padding:11px 14px;border-radius:10px;border:1px solid var(--line2);background:var(--panel);color:var(--ink);font:400 13px var(--font);outline:none}
+.inp:focus{border-color:var(--green)}
+.sel{padding:11px 12px;border-radius:10px;border:1px solid var(--line2);background:var(--panel);color:var(--ink2);font:400 12.5px var(--font);outline:none;cursor:pointer}
+.invites{display:flex;flex-direction:column;gap:8px;margin-top:18px}
+.invite{display:flex;align-items:center;justify-content:space-between;padding:11px 15px;border-radius:10px;border:1px solid var(--line);background:var(--panel)}
+.invite-email{font-family:var(--mono);font-size:12.5px;color:#c7d2da}
+.invite-right{display:flex;align-items:center;gap:10px}
+.role-tag{font-size:10px;font-weight:800;letter-spacing:.05em;padding:4px 9px;border-radius:6px;background:var(--chip);color:var(--ink2)}
+.invite-x{color:var(--muted);cursor:pointer;font-size:14px;background:none;border:0;padding:0}
+.invite-x:hover{color:var(--red)}
+
+.footer-nav{display:flex;justify-content:space-between;margin-top:44px}
+.btn-back{padding:11px 20px;border-radius:10px;border:1px solid var(--line2);background:transparent;color:var(--ink2);font:600 13px var(--font);cursor:pointer;visibility:hidden}
+.btn-back:hover{color:var(--ink)}
+.btn-next{padding:11px 26px;border-radius:10px;border:0;background:var(--green);color:var(--on-green);font:700 13px var(--font);cursor:pointer}
+.btn-next:hover{background:var(--green-hover)}
+.btn-finish{display:none;padding:11px 26px;border-radius:10px;background:var(--green);color:var(--on-green);font-weight:700;font-size:13px}
+.btn-finish:hover{background:var(--green-hover);color:var(--on-green)}
+.btn-quiet{padding:8px 15px;border-radius:8px;border:1px solid var(--line2);background:var(--panel2);color:#c7d2da;font:600 12px var(--font);cursor:pointer}
+.btn-quiet:hover{border-color:var(--green);color:var(--green)}
+.btn-quiet a{color:inherit}
+
+@media (max-width:860px){
+ body{flex-direction:column}
+ .side{width:100%;border-right:0;border-bottom:1px solid var(--line);padding:20px 24px}
+ .side-spacer,.side-note{display:none}
+ .main{padding:36px 24px}
+}
+</style>
+</head>
+<body>
+
+<aside class="side">
+ <div class="brand">
+  <div class="brand-tile">
+   <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 8h1.5M5 4.5v7M8 2v12M11 4.5v7M14 8h-1.5" stroke="#06130b" stroke-width="1.8" stroke-linecap="round"></path></svg>
+  </div>
+  <div>
+   <div class="brand-name">Sonave</div>
+   <div class="brand-sub">WORKSPACE SETUP</div>
+  </div>
+ </div>
+ <div class="step" data-step="1" onclick="go(1)">
+  <div class="step-circ">1</div>
+  <div><div class="step-title">Connect calendar</div><div class="step-sub">Google Workspace or Microsoft 365</div></div>
+ </div>
+ <div class="step" data-step="2" onclick="go(2)">
+  <div class="step-circ">2</div>
+  <div><div class="step-title">Admin consent</div><div class="step-sub">Enable third-party media access</div></div>
+ </div>
+ <div class="step" data-step="3" onclick="go(3)">
+  <div class="step-circ">3</div>
+  <div><div class="step-title">Detection policy</div><div class="step-sub">Set the recall / false-alarm dial</div></div>
+ </div>
+ <div class="step" data-step="4" onclick="go(4)">
+  <div class="step-circ">4</div>
+  <div><div class="step-title">Invite team</div><div class="step-sub">Approvers, compliance, admins</div></div>
+ </div>
+ <div class="side-spacer"></div>
+ <div class="side-note">Setup takes about 5 minutes. Nothing goes live until you deploy your first bot.</div>
+</aside>
+
+<main class="main">
+ <div class="panel-wrap">
+
+  <div class="panel" data-panel="1">
+   <div class="eyebrow">STEP 1 OF 4</div>
+   <h1>Connect your calendar</h1>
+   <p class="lede">Sonave watches your calendar and auto-joins the meetings you flag for monitoring &#8212; bots only enter calls you choose.</p>
+   <div class="providers">
+    <div class="provider picked" data-provider="google" onclick="pick('google')">
+     <div class="provider-ico">&#128197;</div>
+     <div class="provider-name">Google Workspace</div>
+     <div class="provider-desc">Google Calendar + Meet. Best coverage &#8212; per-speaker audio.</div>
+     <div class="picked-mark">&#10003; Selected</div>
+    </div>
+    <div class="provider" data-provider="ms" onclick="pick('ms')">
+     <div class="provider-ico">&#128467;&#65039;</div>
+     <div class="provider-name">Microsoft 365</div>
+     <div class="provider-desc">Outlook Calendar + Teams. Zoom links on either calendar work too.</div>
+     <div class="picked-mark">&#10003; Selected</div>
+    </div>
+   </div>
+  </div>
+
+  <div class="panel" data-panel="2">
+   <div class="eyebrow">STEP 2 OF 4</div>
+   <h1>Admin consent</h1>
+   <p class="lede">Sonave joins calls as a visible participant &#8212; everyone on the call sees it. Your Workspace admin enables third-party media access once, org-wide.</p>
+   <div class="consent-card">
+    <div class="consent-row"><span class="consent-num">01</span><div class="consent-txt">In the Admin console, open <b>Apps &#8594; Google Workspace &#8594; Google Meet</b>.</div></div>
+    <div class="consent-row"><span class="consent-num">02</span><div class="consent-txt">Enable <b>"Let third-party apps that join a Meet call use the audio and video of the call."</b></div></div>
+    <div class="consent-row"><span class="consent-num">03</span><div class="consent-txt">Approve Sonave in the allowed-apps list. Changes can take up to 24 hours.</div></div>
+    <div class="consent-foot">
+     <span style="font-size:12px;color:var(--muted)">Not the admin?</span>
+     <button class="btn-quiet" onclick="emailAdmin()">Email these steps to your admin</button>
+    </div>
+   </div>
+   <div class="shield"><span style="font-size:14px">&#128737;</span><span>Participants are always notified when Sonave is on a call, and any of them can turn it off. Consent is a feature, not friction.</span></div>
+  </div>
+
+  <div class="panel" data-panel="3">
+   <div class="eyebrow">STEP 3 OF 4</div>
+   <h1>Set your detection policy</h1>
+   <p class="lede">How aggressively should Sonave flag? Catching more fakes means occasionally questioning a real voice &#8212; pick the tradeoff for your desk.</p>
+   <div class="policies" id="policies"></div>
+   <div class="tau"><span class="tau-lbl">Thresholds for this policy</span><span class="tau-val" id="tauVal"></span></div>
+  </div>
+
+  <div class="panel" data-panel="4">
+   <div class="eyebrow">STEP 4 OF 4</div>
+   <h1>Invite your team</h1>
+   <p class="lede">Approvers see live verdicts on their calls; compliance gets the forensic reports and incident alerts.</p>
+   <div class="invite-row">
+    <input id="inviteEmail" class="inp" placeholder="colleague@yourbank.com" onkeydown="if(event.key=='Enter')addInvite()">
+    <select id="inviteRole" class="sel"><option>Approver</option><option>Compliance</option><option>Admin</option></select>
+    <button class="btn-next" onclick="addInvite()">Invite</button>
+   </div>
+   <div class="invites" id="invites"></div>
+  </div>
+
+  <div class="footer-nav">
+   <button class="btn-back" id="backBtn" onclick="go(st.step-1)">Back</button>
+   <button class="btn-next" id="nextBtn" onclick="go(st.step+1)">Continue</button>
+   <a class="btn-finish" id="finishBtn" href="/console">Finish &#8212; open the console</a>
+  </div>
+
+ </div>
+</main>
+
+<script>
+/* Onboarding demo — fully client-side, nothing persists, no API calls. */
+var POLS=[
+ {name:'High recall',desc:'Catch everything — accepts more real voices flagged for review. For high-value wire desks.',catch:'~high',fa:'more',t1:'0.30',t2:'0.55'},
+ {name:'Balanced',desc:'The production default — validated on real Meet-codec audio.',catch:'91%',fa:'~8%',t1:'0.40',t2:'0.70'},
+ {name:'Low false alarms',desc:'Only flag when confident. For exec-heavy calls where crying wolf is costly.',catch:'lower',fa:'rare',t1:'0.55',t2:'0.80'}
+];
+var st={step:1,provider:'google',policy:'Balanced',invites:[{email:'compliance@yourbank.com',role:'Compliance'}]};
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+
+function go(n){if(n<1||n>4)return;st.step=n;render()}
+function pick(p){st.provider=p;render()}
+function pickPolicy(name){st.policy=name;render()}
+function addInvite(){
+ var el=document.getElementById('inviteEmail'),v=el.value.trim();
+ if(!v)return;
+ st.invites.push({email:v,role:document.getElementById('inviteRole').value});
+ el.value='';render();
+}
+function rmInvite(i){st.invites.splice(i,1);render()}
+function emailAdmin(){
+ var body='Hi,%0A%0ACould you enable third-party media access for Sonave in our Google Workspace?%0A%0A1. Admin console %3E Apps %3E Google Workspace %3E Google Meet%0A2. Enable %22Let third-party apps that join a Meet call use the audio and video of the call%22%0A3. Approve Sonave in the allowed-apps list%0A%0AThanks!';
+ location.href='mailto:?subject=Enable%20Sonave%20for%20Google%20Meet&body='+body;
+}
+
+function render(){
+ document.querySelectorAll('.step').forEach(function(el){
+  var n=+el.dataset.step;
+  el.classList.toggle('cur',n===st.step);
+  el.classList.toggle('done',n<st.step);
+  el.querySelector('.step-circ').textContent=n<st.step?'✓':n;
+ });
+ document.querySelectorAll('.panel').forEach(function(el){el.classList.toggle('on',+el.dataset.panel===st.step)});
+ document.querySelectorAll('.provider').forEach(function(el){el.classList.toggle('picked',el.dataset.provider===st.provider)});
+ document.getElementById('policies').innerHTML=POLS.map(function(p){
+  return '<div class="policy'+(st.policy===p.name?' picked':'')+'" onclick="pickPolicy(\''+p.name+'\')">'+
+   '<div class="radio"></div>'+
+   '<div style="flex:1"><div class="policy-name">'+p.name+'</div><div class="policy-desc">'+p.desc+'</div></div>'+
+   '<div class="policy-nums"><div class="policy-catch">'+p.catch+'</div><div class="policy-fa">fake catch &#183; '+p.fa+' false alarms</div></div>'+
+  '</div>';
+ }).join('');
+ var cur=POLS.find(function(p){return p.name===st.policy});
+ document.getElementById('tauVal').innerHTML='suspect &#964; '+cur.t1+' &#183; fake &#964; '+cur.t2;
+ document.getElementById('invites').innerHTML=st.invites.map(function(iv,i){
+  return '<div class="invite"><span class="invite-email">'+esc(iv.email)+'</span><div class="invite-right">'+
+   '<span class="role-tag">'+esc(iv.role.toUpperCase())+'</span>'+
+   '<button class="invite-x" onclick="rmInvite('+i+')">&#215;</button>'+
+  '</div></div>';
+ }).join('');
+ document.getElementById('backBtn').style.visibility=st.step>1?'visible':'hidden';
+ document.getElementById('nextBtn').style.display=st.step<4?'inline-block':'none';
+ document.getElementById('finishBtn').style.display=st.step===4?'inline-block':'none';
+}
+render();
+</script>
+</body>
+</html>
