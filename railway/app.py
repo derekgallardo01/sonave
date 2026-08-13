@@ -103,14 +103,14 @@ def require_auth(request: Request):
 app = FastAPI(title="Sonave Capture")
 
 # Inline favicon: the Sonave scope-pulse mark — green radar scope with a voice
-# pulse, fake contact flagged red (matches designs/logo/scope-pulse-v1-tile-red.png).
+# pulse and contact blip (matches designs/logo/sonave-logo-master.png).
 _FAVICON_SVG = (
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">'
     '<rect width="24" height="24" rx="5.5" fill="#0a0e12"/>'
     '<circle cx="12" cy="12" r="7.6" stroke="#2ee584" stroke-width="1.9" fill="none"/>'
     '<path d="M7.8 12h1l1.4-3.2 2.4 6.4 1.4-3.2h2.2" stroke="#2ee584" stroke-width="1.6" '
     'stroke-linecap="round" stroke-linejoin="round" fill="none"/>'
-    '<circle cx="17.4" cy="6.6" r="2.1" fill="#ff8a95"/>'
+    '<circle cx="17.4" cy="6.6" r="2.1" fill="#2ee584"/>'
     '</svg>'
 )
 _FAVICON_B64 = base64.b64encode(_FAVICON_SVG.encode()).decode()
