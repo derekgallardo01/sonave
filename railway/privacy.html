@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sonave — Privacy Policy</title>
+<link rel="icon" href="data:image/svg+xml;base64,__FAVICON__">
+<style>
+:root{--bg:#0a0e12;--panel:#0d1319;--line:#161e25;--ink:#e8eef2;--ink2:#9aa9b5;--muted:#718695;
+--green:#2ee584;--font:'Sora',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.7;padding:48px 24px 90px}
+.wrap{max-width:760px;margin:0 auto}
+a{color:var(--green);text-decoration:none}a:hover{text-decoration:underline}
+h1{font-size:32px;font-weight:800;letter-spacing:-.02em}
+.meta{color:var(--muted);font-size:13px;margin:10px 0 34px}
+h2{font-size:19px;font-weight:700;margin:34px 0 10px}
+p,li{font-size:14.5px;color:var(--ink2)}
+ul{padding-left:22px;margin:8px 0}
+b{color:var(--ink)}
+.card{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:16px 20px;margin:14px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p><a href="/">&larr; usesonave.com</a></p>
+  <h1>Privacy Policy</h1>
+  <p class="meta">Effective August 13, 2026 · Sonave ("we", "us") · Contact: <a href="mailto:derekgallardo01@gmail.com">derekgallardo01@gmail.com</a></p>
+
+  <p>Sonave detects AI-generated ("deepfake") voices in video meetings. A recording bot you deploy
+  joins your meeting as a visible participant, streams each speaker's audio to our service, and
+  returns live authenticity verdicts. This policy explains what we collect and why.</p>
+
+  <h2>What we collect</h2>
+  <ul>
+    <li><b>Account information.</b> When you sign in with Google we receive your name, email
+    address, and profile picture. We do not receive your Google password.</li>
+    <li><b>Meeting audio.</b> When you deploy a bot into a meeting, we receive and store
+    per-speaker audio from that meeting, along with speaker display names as provided by the
+    meeting platform.</li>
+    <li><b>Voiceprints.</b> If you enroll a speaker, we compute and store a numerical voice
+    embedding ("voiceprint") used only to verify that speaker's identity in your meetings. You can
+    delete voiceprints at any time in the console.</li>
+    <li><b>Detection results.</b> Authenticity scores, verdicts, and incident records produced by
+    our models for your meetings.</li>
+    <li><b>Usage and billing.</b> Monitored minutes, plan status, and payment status. Card details
+    are collected and stored by <b>Stripe</b>, our payment processor — never by us.</li>
+    <li><b>Cookies.</b> A session cookie to keep you signed in. No advertising or tracking cookies.</li>
+  </ul>
+
+  <h2>How we use it</h2>
+  <ul>
+    <li>To provide the service: real-time scoring, verdicts, incident alerts, and your capture archive.</li>
+    <li><b>To improve our detection models.</b> Audio captured through the service may be used to
+    train and evaluate our deepfake-detection models. Contact us to exclude your workspace's audio
+    from training.</li>
+    <li>To meter usage and bill you, and to secure the service against abuse.</li>
+  </ul>
+  <p>We do <b>not</b> sell your data, use it for advertising, or share meeting audio with other customers.</p>
+
+  <h2>Recording consent</h2>
+  <div class="card"><p>The Sonave bot always appears as a visible participant. <b>You are
+  responsible for notifying meeting participants that the call is being recorded and analyzed, and
+  for obtaining any consent required by the laws that apply to you</b> (some jurisdictions require
+  all-party consent to record audio). Do not deploy the bot into meetings where you lack that consent.</p></div>
+
+  <h2>Service providers</h2>
+  <p>We use a small set of subprocessors to run Sonave: <b>Railway</b> (application hosting and
+  audio storage), <b>Modal</b> (GPU inference), <b>Recall.ai</b> (the meeting bot that joins calls),
+  <b>Google</b> (sign-in), and <b>Stripe</b> (payments). Each receives only what it needs to perform
+  its function.</p>
+
+  <h2>Retention &amp; deletion</h2>
+  <p>Meeting audio, detection results, and voiceprints are retained while your account is active so
+  you can review them and, where applicable, for model improvement. You can delete voiceprints in
+  the console at any time. To delete captures, detection history, or your entire account, email us
+  and we will complete the deletion within 30 days.</p>
+
+  <h2>Security</h2>
+  <p>Data is encrypted in transit (TLS). Access to your workspace requires your Google sign-in;
+  meeting audio streams are authenticated with single-purpose expiring tokens. No method of storage
+  is 100% secure, but we take the audio of your meetings seriously.</p>
+
+  <h2>Children</h2>
+  <p>Sonave is a business tool and is not directed to children under 16.</p>
+
+  <h2>Changes</h2>
+  <p>We will post any changes to this policy here and update the effective date. Material changes
+  will be flagged in the console.</p>
+
+  <p style="margin-top:30px"><a href="/terms">Terms of Service</a> · <a href="/">usesonave.com</a></p>
+</div>
+</body>
+</html>

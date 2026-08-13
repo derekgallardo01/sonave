@@ -65,6 +65,13 @@ def test_captures_returns_files_list(railway_mod, tmp_path, monkeypatch):
     assert out["files"] and out["files"][0]["name"] == "meet_Derek_1_000.wav"
 
 
+def test_legal_pages_render(railway_mod):
+    c = client(railway_mod)
+    for path, marker in (("/privacy", "Privacy Policy"), ("/terms", "Terms of Service")):
+        r = c.get(path)
+        assert r.status_code == 200 and marker in r.text and "__FAVICON__" not in r.text
+
+
 def test_favicon_served(railway_mod):
     r = client(railway_mod).get("/favicon.svg")
     assert r.status_code == 200 and "svg" in r.headers["content-type"]

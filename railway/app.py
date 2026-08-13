@@ -837,6 +837,18 @@ def onboarding():
     return html.replace("__FAVICON__", _FAVICON_B64)
 
 
+@app.get("/privacy", response_class=HTMLResponse)
+def privacy():
+    html = (_HERE / "privacy.html").read_text(encoding="utf-8")
+    return html.replace("__FAVICON__", _FAVICON_B64)
+
+
+@app.get("/terms", response_class=HTMLResponse)
+def terms():
+    html = (_HERE / "terms.html").read_text(encoding="utf-8")
+    return html.replace("__FAVICON__", _FAVICON_B64)
+
+
 @app.on_event("startup")
 def _startup_migrate():
     admin = db.first_admin_id()
