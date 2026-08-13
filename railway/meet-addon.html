@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sonave — Meet panel</title>
+<link rel="icon" href="data:image/svg+xml;base64,__FAVICON__">
+<style>
+:root{--bg:#0b0d10;--panel:#101418;--line:#1b2128;--line2:#242c35;--ink:#e8eef2;--ink2:#9aa9b5;
+--muted:#718695;--green:#2ee584;--green-dark:#0d9e56;--on-green:#06130b;--amber:#ffb224;--red:#ff4d5e;
+--font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;--mono:ui-monospace,Consolas,monospace}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13px;line-height:1.5;min-height:100vh}
+.hd{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:8px}
+.brand b{font-size:13px}
+.brand small{display:block;font-size:9px;color:var(--muted)}
+.banner{padding:12px 14px;border-bottom:1px solid var(--line)}
+.verdict{font-size:19px;font-weight:800;letter-spacing:-.01em}
+.note{font-size:10.5px;color:var(--ink2);margin-top:2px}
+.list{padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.spk{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--bg)}
+.spk.fake{border-color:rgba(255,77,94,.45)}
+.row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.name{font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pct{font-family:var(--mono);font-size:12px;font-weight:600;flex-shrink:0}
+.track{height:4px;background:#161c22;border-radius:2px;margin-top:7px;overflow:hidden}
+.fill{height:100%;border-radius:2px;transition:width .5s ease}
+.ft{padding:10px 14px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--muted)}
+.ft a{color:var(--green);text-decoration:none;font-weight:600;font-size:11px}
+.center{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:60px 20px;text-align:center}
+.center p{color:var(--muted);font-size:12px;max-width:240px}
+.btn{padding:9px 18px;border-radius:9px;background:var(--green);color:var(--on-green);font:700 12px var(--font);border:0;cursor:pointer}
+.btn:hover{background:#4deda0}
+.mark{width:26px;height:26px}
+</style>
+</head>
+<body>
+<div class="hd">
+ <div class="brand">
+  <svg class="mark" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.6" stroke="var(--green)" stroke-width="2.2"></circle><path d="M6.9 12h.9l.6-1.4.7 2.9.8-4.1.9 5.4.9-7.2.9 8.3.8-6.9.7 4.8.7-2.9.6 1.6.5-.5h1.2" stroke="var(--green)" stroke-width="1.15" stroke-linejoin="round" stroke-linecap="round"></path><circle cx="18.1" cy="5.9" r="2.6" fill="var(--bg)"></circle><circle cx="18.1" cy="5.9" r="1.8" fill="var(--green)"></circle></svg>
+  <div><b>Sonave</b><small>VOICE AUTHENTICITY · THIS CALL</small></div>
+ </div>
+</div>
+
+<div id="signin" class="center" style="display:none">
+ <p>Sign in to see live authenticity verdicts for this meeting's speakers.</p>
+ <button class="btn" onclick="popupLogin()">Sign in with Google</button>
+</div>
+
+<div id="live" style="display:none">
+ <div class="banner"><span class="verdict" id="room">—</span><div class="note" id="roomNote">waiting for audio…</div></div>
+ <div class="list" id="speakers"></div>
+ <div class="ft"><span id="meta">sonave-xlsr-meet</span><a href="/console" target="_blank" rel="noopener">Open console ↗</a></div>
+</div>
+
+<script>
+// Google Meet Add-ons SDK bootstrap — guarded so the page also works standalone.
+(function(){
+ var s=document.createElement('script');
+ s.src='https://www.gstatic.com/meetjs/addons/1.1.0/meet.addons.js';
+ s.onload=function(){try{
+  window.meet&&meet.addon&&meet.addon.createAddonSession({cloudProjectNumber:'__MEET_PROJECT__'})
+   .then(function(sess){return sess.createSidePanelClient()}).catch(function(){});
+ }catch(e){}};
+ s.onerror=function(){};
+ document.head.appendChild(s);
+})();
+
+function vcolor(p){return p>=0.7?'var(--red)':p>=0.4?'var(--amber)':'var(--green)'}
+function vname(p){return p>=0.7?'FAKE':p>=0.4?'SUSPECT':'REAL'}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+
+function popupLogin(){
+ var w=window.open('/auth/login','sonave_login','width=480,height=640');
+ var t=setInterval(function(){ if(w&&w.closed){clearInterval(t);boot()} },800);
+}
+
+async function poll(){
+ try{
+  var r=await fetch('/api/quality');
+  if(r.status===401){show('signin');return}
+  var d=await r.json();
+  show('live');
+  var ks=Object.keys(d).filter(function(k){return k[0]!=='_'});
+  var maxP=0, rows='';
+  ks.forEach(function(k){
+   var s=d[k], p=s.auth_p!=null?s.auth_p:0;
+   if(p>maxP)maxP=p;
+   var pct=Math.round(p*100), c=vcolor(p);
+   rows+='<div class="spk'+(p>=0.7?' fake':'')+'"><div class="row"><span class="name">'+esc(k)+'</span>'+
+    '<span class="pct" style="color:'+c+'">'+(s.auth_verdict?pct+'%':'—')+'</span></div>'+
+    '<div class="track"><div class="fill" style="width:'+pct+'%;background:'+c+'"></div></div></div>';
+  });
+  document.getElementById('speakers').innerHTML=rows||'<div class="spk" style="color:var(--muted)">No speakers yet — audio appears when people talk.</div>';
+  document.getElementById('room').textContent=ks.length&&d[ks[0]]?(maxP>0?vname(maxP):'—'):'—';
+  document.getElementById('room').style.color=vcolor(maxP);
+  document.getElementById('roomNote').textContent=ks.length? (maxP>=0.7?'A speaker is scoring in the red band.':'All speakers within normal range.') :'waiting for audio…';
+ }catch(e){}
+}
+function show(id){['signin','live'].forEach(function(x){document.getElementById(x).style.display=x===id?'block':'none'})}
+function boot(){poll();setInterval(poll,2000)}
+boot();
+</script>
+</body>
+</html>

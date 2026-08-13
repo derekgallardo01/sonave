@@ -944,6 +944,16 @@ def onboarding():
     return html.replace("__FAVICON__", _FAVICON_B64)
 
 
+@app.get("/meet-addon", response_class=HTMLResponse)
+def meet_addon():
+    """Google Meet add-on side panel (works standalone in a browser too).
+    Marketplace deployment steps live in PRODUCTION.md; the panel talks to the
+    same /api/quality the console uses."""
+    html = (_HERE / "meet-addon.html").read_text(encoding="utf-8")
+    return (html.replace("__FAVICON__", _FAVICON_B64)
+                .replace("__MEET_PROJECT__", os.environ.get("SONAVE_MEET_PROJECT_NUMBER", "")))
+
+
 @app.get("/og.png")
 def og_image():
     return FileResponse(str(_HERE / "og.png"), media_type="image/png")

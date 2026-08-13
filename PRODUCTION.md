@@ -153,6 +153,23 @@ Unset Stripe vars = billing disabled: free tier is enforced, but no card flow
 (users simply hit the quota). Note: the service must run as a **single worker**
 (live state is in-memory; already the case with the default Procfile).
 
+### 4.2d Google Meet add-on (preview — after brand verification clears)
+
+The side panel is served at `https://usesonave.com/meet-addon` and works
+standalone today. To surface it inside Google Meet:
+
+1. Google Cloud console → enable the **Google Workspace Marketplace SDK** and
+   **Google Workspace Add-ons API** on the Sonave project.
+2. Marketplace SDK → App configuration → **Meet add-on**: side panel URL
+   `https://usesonave.com/meet-addon`, logo `https://usesonave.com/og.png`
+   (or the 120px icon), and the project number → Railway var
+   `SONAVE_MEET_PROJECT_NUMBER`.
+3. Publish to Marketplace (unlisted first for testing; public listing requires
+   the completed brand verification).
+4. Known limitation: inside Meet's iframe the session cookie is third-party —
+   the panel shows a Sign-in button that opens the popup flow. Cookie
+   partitioning (CHIPS) is the follow-up if browsers block it.
+
 ### 4.3 Verify deploy
 
 - `https://<your-railway-domain>/` serves the public marketing landing page
