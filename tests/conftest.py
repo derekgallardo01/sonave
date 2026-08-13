@@ -25,12 +25,15 @@ def load_module(name: str, relpath: str):
 
 
 @pytest.fixture(autouse=True)
-def _hermetic_sonave_env(monkeypatch):
+def _hermetic_sonave_env(monkeypatch, tmp_path):
     """Strip all SONAVE_* vars so the suite is immune to the developer's shell /
-    .env state (both apps read env at import; fixtures re-set what they need)."""
+    .env state (both apps read env at import; fixtures re-set what they need).
+    The app DB is pointed at tmp so principal resolution never touches /data."""
     import os
     for var in [k for k in os.environ if k.startswith("SONAVE_")]:
         monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("SONAVE_APP_DB", str(tmp_path / "app.db"))
+    monkeypatch.setenv("SONAVE_SESSION_SECRET", "hermetic-test-secret")
 
 
 @pytest.fixture

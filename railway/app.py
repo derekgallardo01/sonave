@@ -46,7 +46,7 @@ from urllib.parse import urlparse
 
 import numpy as np
 from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from pydantic import BaseModel, field_validator
 
 # Make sibling modules importable (incidents, enroll)
@@ -56,6 +56,8 @@ if _sys_path_inserted not in sys.path:
     sys.path.insert(0, _sys_path_inserted)
 import incidents   # incident store + alerting (torch-free)
 import enroll      # local speaker enrollment (vendored from service/enroll.py)
+import auth        # Google OAuth + sessions + principals (stdlib-only)
+import db          # app database: users, bots, billing (/data/app.db)
 os.environ.setdefault("SONAVE_ENROLL_DIR", "/data/enrollments")
 os.environ.setdefault("SONAVE_MODEL_CACHE", "/data/models/ecapa")
 
@@ -90,15 +92,16 @@ def _token_ok(v: str | None) -> bool:
 
 
 def require_auth(request: Request):
-    """Endpoint guard. No-op when SONAVE_API_TOKEN is unset."""
-    if not API_TOKEN:
-        return
-    auth = request.headers.get("authorization", "")
-    bearer = auth[7:] if auth.lower().startswith("bearer ") else ""
-    tok = (request.headers.get("x-sonave-token") or bearer
-           or request.cookies.get("sonave_token") or request.query_params.get("token"))
-    if not _token_ok(tok):
+    """Endpoint guard: machine token OR Google session (open when neither is configured)."""
+    if auth.get_principal(request) is None:
         raise HTTPException(status_code=401, detail="unauthorized")
+
+
+def require_principal(request: Request) -> auth.Principal:
+    p = auth.get_principal(request)
+    if p is None:
+        raise HTTPException(status_code=401, detail="unauthorized")
+    return p
 
 app = FastAPI(title="Sonave Capture")
 
@@ -639,6 +642,53 @@ def download(name: str):
     return FileResponse(str(f)) if f.exists() else {"error": "not found"}
 
 
+# --- Google OAuth ------------------------------------------------------------
+@app.get("/auth/login")
+def auth_login():
+    if not auth.google_configured():
+        return RedirectResponse("/console", status_code=302)
+    state = auth.make_state()
+    resp = RedirectResponse(auth.login_url(state), status_code=302)
+    resp.set_cookie(auth.STATE_COOKIE, state, max_age=auth.STATE_TTL,
+                    httponly=True, samesite="lax", secure=True, path="/auth")
+    return resp
+
+
+@app.get("/auth/callback")
+def auth_callback(request: Request, code: str = "", state: str = ""):
+    if not auth.verify_state(request.cookies.get(auth.STATE_COOKIE), state):
+        raise HTTPException(status_code=403, detail="bad oauth state")
+    if not code:
+        raise HTTPException(status_code=400, detail="missing code")
+    try:
+        user = auth.complete_login(code)
+    except ValueError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except Exception as e:  # noqa: BLE001 — Google/network failures
+        logger.warning("oauth callback failed: %s", repr(e)[:120])
+        raise HTTPException(status_code=502, detail="google sign-in failed")
+    resp = RedirectResponse("/console", status_code=302)
+    resp.set_cookie(auth.SESSION_COOKIE, auth.sign_session(user["id"], user.get("session_ver", 1)),
+                    max_age=auth.SESSION_TTL, httponly=True, samesite="lax", secure=True, path="/")
+    resp.delete_cookie(auth.STATE_COOKIE, path="/auth")
+    logger.info("login: %s (%s)", user.get("email"), user.get("role"))
+    return resp
+
+
+@app.post("/auth/logout")
+def auth_logout():
+    resp = RedirectResponse("/console", status_code=302)
+    resp.delete_cookie(auth.SESSION_COOKIE, path="/")
+    return resp
+
+
+@app.get("/api/me")
+def api_me(p: auth.Principal = Depends(require_principal)):
+    return {"kind": p.kind, "email": p.email or "operator", "name": p.name,
+            "picture": p.picture, "role": p.role,
+            "google": auth.google_configured()}
+
+
 @app.get("/", response_class=HTMLResponse)
 def landing():
     html = (_HERE / "landing.html").read_text(encoding="utf-8")
@@ -648,7 +698,9 @@ def landing():
 @app.get("/console", response_class=HTMLResponse)
 def console():
     html = (_HERE / "console.html").read_text(encoding="utf-8")
-    return html.replace("__AUTH__", "1" if API_TOKEN else "0").replace("__FAVICON__", _FAVICON_B64)
+    return (html.replace("__AUTH__", "1" if (API_TOKEN or auth.google_configured()) else "0")
+                .replace("__GOOGLE__", "1" if auth.google_configured() else "0")
+                .replace("__FAVICON__", _FAVICON_B64))
 
 
 @app.get("/onboarding", response_class=HTMLResponse)

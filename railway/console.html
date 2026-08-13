@@ -245,6 +245,7 @@ a:hover{color:var(--green-hover)}
  <div class="topbar">
   <div class="view-title" id="viewTitle">Live Monitor</div>
   <div class="topbar-right">
+   <span class="update-note" id="userChip" style="cursor:pointer" title="sign out" onclick="signout()"></span>
    <div class="clock" id="clock"></div>
    <button class="btn" id="demoBtn" onclick="demoToggle()">Simulate call</button>
   </div>
@@ -431,19 +432,29 @@ a:hover{color:var(--green-hover)}
    <svg width="46" height="46" viewBox="0 0 24 24" fill="none"><path d="M12 3.4v17.2M3.4 12h17.2" stroke="var(--green)" stroke-width=".7" opacity=".55"></path><circle cx="12" cy="12" r="5.6" stroke="var(--green)" stroke-width=".7" opacity=".55"></circle><circle cx="12" cy="12" r="8.6" stroke="var(--green)" stroke-width="2.2"></circle><path d="M6.9 12h.9l.6-1.4.7 2.9.8-4.1.9 5.4.9-7.2.9 8.3.8-6.9.7 4.8.7-2.9.6 1.6.5-.5h1.2" stroke="var(--green)" stroke-width="1.15" stroke-linejoin="round" stroke-linecap="round"></path><circle cx="18.1" cy="5.9" r="2.6" fill="var(--panel)"></circle><circle cx="18.1" cy="5.9" r="1.8" fill="var(--green)"></circle></svg>
   </div>
   <h2>Welcome to Sonave</h2>
-  <p>Enter your access token to continue.</p>
-  <input id="tok" class="inp" type="password" placeholder="Access token" onkeydown="if(event.key=='Enter')dologin()">
-  <button class="btn-primary" onclick="dologin()">Unlock</button>
+  <a id="gbtn" class="btn-primary" href="/auth/login" style="display:none;width:100%;text-align:center;text-decoration:none;color:var(--on-green)">Sign in with Google</a>
+  <p id="loginAlt">Enter your access token to continue.</p>
+  <input id="tok" class="inp" type="password" placeholder="Operator token" onkeydown="if(event.key=='Enter')dologin()">
+  <button class="btn" style="width:100%" onclick="dologin()">Unlock</button>
  </div>
 </div>
 
 <script>
-var SKIP=/HealthCheck|FIXCHECK|WSTEST|deploycheck/i,AUTH='__AUTH__'==='1',lastAudio=null,openSess={};
+var SKIP=/HealthCheck|FIXCHECK|WSTEST|deploycheck/i,AUTH='__AUTH__'==='1',GOOGLE='__GOOGLE__'==='1',lastAudio=null,openSess={};
 function cookie(n){return(document.cookie.match('(^|;)\\s*'+n+'\\s*=\\s*([^;]+)')||[])[2]}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function needlogin(){document.getElementById('login').style.display='flex'}
+function needlogin(){
+ document.getElementById('login').style.display='flex';
+ if(GOOGLE){document.getElementById('gbtn').style.display='block';document.getElementById('loginAlt').textContent='or use an operator token'}
+}
+async function me(){
+ try{var r=await fetch('/api/me');if(!r.ok)return false;var d=await r.json();
+  var el=document.getElementById('userChip');if(el&&d.email)el.textContent=d.email;
+  window._me=d;return true}catch(e){return false}
+}
+function signout(){fetch('/auth/logout',{method:'POST'}).finally(function(){document.cookie='sonave_token=;path=/;Max-Age=0';location.reload()})}
 async function jget(u){var r=await fetch(u);if(r.status===401){needlogin();throw'auth'}return r.json()}
-function dologin(){var t=document.getElementById('tok').value.trim();if(!t)return;document.cookie='sonave_token='+t+';path=/;SameSite=Strict;Max-Age=2592000';document.getElementById('login').style.display='none';start()}
+function dologin(){var t=document.getElementById('tok').value.trim();if(!t)return;document.cookie='sonave_token='+t+';path=/;SameSite=Strict;Max-Age=2592000';document.getElementById('login').style.display='none';start();me()}
 function toast(msg,type){var el=document.getElementById('toast');clearTimeout(el._t1);clearTimeout(el._t2);el.textContent=msg;el.className='toast '+(type||'');el._t1=setTimeout(function(){el.classList.add('show')},10);el._t2=setTimeout(function(){el.classList.remove('show')},3500)}
 
 var _started=0;
@@ -769,7 +780,7 @@ function demoAck(){
  toast('Simulated incident acknowledged — nothing was written to the forensic log.','ok');
 }
 
-if(AUTH&&!cookie('sonave_token'))needlogin();else start();
+if(AUTH){me().then(function(ok){if(ok)start();else needlogin()})}else{start();me()}
 </script>
 </body>
 </html>
