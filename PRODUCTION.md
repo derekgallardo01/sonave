@@ -68,39 +68,6 @@ Go to **GitHub repo → Settings → Secrets and variables → Actions → New r
 
 ---
 
-Copy `.env.example` to `.env` (gitignored) and fill in:
-
-```bash
-cp .env.example .env
-```
-
-Required for production:
-
-```env
-# Recall.ai
-SONAVE_RECALL_API_KEY=your_recall_api_key_here
-SONAVE_RECALL_BASE=https://us-west-2.recall.ai/api/v1
-
-# Shared auth token (generate a strong random string)
-SONAVE_API_TOKEN=your_long_random_token_here
-
-# Modal deploy will read SONAVE_API_TOKEN from your shell env
-```
-
-Optional but recommended:
-
-```env
-# Slack alert webhook for wire-hold incidents
-SONAVE_ALERT_WEBHOOK=https://hooks.slack.com/services/...
-
-# Scoring cadence (faster = more responsive, more GPU cost)
-SONAVE_SCORE_SEC=10
-SONAVE_SCORE_WIN_SEC=8
-SONAVE_SCORE_EMA=0.6
-```
-
----
-
 ## 3. Deploy the GPU scorer (Modal)
 
 The Modal app bakes the XLS-R backbone into the image and mounts the trained model.
@@ -143,22 +110,14 @@ curl -F "file=@test.wav" -H "X-Sonave-Token: $SONAVE_API_TOKEN" https://<you>--s
 | `SONAVE_ENROLL_DIR` | `/data/enrollments` (voiceprint persistence) |
 | `SONAVE_MODEL_CACHE` | `/data/models/ecapa` (ECAPA model cache, optional) |
 | `SONAVE_PUBLIC_DOMAIN` | Auto-set by Railway; only override if using a custom domain |
-|----------|-------|
-| `SONAVE_RECALL_API_KEY` | Your Recall key |
-| `SONAVE_RECALL_BASE` | `https://us-west-2.recall.ai/api/v1` (match your region) |
-| `SONAVE_SCORER_URL` | Modal URL from Step 3, e.g. `https://<you>--sonave-detector-fastapi-app.modal.run` |
-| `SONAVE_API_TOKEN` | Same token you set for Modal |
-| `SONAVE_DATA_DIR` | `/data/captured` |
-| `SONAVE_PUBLIC_DOMAIN` | Auto-set by Railway; only override if using a custom domain |
 
 ### 4.3 Verify deploy
 
-Open `https://<your-railway-domain>/`:
-
-- You should see the Sonave dashboard
-- If `SONAVE_API_TOKEN` is set, it prompts for the token
-- Paste a Google Meet link → **Send bot**
-- The bot joins and audio starts streaming
+- `https://<your-railway-domain>/` serves the public marketing landing page
+- `https://<your-railway-domain>/console` is the operator console — it prompts for
+  `SONAVE_API_TOKEN` (stored as a cookie for 30 days)
+- In the console, paste a Google Meet link → **Deploy** — the bot joins, audio starts
+  streaming, and the scale-to-zero scorer is pre-warmed in the background
 
 ---
 
@@ -203,12 +162,16 @@ The voiceprint itself is a small numpy array (~192 floats, ~1 KB base64) and is 
 ## 6. End-to-end smoke test
 
 1. **Start a Google Meet** (or join an existing one)
-2. **Copy the Meet URL** and paste into the Railway dashboard
-3. **Send bot** — you should see:
-   - Bot appears in the meeting as "Sonave"
-   - Dashboard shows speaker cards with audio quality meters
-   - After ~10 seconds, authenticity badges appear (REAL / SUSPECT / FAKE)
-4. **Test with a fake**: play an AI-generated voice clip into the meeting → badge should flip to FAKE and a wire-hold alert fires
+2. **Copy the Meet URL** and paste into the console (`/console`)
+3. **Deploy** — you should see:
+   - Bot appears in the meeting as "Sonave" (deploying also pre-warms the Modal scorer,
+     so the first verdict skips the cold start)
+   - Console shows speaker cards with audio quality + risk meters
+   - After ~10–20 seconds, authenticity badges appear (REAL / SUSPECT / FAKE) and the
+     Median Latency tile shows measured GPU latency
+4. **Test with a fake**: play an AI-generated voice clip into the meeting → the badge
+   flips to FAKE, and after **3 consecutive** fake-band windows (`SONAVE_INCIDENT_STREAK`,
+   ~30 s at the default cadence) the wire-hold incident fires
 
 ---
 
@@ -218,11 +181,12 @@ The voiceprint itself is a small numpy array (~192 floats, ~1 KB base64) and is 
 |----------|---------|
 | Modal `GET /healthz` | Platform probe — returns `{"status":"ok", "device":"cuda", ...}` |
 | Modal `GET /ready` | Deep readiness — confirms model loaded and can score |
-| Railway `GET /` | Dashboard page |
-| Railway `GET /api/quality` | Per-speaker audio quality + authenticity verdicts |
-| Railway `GET /api/incidents` | Open/acknowledged fake-voice incidents |
+| Railway `GET /` | Public landing page (no auth — good probe target) |
+| Railway `GET /console` | Operator console (page loads publicly; APIs behind the token) |
+| Railway `GET /api/quality` | Per-speaker audio quality + authenticity verdicts (token) — includes a `_scorer` row showing whether `SONAVE_SCORER_URL` is configured |
+| Railway `GET /api/incidents` | Open/acknowledged fake-voice incidents (token) |
 
-**Recommended**: Set your platform's health probe to Modal's `/healthz` (open) and Railway's `/` (auth-gated, so configure probe to send the token).
+**Recommended**: Set your platform's health probe to Modal's `/healthz` and Railway's `/` — both are public.
 
 ---
 
@@ -236,12 +200,6 @@ The voiceprint itself is a small numpy array (~192 floats, ~1 KB base64) and is 
 - [ ] Modal `SONAVE_MAX_UPLOAD_MB` limits upload size (default 25 MB)
 - [ ] Meeting URL allowlist restricts to Google Meet / Zoom / Teams only
 - [ ] Incident DB (`incidents.db`) lives on the persistent volume
-- [ ] `.env` is gitignored and never committed
-- [ ] Recall key has appropriate scope (bot creation only)
-- [ ] Railway volume at `/data` persists captures across deploys
-- [ ] Modal `SONAVE_MAX_UPLOAD_MB` limits upload size (default 25 MB)
-- [ ] Meeting URL allowlist restricts to Google Meet / Zoom / Teams only
-- [ ] Incident DB (`incidents.db`) lives on the persistent volume
 
 ---
 
@@ -250,12 +208,13 @@ The voiceprint itself is a small numpy array (~192 floats, ~1 KB base64) and is 
 | Symptom | Likely cause | Fix |
 |---------|-------------|-----|
 | Bot sent but no audio appears | Wrong `SONAVE_RECALL_WS` or domain | Check Railway domain is public and `wss://` URL is correct |
-| "scoring…" never updates | `SONAVE_SCORER_URL` not set or Modal cold start | Verify Modal URL; first request after idle may take 10–15 s |
+| Bot deploy fails after key rotation | New Recall key not saved to Railway | Update `SONAVE_RECALL_API_KEY` in the Railway service variables |
+| Console shows "no scorer configured" | `SONAVE_SCORER_URL` not set | Set it to the Modal URL from Step 3 (the app also warns at startup) |
+| Badges stay PENDING with scorer configured | Modal cold start or token mismatch | Deploying a bot pre-warms the scorer; verify the same `SONAVE_API_TOKEN` on both services |
 | Real voices flagged fake | Detector hasn't seen Meet-processed real audio | Collect real Meet audio via VB-CABLE and retrain (see `results/detector_v2_progress.md`) |
 | High false-positive rate | Threshold too aggressive | Raise `SONAVE_TAU_FAKE` (default 0.70) or use voiceprint enrollment |
 | Enrollment fails | Not enough captured clips (need ≥1) or speaker name mismatch | Check captures exist for that speaker; names are case-sensitive |
 | Voiceprint match shows 0% | ECAPA model download failed on Railway first run | Check `/data/models/ecapa/` exists on the volume; retry enrollment |
-| Capture files missing | Volume not mounted at `/data` | Add Railway volume at `/data` |
 | Capture files missing | Volume not mounted at `/data` | Add Railway volume at `/data` |
 
 ---
@@ -263,9 +222,18 @@ The voiceprint itself is a small numpy array (~192 floats, ~1 KB base64) and is 
 ## 10. Updating the model
 
 1. Retrain locally: `python src/train_xlsr.py --manifest data/corpus_meet.csv --out models/sonave_xlsr_meet`
-2. Update `modal_app.py` model path if the directory name changed
-3. Redeploy Modal: `modal deploy modal_app.py`
-4. The Railway capture service needs no changes
+2. **Run the regression gate before deploying** — a retrain that quietly drops catch rate
+   must not ship:
+   ```bash
+   python src/eval_xlsr.py --model models/sonave_xlsr_meet
+   python -m pytest -m gpu tests/test_model_regression.py
+   ```
+   The gate compares against `results/benchmark_baseline.json` (±2 pts). If a drop is a
+   deliberate tradeoff, update the baseline in the same commit and say why.
+3. Update `modal_app.py` model path if the directory name changed
+4. Commit the new `models/sonave_xlsr_meet/` checkpoint (it is version-controlled so CI
+   can build the Modal image) and push — CI deploys Modal automatically
+5. The Railway capture service needs no changes
 
 ---
 
@@ -275,7 +243,9 @@ The repo includes `.github/workflows/ci-cd.yml`. On every **Pull Request**, it r
 
 1. Runs tests
 2. If tests pass → auto-deploys Modal
-3. Railway auto-deploys independently via its GitHub integration
+3. Verifies the live Modal `/openapi.json` version matches the repo — a failed
+   verification fails the workflow, so a stale deploy can't go unnoticed
+4. Railway auto-deploys independently via its GitHub integration
 
 You can monitor deploys in **GitHub → Actions**.
 

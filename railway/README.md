@@ -1,8 +1,10 @@
 # Sonave Capture Service — Railway deploy
 
-A tiny, GPU-free service whose only job is to **collect real Meet-piped audio** for
-training. Drop the bot into a meeting → it saves each participant's audio. Scoring
-and retraining stay on your GPU box (download the WAVs and train locally).
+A tiny, GPU-free service that **sends the bot into meetings, captures per-speaker
+audio, and drives the live console**. Scoring is hosted: each speaker's rolling
+window is POSTed to the Modal GPU scorer (`SONAVE_SCORER_URL`) and the verdict
+lands on the console in seconds. Captured WAVs also feed retraining (pull them to
+your GPU box with `../src/pull_captures.py`).
 
 Why separate from the main repo: no torch / no model → the image builds in seconds
 and runs on Railway's CPU boxes. It reproduces the *real* Meet processing (via a real
@@ -38,7 +40,10 @@ simulation was proven to fail (see `../results/detector_v2_progress.md`).
 
 ## Use
 
-- Open `https://<your-domain>/` → paste a Meet/Zoom link → **Send bot**.
+- `https://<your-domain>/` is the public marketing landing page; the operator console
+  lives at `https://<your-domain>/console` (prompts for `SONAVE_API_TOKEN`).
+- In the console: paste a Meet/Zoom link → **Deploy** (this also pre-warms the
+  scale-to-zero scorer).
 - Talk / run the meeting. Each 2-min chunk of every speaker's audio is saved as it
   flushes (survives the bot leaving).
 - The page shows **live stream quality** per speaker, a **live authenticity badge**
@@ -70,7 +75,8 @@ work (the mic never picks it up at usable volume); a virtual cable is the unlock
 - **Consent:** announce recording; required for the finance vertical.
 
 ## Fraud alerts, wire-hold & incidents
-When a speaker's rolling verdict is a sustained **fake**, the service opens an **incident**
+When a speaker's rolling verdict stays **fake** for `SONAVE_INCIDENT_STREAK` consecutive
+scoring windows (default 3 — ~30 s at the default cadence), the service opens an **incident**
 (persisted to SQLite next to the `/data` volume, so it survives redeploys), flags a
 **wire-hold**, and — if `SONAVE_ALERT_WEBHOOK` is set — posts a Slack-formatted alert. The
 page shows a red **⛔ WIRE HELD** banner with an **Acknowledge** button (which clears the hold
@@ -78,11 +84,12 @@ and closes the incident). This layer is torch-free (it runs on the verdicts the 
 already receives from the scorer); GPU-side voiceprint fusion + auto-generated forensic
 reports are the next follow-ups. Endpoints: `GET /api/incidents`, `POST /api/incidents/ack`.
 
-## Live authenticity verdict on the page
-`../tools/verdict_monitor.py <url>` polls this service for new chunks, scores each on
-your local GPU with `models/sonave_xlsr_meet`, and `POST`s the verdict to
-`/api/verdict` so the page badge reads REAL / SUSPECT / FAKE in ~2-min steps. No
-tunnel needed — it reads the chunks the capture service already saved.
+## Legacy fallback: local-GPU scoring
+The hosted path (`SONAVE_SCORER_URL` → Modal) is the primary way verdicts reach the
+console. If you need to score without Modal, `../tools/verdict_monitor.py <url>` polls
+this service for new capture chunks, scores them on your local GPU with
+`models/sonave_xlsr_meet`, and `POST`s verdicts to `/api/verdict` — but only in
+~2-minute steps (it works off the capture flush), vs seconds for the hosted path.
 
 ## Local test
 ```
