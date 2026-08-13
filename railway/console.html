@@ -562,10 +562,15 @@ function renderSpeakers(items){
   }).join('');
   var meta='<span>'+esc(s.speech)+'% speech</span><span>'+esc(s.dur)+'</span><span>'+esc(s.clips)+' clips</span>'+
    (s.match?'<span class="match">match '+esc(s.match)+'%</span>':'');
+  var me=window._me, you='';
+  if(me&&me.name){
+   var a=String(s.name).replace(/_/g,' ').toLowerCase(), b=me.name.toLowerCase();
+   if(a===b||a.split(' ')[0]===b.split(' ')[0])you=' <span style="color:var(--muted);font-weight:500">· you</span>';
+  }
   return '<div class="spk-card'+(s.verdict=='fake'?' fake':'')+'">'+
    '<div class="spk-top"><div class="spk-who">'+
     '<div class="avatar">'+esc(s.name.charAt(0).toUpperCase())+'</div>'+
-    '<div style="min-width:0"><div class="spk-name">'+esc(s.name)+'</div><div class="spk-sub">'+esc(s.sub)+'</div></div>'+
+    '<div style="min-width:0"><div class="spk-name">'+esc(s.name)+you+'</div><div class="spk-sub">'+esc(s.sub)+'</div></div>'+
    '</div><span class="badge '+bcls(s.verdict)+'">'+esc(s.verdict.toUpperCase())+'</span></div>'+
    '<div class="risk-row"><span class="risk-lbl">DEEPFAKE RISK</span><span class="risk-pct" style="color:'+c+'">'+pct+'%</span></div>'+
    '<div class="risk-track"><div class="risk-fill" style="width:'+pct+'%;background:'+c+'"></div></div>'+
@@ -649,7 +654,9 @@ async function incidents(){
  var d;try{d=await jget('/api/incidents')}catch(e){return}
  _incAll=d.incidents||[];
  if(!DEMO){
-  renderIncidentBanners(_incAll.filter(function(i){return i.status=='open'}).map(function(i){
+  // Banner shows only ACTIVE incidents (updated in the last 30 min) — older open
+  // ones stay ackable in History without alarming every console visit.
+  renderIncidentBanners(_incAll.filter(function(i){return i.status=='open'&&(Date.now()/1000-i.last_ts)<1800}).map(function(i){
    return {id:i.id,speaker:i.speaker,risk:Math.round(i.rolling*100),hold:!!i.hold};
   }),false);
  }
