@@ -102,17 +102,16 @@ def require_auth(request: Request):
 
 app = FastAPI(title="Sonave Capture")
 
-# Inline favicon: white audio bars on the brand-blue rounded square (no file needed).
+# Inline favicon: the Sonave scope-pulse mark — green radar scope with a voice
+# pulse, fake contact flagged red (matches designs/logo/scope-pulse-v1-tile-red.png).
 _FAVICON_SVG = (
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">'
-    '<rect width="32" height="32" rx="7" fill="#2f6df6"/>'
-    '<g fill="#fff">'
-    '<rect x="6" y="13" width="3" height="6" rx="1.5"/>'
-    '<rect x="11" y="9" width="3" height="14" rx="1.5"/>'
-    '<rect x="16" y="5" width="3" height="22" rx="1.5"/>'
-    '<rect x="21" y="10" width="3" height="12" rx="1.5"/>'
-    '<rect x="26" y="14" width="3" height="4" rx="1.5"/>'
-    '</g></svg>'
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">'
+    '<rect width="24" height="24" rx="5.5" fill="#0a0e12"/>'
+    '<circle cx="12" cy="12" r="7.6" stroke="#2ee584" stroke-width="1.9" fill="none"/>'
+    '<path d="M7.8 12h1l1.4-3.2 2.4 6.4 1.4-3.2h2.2" stroke="#2ee584" stroke-width="1.6" '
+    'stroke-linecap="round" stroke-linejoin="round" fill="none"/>'
+    '<circle cx="17.4" cy="6.6" r="2.1" fill="#ff8a95"/>'
+    '</svg>'
 )
 _FAVICON_B64 = base64.b64encode(_FAVICON_SVG.encode()).decode()
 
