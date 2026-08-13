@@ -585,6 +585,32 @@ def api_model():
     return json.loads(f.read_text(encoding="utf-8"))
 
 
+@app.get("/api/data_progress", dependencies=[Depends(require_auth)])
+def api_data_progress():
+    """Data-program odometer: how much captured meeting audio exists on the volume.
+    Duration from file size (PCM16 mono 16 kHz = 32 kB/s). Drives the console's
+    Data Program card; milestone M1 = 15 h of captured audio."""
+    files = sorted(DATA_DIR.glob("*.wav")) if DATA_DIR.exists() else []
+    files = [f for f in files if not any(s in f.name for s in SKIP_SPEAKERS)]
+    total_sec = sum(max(0, f.stat().st_size - 44) for f in files) / 32000
+    sessions: set[str] = set()
+    speakers: set[str] = set()
+    last_ts = 0
+    for f in files:
+        parts = f.stem.split("_")
+        if len(parts) >= 3:
+            speakers.add("_".join(parts[1:-2]) or parts[1])
+            try:
+                ts = int(parts[-2])
+                sessions.add(f"{'_'.join(parts[1:-2])}@{ts}")
+                last_ts = max(last_ts, ts)
+            except ValueError:
+                pass
+    return {"hours": round(total_sec / 3600, 2), "files": len(files),
+            "sessions": len(sessions), "speakers": len(speakers),
+            "last_capture_ts": last_ts or None, "m1_target_hours": 15}
+
+
 @app.get("/api/incidents", dependencies=[Depends(require_auth)])
 def api_incidents():
     return {"incidents": incidents.list_incidents()}

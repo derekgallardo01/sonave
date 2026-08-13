@@ -32,6 +32,19 @@ def test_quality_merges_verdict_and_filters_test_speakers(railway_mod):
     assert "deploycheck" not in out and "HealthCheck" not in out  # SKIP_SPEAKERS
 
 
+def test_data_progress_odometer(railway_mod, tmp_path, monkeypatch):
+    monkeypatch.setattr(railway_mod, "DATA_DIR", tmp_path)
+    body = b"\x00" * (44 + 32000 * 60)                      # 60 s of PCM16 mono 16k
+    (tmp_path / "meet_Derek_1755024300_000.wav").write_bytes(body)
+    (tmp_path / "meet_Ana_1755024900_000.wav").write_bytes(body)
+    (tmp_path / "meet_HealthCheck_1_000.wav").write_bytes(body)   # filtered test speaker
+    out = client(railway_mod).get("/api/data_progress").json()
+    assert out["files"] == 2 and out["speakers"] == 2 and out["sessions"] == 2
+    assert out["hours"] == round(120 / 3600, 2)
+    assert out["last_capture_ts"] == 1755024900
+    assert out["m1_target_hours"] == 15
+
+
 def test_download_rejects_path_traversal(railway_mod, tmp_path, monkeypatch):
     monkeypatch.setattr(railway_mod, "DATA_DIR", tmp_path)
     # encoded traversal never matches the single-segment {name} route -> file not served
