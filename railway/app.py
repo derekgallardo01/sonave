@@ -156,6 +156,10 @@ def send_bot(req: BotReq, request: Request, p: "auth.Principal" = Depends(requir
     if u.scheme not in ("http", "https") or not any(
             u.netloc == h or u.netloc.endswith("." + h) for h in ALLOWED_MEET_HOSTS):
         return {"ok": False, "detail": "meeting_url must be a Google Meet / Zoom / Teams link"}
+    existing = db.find_active_bot(p.user_id, req.meeting_url.strip())
+    if existing:
+        return {"ok": True, "bot_id": existing["bot_id"], "already": True,
+                "detail": "A Sonave bot is already in this meeting."}
     gate = _bot_gate(p)
     if gate is not None:
         return gate
@@ -181,7 +185,7 @@ def send_bot(req: BotReq, request: Request, p: "auth.Principal" = Depends(requir
         resp = json.loads(urllib.request.urlopen(r, timeout=20).read())
         bot_id = resp.get("id")
         db.insert_bot(bot_id or "unknown", p.user_id,
-                      hashlib.sha256(bot_tok.encode()).hexdigest(), req.meeting_url)
+                      hashlib.sha256(bot_tok.encode()).hexdigest(), req.meeting_url.strip())
         logger.info("bot created id=%s for %s (user=%s)", bot_id, req.meeting_url, p.user_id)
         if SCORER_URL:                      # pre-warm the scale-to-zero scorer so the
             threading.Thread(target=_warm_scorer, daemon=True).start()  # first verdict skips the cold start
@@ -220,10 +224,13 @@ _STATE_LOCK = threading.Lock()   # guards ROLL/VERDICTS across scoring threads
 # Real-time scoring: decouple from the 2-min capture-file flush. Score a short sliding
 # window every SCORE_SEC so a verdict appears in seconds, not minutes. Capture still
 # writes 2-min WAVs for training; only the *scoring* cadence is fast.
-SCORE_SEC = int(os.environ.get("SONAVE_SCORE_SEC", "10"))       # cadence between scores
+SCORE_SEC = int(os.environ.get("SONAVE_SCORE_SEC", "6"))        # cadence between scores
+SCORE_FIRST_SEC = int(os.environ.get("SONAVE_SCORE_FIRST_SEC", "4"))  # audio before FIRST score
 SCORE_WIN_SEC = int(os.environ.get("SONAVE_SCORE_WIN_SEC", "8"))  # window length scored
 SCORE_EMA = float(os.environ.get("SONAVE_SCORE_EMA", "0.6"))     # weight on the newest score
 _SCORE_HOP_BYTES = SCORE_SEC * SR * 2
+_SCORE_FIRST_BYTES = SCORE_FIRST_SEC * SR * 2   # 4 s matches the model's training windows,
+                                                # so the first verdict lands in ~4 s not ~10 s
 _SCORE_WIN_BYTES = SCORE_WIN_SEC * SR * 2
 
 # An incident (and the wire-hold webhook) needs this many CONSECUTIVE fake-band
@@ -254,6 +261,7 @@ def _quality(user_id: str, spk: str, pcm: bytes):
     sec = n / SR
     q = QUALITY.setdefault((user_id, spk), {"level": 0.0, "peak": 0.0, "clips": 0,
                                             "speech_sec": 0.0, "total_sec": 0.0})
+    q["last_audio_ts"] = time.time()   # muted/left speakers stop sending chunks entirely
     q["level"] = 0.25 * rms + 0.75 * q["level"]       # smoothed current level
     q["peak"] = max(peak, q["peak"] * 0.99)            # decaying peak-hold
     if peak >= 0.99:
@@ -333,7 +341,8 @@ async def ws_audio(ws: WebSocket):
                 if len(t) > _SCORE_WIN_BYTES:
                     del t[:-_SCORE_WIN_BYTES]
                 seen[spk] = seen.get(spk, 0) + len(raw)
-                if SCORER_URL and seen[spk] - scored.get(spk, 0) >= _SCORE_HOP_BYTES:
+                hop = _SCORE_HOP_BYTES if spk in scored else _SCORE_FIRST_BYTES
+                if SCORER_URL and seen[spk] - scored.get(spk, 0) >= hop:
                     scored[spk] = seen[spk]
                     # one request in flight per speaker — during a scorer outage the
                     # cadence just drops instead of piling up retrying threads
@@ -641,6 +650,8 @@ def api_quality(p: auth.Principal = Depends(require_principal)):
             row.update({"level": round(q["level"], 3), "peak": round(q["peak"], 3),
                         "clips": q["clips"], "speech_pct": round(speech * 100),
                         "total_sec": round(q["total_sec"])})
+            if q.get("last_audio_ts"):
+                row["idle_sec"] = round(time.time() - q["last_audio_ts"])
         av = VERDICTS.get((uid, spk))
         if av:
             row["auth_verdict"] = av["verdict"]

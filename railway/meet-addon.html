@@ -51,7 +51,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
 <div id="live" style="display:none">
  <div class="banner"><span class="verdict" id="room">—</span><div class="note" id="roomNote">waiting for audio…</div></div>
  <div id="protect" style="display:none;padding:12px;border-bottom:1px solid var(--line)">
-  <button class="btn" style="width:100%" onclick="protectMeeting()">Protect this meeting</button>
+  <button class="btn" id="protectBtn" style="width:100%" onclick="protectMeeting()">Protect this meeting</button>
   <div id="protectStatus" style="font-size:10.5px;color:var(--muted);margin-top:7px;line-height:1.5">Deploys the Sonave bot into this call — it joins visibly and scores every speaker. Announce recording to participants.</div>
  </div>
  <div class="list" id="speakers"></div>
@@ -113,6 +113,8 @@ function isMe(spk){
 
 async function protectMeeting(){
  var st=document.getElementById('protectStatus');
+ var btn=document.getElementById('protectBtn');
+ btn.disabled=true;
  st.textContent='Deploying the bot…';
  try{
   var code='';
@@ -122,13 +124,16 @@ async function protectMeeting(){
     code=(mi&&(mi.meetingCode||mi.meetingId))||'';
    }
   }catch(e){}
-  if(!code){st.textContent='Could not read the meeting code — deploy from the console instead.';return}
+  if(!code){st.textContent='Could not read the meeting code — deploy from the console instead.';btn.disabled=false;return}
   var r=await fetch('/bot',{method:'POST',headers:authHeaders({'Content-Type':'application/json'}),
                             body:JSON.stringify({meeting_url:'https://meet.google.com/'+code})});
   var d=await r.json();
-  if(r.status===402){st.textContent=d.detail||'Free hours used — add a card in the console.';return}
-  st.textContent=d.ok?'✓ Bot joining — admit “Sonave” from the waiting room, then just talk.':(d.detail||d.error||'Deploy failed — try from the console.');
- }catch(e){st.textContent='Deploy failed — try from the console.'}
+  if(r.status===402){st.textContent=d.detail||'Free hours used — add a card in the console.';btn.disabled=false;return}
+  if(d.ok&&d.already){st.textContent='✓ A Sonave bot is already in this meeting — admit it from the waiting room if you haven’t yet.';return}
+  if(d.ok){st.textContent='✓ Bot joining — admit “Sonave” from the waiting room, then just talk.';return}
+  st.textContent=d.detail||d.error||'Deploy failed — try from the console.';
+  btn.disabled=false;
+ }catch(e){st.textContent='Deploy failed — try from the console.';btn.disabled=false}
 }
 
 async function poll(){
@@ -143,12 +148,16 @@ async function poll(){
   if(!ME){try{ME=await (await fetch('/api/me',{headers:authHeaders()})).json()}catch(e){ME={}}}
   var ks=Object.keys(d).filter(function(k){return k[0]!=='_'});
   var maxP=0, rows='';
+  var allQuiet=ks.length>0;
   ks.forEach(function(k){
    var s=d[k], p=s.auth_p!=null?s.auth_p:0;
    if(p>maxP)maxP=p;
+   var quiet=s.idle_sec!=null&&s.idle_sec>5;
+   if(!quiet)allQuiet=false;
    var pct=Math.round(p*100), c=vcolor(p);
    var you=isMe(k)?' <span style="color:var(--muted);font-weight:500">· you</span>':'';
-   rows+='<div class="spk'+(p>=0.7?' fake':'')+'"><div class="row"><span class="name">'+esc(k)+you+'</span>'+
+   var mut=quiet?' <span style="color:var(--muted);font-weight:500">· muted</span>':'';
+   rows+='<div class="spk'+(p>=0.7?' fake':'')+'"'+(quiet?' style="opacity:.5"':'')+'><div class="row"><span class="name">'+esc(k)+you+mut+'</span>'+
     '<span class="pct" style="color:'+c+'">'+(s.auth_verdict?pct+'%':'—')+'</span></div>'+
     '<div class="track"><div class="fill" style="width:'+pct+'%;background:'+c+'"></div></div></div>';
   });
@@ -157,11 +166,11 @@ async function poll(){
   document.getElementById('speakers').innerHTML=rows||'';
   document.getElementById('room').textContent=hasAudio?(maxP>0?vname(maxP):'—'):'—';
   document.getElementById('room').style.color=vcolor(maxP);
-  document.getElementById('roomNote').textContent=hasAudio? (maxP>=0.7?'A speaker is scoring in the red band.':'All speakers within normal range.') :'No bot in this meeting yet.';
+  document.getElementById('roomNote').textContent=hasAudio? (maxP>=0.7?'A speaker is scoring in the red band.':allQuiet?'Speakers are muted or silent.':'All speakers within normal range.') :'No bot in this meeting yet.';
  }catch(e){}
 }
 function show(id){['signin','live'].forEach(function(x){document.getElementById(x).style.display=x===id?'block':'none'})}
-function boot(){poll();setInterval(poll,2000)}
+function boot(){poll();setInterval(poll,1000)}
 boot();
 </script>
 </body>

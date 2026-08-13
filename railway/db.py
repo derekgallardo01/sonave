@@ -191,6 +191,24 @@ def add_bot_seconds(bot_id: str, sec: float) -> None:
             c.close()
 
 
+def find_active_bot(user_id: str, meeting_url: str) -> dict | None:
+    """An existing live-looking bot for this user+meeting, to dedupe re-deploys:
+    streaming (started, not ended, <4 h old) always counts; a just-launched bot
+    that never connected counts only for 5 min, so a denied/failed bot doesn't
+    block a legitimate retry for long."""
+    now = time.time()
+    c = _conn()
+    try:
+        r = c.execute(
+            "SELECT * FROM bots WHERE user_id=? AND meeting_url=? AND ended_ts IS NULL "
+            "AND ((started_ts IS NOT NULL AND created_ts > ?) OR created_ts > ?) "
+            "ORDER BY created_ts DESC LIMIT 1",
+            (user_id, meeting_url, now - 4 * 3600, now - 300)).fetchone()
+        return dict(r) if r else None
+    finally:
+        c.close()
+
+
 def count_active_bots(user_id: str, window_sec: float = 4 * 3600) -> int:
     """Bots launched recently and not ended — the concurrency guard."""
     c = _conn()

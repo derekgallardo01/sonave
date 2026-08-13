@@ -169,6 +169,50 @@ def test_bot_launch_mints_scoped_token_and_redacts_it(mod, monkeypatch):
     assert row and row["user_id"] == ua["id"] and row["bot_id"] == "recall-bot-1"
 
 
+def test_bot_deploy_dedupes_same_meeting(mod, monkeypatch):
+    """Pressing Protect/Deploy twice must not launch a second Recall bot."""
+    ua = _mk_user(mod, "s-dd1", "dd1@x.com")
+    calls = {"n": 0}
+
+    class _R(io.BytesIO):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            self.close()
+
+    def _open(req, timeout=None):
+        calls["n"] += 1
+        return _R(json.dumps({"id": f"recall-bot-{calls['n']}"}).encode())
+
+    monkeypatch.setattr(mod.urllib.request, "urlopen", _open)
+    c = _client_as(mod, ua["id"])
+    r1 = c.post("/bot", json={"meeting_url": "https://meet.google.com/dup"})
+    r2 = c.post("/bot", json={"meeting_url": "https://meet.google.com/dup"})
+    assert r1.json()["ok"] and "already" not in r1.json()
+    assert r2.json() == {"ok": True, "bot_id": "recall-bot-1", "already": True,
+                         "detail": "A Sonave bot is already in this meeting."}
+    assert calls["n"] == 1                                        # one Recall dispatch only
+    # a DIFFERENT meeting still deploys fresh
+    r3 = c.post("/bot", json={"meeting_url": "https://meet.google.com/other"})
+    assert r3.json()["ok"] and not r3.json().get("already") and calls["n"] == 2
+    # once the first bot's stream has ended, the same meeting can be re-protected
+    mod.db.mark_bot("recall-bot-1", ended_ts=1.0, status="ended")
+    r4 = c.post("/bot", json={"meeting_url": "https://meet.google.com/dup"})
+    assert r4.json()["ok"] and not r4.json().get("already") and calls["n"] == 3
+
+
+def test_quality_reports_idle_seconds(mod):
+    """idle_sec drives the muted/silent state in the console and Meet panel."""
+    ua = _mk_user(mod, "s-idle", "idle@x.com")
+    mod._quality(ua["id"], "Derek", b"\x40\x00" * mod.SR)
+    q = _client_as(mod, ua["id"]).get("/api/quality").json()
+    assert q["Derek"]["idle_sec"] in (0, 1)                       # just spoke
+    mod.QUALITY[(ua["id"], "Derek")]["last_audio_ts"] -= 100      # went quiet/muted
+    q = _client_as(mod, ua["id"]).get("/api/quality").json()
+    assert q["Derek"]["idle_sec"] >= 99
+
+
 # --- legacy migration ---------------------------------------------------------
 def test_migrate_legacy_moves_flat_data_once(mod, tmp_path):
     admin = _mk_user(mod, "s-adm2", "boss@x.com", role="admin")

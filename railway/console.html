@@ -95,8 +95,14 @@ a:hover{color:var(--green-hover)}
 /* ---- monitor grid ---- */
 .mon-grid{display:grid;grid-template-columns:1fr 336px;gap:18px;align-items:start}
 .spk-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:16px 20px 20px}
-.spk-card{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:var(--bg)}
+.spk-card{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:var(--bg);transition:opacity .4s ease}
 .spk-card.fake{border-color:rgba(255,77,94,.45);animation:redPulse 1.6s infinite}
+.spk-card.quiet{opacity:.5}
+.eq{display:none;gap:2px;align-items:flex-end;height:11px;margin-left:7px;vertical-align:-1px}
+.eq.on{display:inline-flex}
+.eq i{width:3px;background:var(--green);border-radius:1px;animation:eqb .9s ease-in-out infinite}
+.eq i:nth-child(2){animation-delay:.25s}.eq i:nth-child(3){animation-delay:.5s}
+@keyframes eqb{0%,100%{height:3px}50%{height:11px}}
 .spk-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .spk-who{display:flex;align-items:center;gap:9px;min-width:0}
 .avatar{width:30px;height:30px;border-radius:50%;background:var(--chip);border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--ink2);flex-shrink:0}
@@ -504,7 +510,7 @@ function dologin(){var t=document.getElementById('tok').value.trim();if(!t)retur
 function toast(msg,type){var el=document.getElementById('toast');clearTimeout(el._t1);clearTimeout(el._t2);el.textContent=msg;el.className='toast '+(type||'');el._t1=setTimeout(function(){el.classList.add('show')},10);el._t2=setTimeout(function(){el.classList.remove('show')},3500)}
 
 var _started=0;
-function start(){if(_started)return;_started=1;list();quality();incidents();enrolled();modelInfo();dataProgress();setInterval(list,5000);setInterval(quality,1500);setInterval(incidents,3000);setInterval(enrolled,10000);setInterval(dataProgress,60000)}
+function start(){if(_started)return;_started=1;list();quality();incidents();enrolled();modelInfo();dataProgress();setInterval(list,5000);setInterval(quality,700);setInterval(incidents,3000);setInterval(enrolled,10000);setInterval(dataProgress,60000)}
 
 async function dataProgress(){
  var d;try{d=await jget('/api/data_progress')}catch(e){return}
@@ -549,35 +555,60 @@ function tickClock(){var d=new Date(),h=d.getHours()%12||12,m=String(d.getMinute
 setInterval(tickClock,1000);tickClock();
 
 /* ---- shared render pipeline (real + demo feed the same functions) ---- */
+function fmtIdle(s){return s<60?s+'s':Math.floor(s/60)+'m'}
+function spkQuiet(s){return s.idle!=null&&s.idle>5}
+function spkSub(s){return spkQuiet(s)?'muted or not speaking · '+fmtIdle(s.idle):s.sub}
+function sparkHTML(s){
+ var bars=s.bars.slice(-22);while(bars.length<22)bars.unshift(null);
+ return bars.map(function(b){
+  return b==null?'<div class="spark-b" style="height:4%;background:var(--line2)"></div>'
+   :'<div class="spark-b" style="height:'+Math.max(6,Math.round(b*100))+'%;background:'+vcolor(b)+'"></div>';
+ }).join('');
+}
+function metaHTML(s){
+ return '<span>'+esc(s.speech)+'% speech</span><span>'+esc(s.dur)+'</span><span>'+esc(s.clips)+' clips</span>'+
+  (s.match?'<span class="match">match '+esc(s.match)+'%</span>':'');
+}
+function cardHTML(s){
+ var pct=Math.round(s.p*100),c=vcolor(s.p);
+ var me=window._me, you='';
+ if(me&&me.name){
+  var a=String(s.name).replace(/_/g,' ').toLowerCase(), b=me.name.toLowerCase();
+  if(a===b||a.split(' ')[0]===b.split(' ')[0])you=' <span style="color:var(--muted);font-weight:500">· you</span>';
+ }
+ var talking=!spkQuiet(s)&&(s.level||0)>0.02;
+ return '<div class="spk-card'+(s.verdict=='fake'?' fake':'')+(spkQuiet(s)?' quiet':'')+'">'+
+  '<div class="spk-top"><div class="spk-who">'+
+   '<div class="avatar">'+esc(s.name.charAt(0).toUpperCase())+'</div>'+
+   '<div style="min-width:0"><div class="spk-name">'+esc(s.name)+you+'<span class="eq'+(talking?' on':'')+'"><i></i><i></i><i></i></span></div><div class="spk-sub">'+esc(spkSub(s))+'</div></div>'+
+  '</div><span class="badge '+bcls(s.verdict)+'">'+esc(s.verdict.toUpperCase())+'</span></div>'+
+  '<div class="risk-row"><span class="risk-lbl">DEEPFAKE RISK</span><span class="risk-pct" style="color:'+c+'">'+pct+'%</span></div>'+
+  '<div class="risk-track"><div class="risk-fill" style="width:'+pct+'%;background:'+c+'"></div></div>'+
+  '<div class="spark">'+sparkHTML(s)+'</div>'+
+  '<div class="spk-meta">'+metaHTML(s)+'</div>'+
+ '</div>';
+}
+function patchCard(el,s){
+ // In-place update so the risk bar's CSS width transition actually animates
+ // between polls (a full innerHTML rebuild resets it every frame).
+ var pct=Math.round(s.p*100),c=vcolor(s.p);
+ el.className='spk-card'+(s.verdict=='fake'?' fake':'')+(spkQuiet(s)?' quiet':'');
+ var badge=el.querySelector('.badge');badge.className='badge '+bcls(s.verdict);badge.textContent=s.verdict.toUpperCase();
+ var rp=el.querySelector('.risk-pct');rp.style.color=c;rp.textContent=pct+'%';
+ var rf=el.querySelector('.risk-fill');rf.style.width=pct+'%';rf.style.background=c;
+ el.querySelector('.spk-sub').textContent=spkSub(s);
+ el.querySelector('.eq').className='eq'+((!spkQuiet(s)&&(s.level||0)>0.02)?' on':'');
+ el.querySelector('.spark').innerHTML=sparkHTML(s);
+ el.querySelector('.spk-meta').innerHTML=metaHTML(s);
+}
 function renderSpeakers(items){
  var grid=document.getElementById('speakersGrid'),idle=document.getElementById('idleState');
- if(!items.length){grid.style.display='none';idle.style.display='flex';return}
+ if(!items.length){grid.style.display='none';idle.style.display='flex';grid.innerHTML='';grid._keys='';return}
  idle.style.display='none';grid.style.display='grid';
- grid.innerHTML=items.map(function(s){
-  var pct=Math.round(s.p*100),c=vcolor(s.p);
-  var bars=s.bars.slice(-22);while(bars.length<22)bars.unshift(null);
-  var spark=bars.map(function(b){
-   return b==null?'<div class="spark-b" style="height:4%;background:var(--line2)"></div>'
-    :'<div class="spark-b" style="height:'+Math.max(6,Math.round(b*100))+'%;background:'+vcolor(b)+'"></div>';
-  }).join('');
-  var meta='<span>'+esc(s.speech)+'% speech</span><span>'+esc(s.dur)+'</span><span>'+esc(s.clips)+' clips</span>'+
-   (s.match?'<span class="match">match '+esc(s.match)+'%</span>':'');
-  var me=window._me, you='';
-  if(me&&me.name){
-   var a=String(s.name).replace(/_/g,' ').toLowerCase(), b=me.name.toLowerCase();
-   if(a===b||a.split(' ')[0]===b.split(' ')[0])you=' <span style="color:var(--muted);font-weight:500">· you</span>';
-  }
-  return '<div class="spk-card'+(s.verdict=='fake'?' fake':'')+'">'+
-   '<div class="spk-top"><div class="spk-who">'+
-    '<div class="avatar">'+esc(s.name.charAt(0).toUpperCase())+'</div>'+
-    '<div style="min-width:0"><div class="spk-name">'+esc(s.name)+you+'</div><div class="spk-sub">'+esc(s.sub)+'</div></div>'+
-   '</div><span class="badge '+bcls(s.verdict)+'">'+esc(s.verdict.toUpperCase())+'</span></div>'+
-   '<div class="risk-row"><span class="risk-lbl">DEEPFAKE RISK</span><span class="risk-pct" style="color:'+c+'">'+pct+'%</span></div>'+
-   '<div class="risk-track"><div class="risk-fill" style="width:'+pct+'%;background:'+c+'"></div></div>'+
-   '<div class="spark">'+spark+'</div>'+
-   '<div class="spk-meta">'+meta+'</div>'+
-  '</div>';
- }).join('');
+ var keys=items.map(function(s){return s.name}).join('');
+ if(grid._keys===keys){items.forEach(function(s,i){patchCard(grid.children[i],s)});return}
+ grid.innerHTML=items.map(cardHTML).join('');
+ grid._keys=keys;
 }
 function renderTiles(t){
  var v=document.getElementById('tileVerdict');v.textContent=t.verdict;v.style.color=t.color;
@@ -626,7 +657,7 @@ async function quality(){
  var items=[],maxP=0,maxV='real',active=0,windows=0,enrolledLive=0,lats=[];
  ks.forEach(function(k){
   var s=d[k];
-  if(s.level>0.01)active++;
+  if(s.level>0.01&&!(s.idle_sec!=null&&s.idle_sec>5))active++;
   if(s.enrolled)enrolledLive++;
   windows+=Math.floor((s.total_sec||0)/10);
   if(s.latency_ms!=null)lats.push(s.latency_ms);
@@ -638,14 +669,15 @@ async function quality(){
   items.push({
    name:k,sub:s.enrolled?'voiceprint enrolled':'audio '+(s.verdict||'—'),
    verdict:s.auth_verdict||'pending',p:p,bars:h.slice(),
-   speech:s.speech_pct||0,dur:hms(s.total_sec||0),clips:s.clips||0,match:match
+   speech:s.speech_pct||0,dur:hms(s.total_sec||0),clips:s.clips||0,match:match,
+   idle:s.idle_sec,level:s.level||0
   });
  });
  lats.sort(function(a,b){return a-b});
  var medLat=lats.length?Math.round(lats[lats.length>>1])+' ms':'—';
  renderSpeakers(items);
  renderTiles({verdict:maxV.toUpperCase(),color:bcolor(maxV),risk:Math.round(maxP*100),live:ks.length,enrolled:enrolledLive,windows:windows.toLocaleString(),latency:medLat});
- setStatus(active,scorerOff?'no scorer configured':'updating · 1.5s');
+ setStatus(active,scorerOff?'no scorer configured':'live · 0.7s');
 }
 
 /* ---- real data: incidents (banner gated by demo; history always real) ---- */
@@ -770,7 +802,7 @@ async function deployBot(){
   if(r.status===401){needlogin();b.disabled=false;b.textContent='Deploy';return}
   var d=await r.json();
   if(r.status===402){toast('✕ '+esc(d.detail||'Free hours used — add a card to continue.'),'err');var up=document.getElementById('btnUpgrade');if(up)up.style.display='inline-block';b.disabled=false;b.textContent='Deploy';return}
-  toast(d.ok?'✓ Bot deployed · '+d.bot_id:'✕ '+esc(d.detail||d.error||d.status),d.ok?'ok':'err')}
+  toast(d.ok?(d.already?'✓ A Sonave bot is already in that meeting':'✓ Bot deployed · '+d.bot_id):'✕ '+esc(d.detail||d.error||d.status),d.ok?'ok':'err')}
  catch(e){toast('✕ '+e,'err')}
  b.disabled=false;b.textContent='Deploy';
 }
