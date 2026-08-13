@@ -330,6 +330,15 @@ a:hover{color:var(--green-hover)}
     </div>
 
     <div class="card-pad">
+     <div class="card-lbl" style="margin-bottom:12px">ALERTS</div>
+     <div style="display:flex;gap:8px">
+      <input id="alertHook" class="inp" placeholder="Slack webhook URL (https://hooks.slack.com/...)">
+      <button class="btn-soft" onclick="saveAlerts()">Save</button>
+     </div>
+     <div class="hint">Wire-hold incidents in your workspace post here the moment they fire.</div>
+    </div>
+
+    <div class="card-pad">
      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <span class="card-lbl">RECENT CAPTURES</span>
       <button class="link" onclick="setView('captures')">View all</button>
@@ -463,6 +472,7 @@ function needlogin(){
 async function me(){
  try{var r=await fetch('/api/me');if(!r.ok)return false;var d=await r.json();
   var el=document.getElementById('userChip');if(el&&d.email)el.textContent=d.email;
+  var ah=document.getElementById('alertHook');if(ah&&d.alert_webhook)ah.value=d.alert_webhook;
   window._me=d;renderPlan(d);return true}catch(e){return false}
 }
 function renderPlan(d){
@@ -481,6 +491,12 @@ function renderPlan(d){
  }
 }
 async function checkout(){var r=await fetch('/api/billing/checkout',{method:'POST'});var d=await r.json();if(d.ok)location=d.url;else toast('✕ '+(d.detail||'checkout failed'),'err')}
+async function saveAlerts(){
+ var v=document.getElementById('alertHook').value.trim();
+ var r=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({alert_webhook:v})});
+ if(r.ok)toast(v?'✓ Alert webhook saved.':'✓ Alert webhook cleared.','ok');
+ else{var d=await r.json().catch(function(){return{}});toast('✕ '+((d.detail&&d.detail[0]&&d.detail[0].msg)||'must be an https:// URL'),'err')}
+}
 async function portal(){var r=await fetch('/api/billing/portal',{method:'POST'});var d=await r.json();if(d.ok&&d.url)location=d.url;else toast('✕ '+(d.detail||'portal unavailable'),'err')}
 function signout(){fetch('/auth/logout',{method:'POST'}).finally(function(){document.cookie='sonave_token=;path=/;Max-Age=0';location.reload()})}
 async function jget(u){var r=await fetch(u);if(r.status===401){needlogin();throw'auth'}return r.json()}
@@ -576,11 +592,14 @@ function renderIncidentBanners(rows,isDemo){
  document.getElementById('incidentBanners').innerHTML=rows.map(function(i){
   var title=i.hold?'Wire hold triggered — suspected deepfake':'Alert — suspected deepfake';
   var tail=i.hold?' · webhook fired to approval system':'';
+  var exportBtn = isDemo
+   ? '<button class="btn-quiet" onclick="toast(\'Simulated incident — reports are generated for real incidents only.\',\'err\')">Export report</button>'
+   : '<button class="btn-quiet" onclick="window.open(\'/report/'+i.id+'\',\'_blank\')">Export report</button>';
   return '<div class="banner"><div class="banner-left"><div class="banner-ic">!</div><div>'+
    '<div class="banner-title">'+title+'</div>'+
    '<div class="banner-sub">Speaker <b style="color:var(--ink)">'+esc(i.speaker)+'</b> crossed the red threshold · rolling risk <span class="mono" style="color:var(--red)">'+i.risk+'%</span>'+tail+'</div>'+
   '</div></div><div class="banner-btns">'+
-   '<button class="btn-quiet" onclick="toast(\'Report export is not wired up yet — incident stays in the forensic log.\',\'err\')">Export report</button>'+
+   exportBtn+
    '<button class="btn-danger" onclick="'+(isDemo?'demoAck()':'ack('+i.id+')')+'">Acknowledge</button>'+
   '</div></div>';
  }).join('');
@@ -655,7 +674,7 @@ function renderHistory(){
   var badge=open?(i.hold?'WIRE HELD':'OPEN'):'ACKED';
   var bStyle=badge=='WIRE HELD'?'background:rgba(255,77,94,.12);color:var(--red)':badge=='OPEN'?'background:rgba(255,178,36,.1);color:var(--amber)':'background:var(--chip);color:var(--muted)';
   var risk=Math.round(i.rolling*100);
-  return '<div class="hist-grid">'+
+  return '<div class="hist-grid" style="cursor:pointer" title="open forensic report" onclick="window.open(\'/report/'+i.id+'\',\'_blank\')">'+
    '<div style="min-width:0"><div class="hist-spk">'+esc(i.speaker)+'</div><div class="hist-model">'+esc(i.model||'')+'</div></div>'+
    '<span class="hist-cell">'+dtd(i.first_ts*1000)+'</span>'+
    '<span class="hist-cell hide-sm">'+dtd(i.last_ts*1000)+'</span>'+

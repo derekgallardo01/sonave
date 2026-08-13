@@ -66,6 +66,15 @@ CREATE TABLE IF NOT EXISTS webhook_events (
     type       TEXT,
     created_ts REAL
 );
+CREATE TABLE IF NOT EXISTS scores (
+    user_id TEXT,
+    speaker TEXT,
+    ts      REAL,
+    p_fake  REAL,
+    rolling REAL,
+    verdict TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_scores_user_spk_ts ON scores(user_id, speaker, ts);
 """
 
 
@@ -80,6 +89,9 @@ def _conn() -> sqlite3.Connection:
     c.row_factory = sqlite3.Row
     c.execute("PRAGMA journal_mode=WAL")
     c.executescript(_SCHEMA)
+    cols = [r[1] for r in c.execute("PRAGMA table_info(users)").fetchall()]
+    if "alert_webhook" not in cols:                  # additive migration, idempotent
+        c.execute("ALTER TABLE users ADD COLUMN alert_webhook TEXT")
     return c
 
 
@@ -237,6 +249,45 @@ def get_usage_minutes(user_id: str, month: str) -> float:
         return float(r["minutes"]) if r else 0.0
     finally:
         c.close()
+
+
+def add_score(user_id: str, speaker: str, p_fake: float, rolling: float, verdict: str) -> None:
+    """Append to the scored-window history (feeds forensic reports)."""
+    with _LOCK:
+        c = _conn()
+        try:
+            c.execute("INSERT INTO scores (user_id, speaker, ts, p_fake, rolling, verdict) "
+                      "VALUES (?,?,?,?,?,?)",
+                      (user_id, speaker, time.time(), p_fake, rolling, verdict))
+            c.commit()
+        finally:
+            c.close()
+
+
+def get_scores(user_id: str, speaker: str, t0: float, t1: float, limit: int = 2000) -> list[dict]:
+    c = _conn()
+    try:
+        rows = c.execute("SELECT ts, p_fake, rolling, verdict FROM scores "
+                         "WHERE user_id=? AND speaker=? AND ts BETWEEN ? AND ? "
+                         "ORDER BY ts LIMIT ?", (user_id, speaker, t0, t1, limit)).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        c.close()
+
+
+def get_alert_webhook(user_id: str) -> str:
+    u = get_user(user_id)
+    return (u or {}).get("alert_webhook") or ""
+
+
+def set_alert_webhook(user_id: str, url: str) -> None:
+    with _LOCK:
+        c = _conn()
+        try:
+            c.execute("UPDATE users SET alert_webhook=? WHERE id=?", (url, user_id))
+            c.commit()
+        finally:
+            c.close()
 
 
 def migrate_legacy(data_dir: Path, enroll_dir: Path, admin_uid: str) -> None:

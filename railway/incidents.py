@@ -79,6 +79,21 @@ def list_incidents(limit: int = 50, user_id: str | None = None) -> list[dict]:
     return [dict(zip(_COLS, r)) for r in rows]
 
 
+def get_incident(incident_id: int, user_id: str | None = None) -> dict | None:
+    """Fetch one incident; user_id=None -> unrestricted (admin)."""
+    c = _conn()
+    try:
+        if user_id is None:
+            r = c.execute(f"SELECT {','.join(_COLS)} FROM incidents WHERE id=?",
+                          (incident_id,)).fetchone()
+        else:
+            r = c.execute(f"SELECT {','.join(_COLS)} FROM incidents WHERE id=? AND user_id=?",
+                          (incident_id, user_id)).fetchone()
+        return dict(zip(_COLS, r)) if r else None
+    finally:
+        c.close()
+
+
 def acknowledge(incident_id: int, user_id: str | None = None) -> bool:
     """user_id=None -> unrestricted (admin); else only that workspace's incident."""
     with _LOCK:
@@ -96,9 +111,11 @@ def acknowledge(incident_id: int, user_id: str | None = None) -> bool:
             c.close()
 
 
-def notify(event: dict) -> None:
-    """Fire the alert webhook (Slack `{text}` block). Best-effort — never raises."""
-    if not ALERT_WEBHOOK:
+def notify(event: dict, webhook: str | None = None) -> None:
+    """Fire the alert webhook (Slack `{text}` block). Uses the per-workspace webhook
+    when given, else the global env fallback. Best-effort — never raises."""
+    url = webhook or ALERT_WEBHOOK
+    if not url:
         return
     held = " Wire *HELD* — re-authenticate the caller before releasing funds." if event.get("hold") else ""
     text = (f":rotating_light: *Sonave — suspected deepfake voice*\n"
@@ -107,6 +124,6 @@ def notify(event: dict) -> None:
     body = json.dumps({"text": text}).encode()
     try:
         urllib.request.urlopen(urllib.request.Request(
-            ALERT_WEBHOOK, data=body, headers={"Content-Type": "application/json"}), timeout=10)
+            url, data=body, headers={"Content-Type": "application/json"}), timeout=10)
     except Exception:
         pass

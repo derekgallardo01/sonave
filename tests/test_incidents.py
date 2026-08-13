@@ -73,7 +73,8 @@ def test_sustained_fake_opens_incident_and_alerts(railway_mod, tmp_path, monkeyp
     import incidents
     monkeypatch.setattr(incidents, "DB_PATH", tmp_path / "i.db")
     fired = {"n": 0}
-    monkeypatch.setattr(incidents, "notify", lambda ev: fired.__setitem__("n", fired["n"] + 1))
+    monkeypatch.setattr(incidents, "notify",
+                        lambda ev, webhook=None: fired.__setitem__("n", fired["n"] + 1))
     railway_mod.SCORER_URL = "http://scorer.test"
 
     class _R(io.BytesIO):
