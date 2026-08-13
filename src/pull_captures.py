@@ -25,8 +25,25 @@ import config  # noqa: E402
 SKIP = ("HealthCheck", "FIXCHECK", "WSTEST")
 
 
+def _token() -> str:
+    """Auth token for the (locked-down) capture service: env var, else .env."""
+    import os
+    tok = os.environ.get("SONAVE_API_TOKEN", "")
+    if not tok:
+        env = config.ROOT / ".env"
+        if env.exists():
+            for line in env.read_text(encoding="utf-8").splitlines():
+                if line.startswith("SONAVE_API_TOKEN="):
+                    tok = line.split("=", 1)[1].strip()
+    return tok
+
+
 def _get(url: str) -> bytes:
-    req = urllib.request.Request(url, headers={"User-Agent": "sonave/pull"})
+    headers = {"User-Agent": "sonave/pull"}
+    tok = _token()
+    if tok:
+        headers["X-Sonave-Token"] = tok
+    req = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(req, timeout=60) as r:
         return r.read()
 

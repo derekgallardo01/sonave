@@ -36,7 +36,14 @@ def _run(args: list[str]):
     subprocess.run([PY, *args], check=True, cwd=str(ROOT))
 
 
-def validate():
+def validate() -> bool:
+    """Score the held-out captured_test windows, REAL and FAKE sides separately.
+
+    Labels live in the filenames (add_captured.py writes {label}_{spk}_te_*.wav;
+    legacy meet_* windows predate labeling and are real). A single blended mean
+    is meaningless — a model that misses every fake would look "good" on it.
+    Returns True when the NEW model passes BOTH gates.
+    """
     import glob
     import numpy as np
     import librosa
@@ -57,27 +64,54 @@ def validate():
 
     test = sorted(glob.glob(str(config.DATA / "corpus" / "captured_test" / "*.wav")))
     if not test:
-        print("no held-out captured_test windows to validate on."); return
-    wavs = [librosa.load(p, sr=16000, mono=True)[0] for p in test]
-    print(f"\n=== VALIDATION on {len(wavs)} held-out real Meet windows ===")
+        print("no held-out captured_test windows to validate on."); return True
+    real_paths = [p for p in test if Path(p).name.startswith(("real_", "meet_"))]
+    fake_paths = [p for p in test if Path(p).name.startswith("fake_")]
+    skipped = len(test) - len(real_paths) - len(fake_paths)
+    if skipped:
+        print(f"note: skipping {skipped} test windows with unrecognized label prefix")
+    real_wavs = [librosa.load(p, sr=16000, mono=True)[0] for p in real_paths]
+    fake_wavs = [librosa.load(p, sr=16000, mono=True)[0] for p in fake_paths]
+
+    print(f"\n=== VALIDATION on held-out Meet windows: {len(real_wavs)} real / {len(fake_wavs)} fake ===")
+    new_good = True
     for name, md in [("OLD (no new data)", OLD_MODEL), ("NEW (retrained)", NEW_MODEL)]:
         if not Path(md).exists():
             continue
-        s = score(md, wavs)
-        print(f"  {name:20}: mean P(fake)={s.mean():.3f}  flagged>0.7={ (s>0.7).mean()*100:.0f}%  "
-              f"({'GOOD - reads real' if s.mean()<0.3 else 'still flags real voices'})")
+        parts, real_ok, fake_ok = [], True, True
+        if real_wavs:
+            s = score(md, real_wavs)
+            real_ok = s.mean() < 0.3
+            parts.append(f"real: mean={s.mean():.3f} acc@0.5={(s < 0.5).mean()*100:.0f}%")
+        if fake_wavs:
+            s = score(md, fake_wavs)
+            fake_ok = (s >= 0.5).mean() > 0.8
+            parts.append(f"fake: mean={s.mean():.3f} catch@0.5={(s >= 0.5).mean()*100:.0f}%")
+        good = real_ok and fake_ok
+        verdict = "GOOD - both sides pass" if good else \
+            ("flags real voices" if not real_ok else "misses fakes")
+        print(f"  {name:20}: {'  '.join(parts)}  ({verdict})")
+        if name.startswith("NEW"):
+            new_good = good
+    return new_good
 
 
 def main():
     args = sys.argv[1:]
+    if args and args[0] == "--validate-only":
+        sys.exit(0 if validate() else 1)
     if args and args[0] == "--pull":
         _run(["src/pull_captures.py", args[1]] if len(args) > 1 else ["src/pull_captures.py"])
     _run(["src/add_captured.py"])
     _run(["src/train_xlsr.py", "--manifest", "data/corpus_meet.csv",
           "--out", "models/sonave_xlsr_meet", "--augment", "--epochs", "7"])
-    validate()
-    print("\nDone. If NEW reads real, promote models/sonave_xlsr_meet "
-          "(point service/detector.py SONAVE_MODEL at it).")
+    good = validate()
+    print("\nNext, before deploying the new checkpoint:")
+    print("  python src/eval_xlsr.py --model models/sonave_xlsr_meet")
+    print("  python -m pytest -m gpu tests/test_model_regression.py")
+    if not good:
+        print("VALIDATION FAILED - do not ship this checkpoint.")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

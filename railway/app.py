@@ -576,6 +576,15 @@ def api_quality():
     return out
 
 
+@app.get("/api/model", dependencies=[Depends(require_auth)])
+def api_model():
+    """Metrics of the deployed checkpoint (written by tools/write_metrics.py)."""
+    f = _HERE / "model_metrics.json"
+    if not f.exists():
+        return {}
+    return json.loads(f.read_text(encoding="utf-8"))
+
+
 @app.get("/api/incidents", dependencies=[Depends(require_auth)])
 def api_incidents():
     return {"incidents": incidents.list_incidents()}

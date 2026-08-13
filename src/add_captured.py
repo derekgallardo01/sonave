@@ -75,7 +75,21 @@ def main() -> None:
 
     real_rows, real_test, n_real = _ingest(CAP_DIR, "real", "meet_real", hold_out_test=True)
     fake_rows, fake_test, n_fake = _ingest(CAP_FAKE_DIR, "fake", "meet_fake", hold_out_test=True)
-    train_rows = real_rows + fake_rows
+
+    # Legacy orphan sweep: pre-labeling window files (meet_*_tr_*.wav) whose source
+    # captures were deleted — genuine founder-voice speech, label=real. Without this
+    # they sit on disk but never make it into the manifest.
+    fresh = {r["path"] for r in real_rows + fake_rows}
+    orphan_rows = []
+    for p in sorted(glob.glob(str(TRAIN_DIR / "meet_*_tr_*.wav"))):
+        rel = Path(p).relative_to(config.ROOT).as_posix()
+        if rel not in fresh:
+            orphan_rows.append({"path": rel, "label": "real",
+                                "generator": "meet_real", "split": "train"})
+    if orphan_rows:
+        print(f"legacy orphan windows re-added as real: {len(orphan_rows)}")
+
+    train_rows = real_rows + fake_rows + orphan_rows
 
     with open(BASE_CSV, newline="", encoding="utf-8") as f:
         base = list(csv.DictReader(f))
