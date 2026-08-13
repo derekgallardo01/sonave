@@ -124,6 +124,27 @@ def test_logout_clears_session(mod):
     assert c.get("/api/me").status_code == 401
 
 
+def test_callback_sets_partitioned_companion_cookie(mod):
+    c = client(mod)
+    r = _google_login(mod, c)
+    cookies = r.headers.get_list("set-cookie")
+    part = [x for x in cookies if x.startswith("sonave_session_p=")]
+    assert part and "Partitioned" in part[0] and "SameSite=None" in part[0]
+
+
+def test_partitioned_cookie_authenticates(mod):
+    u = mod.db.upsert_google_user("s-part", "part@x.com", "P", "", "member")
+    c = TestClient(mod.app, base_url="https://testserver")
+    c.cookies.set("sonave_session_p", mod.auth.sign_session(u["id"]))
+    assert c.get("/api/me").json()["email"] == "part@x.com"
+
+
+def test_meet_addon_page_renders(mod):
+    r = client(mod).get("/meet-addon")
+    assert r.status_code == 200
+    assert "createAddonSession" in r.text and "__FAVICON__" not in r.text
+
+
 # --- machine token unchanged --------------------------------------------------
 def test_machine_token_still_opens_everything(mod):
     c = client(mod)

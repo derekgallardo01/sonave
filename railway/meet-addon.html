@@ -55,14 +55,20 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
 </div>
 
 <script>
-// Google Meet Add-ons SDK bootstrap — guarded so the page also works standalone.
+// Google Meet Add-ons SDK bootstrap (developers.google.com/workspace/meet/add-ons):
+// createAddonSession() signals Meet that the add-on finished loading, then the
+// side-panel client binds this iframe. Guarded so the page also works standalone.
 (function(){
  var s=document.createElement('script');
  s.src='https://www.gstatic.com/meetjs/addons/1.1.0/meet.addons.js';
- s.onload=function(){try{
-  window.meet&&meet.addon&&meet.addon.createAddonSession({cloudProjectNumber:'__MEET_PROJECT__'})
-   .then(function(sess){return sess.createSidePanelClient()}).catch(function(){});
- }catch(e){}};
+ s.onload=async function(){
+  try{
+   var project='__MEET_PROJECT__';
+   if(!project||!window.meet||!meet.addon)return;
+   var session=await meet.addon.createAddonSession({cloudProjectNumber:project});
+   await session.createSidePanelClient();
+  }catch(e){/* standalone or Meet API change — panel still works via polling */}
+ };
  s.onerror=function(){};
  document.head.appendChild(s);
 })();

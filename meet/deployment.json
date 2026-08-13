@@ -1,0 +1,17 @@
+{
+  "addOns": {
+    "common": {
+      "name": "Sonave",
+      "logoUrl": "https://usesonave.com/icon-120.png"
+    },
+    "meet": {
+      "web": {
+        "sidePanelUrl": "https://usesonave.com/meet-addon",
+        "addOnOrigins": ["https://usesonave.com"],
+        "logoUrl": "https://usesonave.com/icon-120.png",
+        "darkModeLogoUrl": "https://usesonave.com/icon-120.png",
+        "supportsScreenSharing": false
+      }
+    }
+  }
+}

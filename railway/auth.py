@@ -27,6 +27,11 @@ GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo"
 OAUTH_SCOPES = ["openid", "email", "profile"]
 
 SESSION_COOKIE = "sonave_session"
+# Partitioned (CHIPS) companion cookie: SameSite=None + Partitioned, so the Meet
+# add-on iframe (third-party context) can authenticate. Partitioning keys it to
+# the embedding site, and our APIs are JSON-only (cross-site form posts 422,
+# cross-origin fetch needs CORS we don't grant), so CSRF surface stays closed.
+PARTITIONED_COOKIE = "sonave_session_p"
 STATE_COOKIE = "sonave_oauth_state"
 SESSION_TTL = 30 * 24 * 3600
 STATE_TTL = 600
@@ -190,7 +195,8 @@ def get_principal(request) -> Principal | None:
     if _machine_token_ok(tok):
         uid = db.first_admin_id() or MACHINE_WORKSPACE
         return Principal("machine", uid, "admin", email="operator")
-    uid = verify_session(request.cookies.get(SESSION_COOKIE))
+    uid = verify_session(request.cookies.get(SESSION_COOKIE)) \
+        or verify_session(request.cookies.get(PARTITIONED_COOKIE))
     if uid:
         u = db.get_user(uid)
         if u:

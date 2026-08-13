@@ -855,8 +855,13 @@ def auth_callback(request: Request, code: str = "", state: str = ""):
         logger.warning("oauth callback failed: %s", repr(e)[:120])
         raise HTTPException(status_code=502, detail="google sign-in failed")
     resp = RedirectResponse("/console", status_code=302)
-    resp.set_cookie(auth.SESSION_COOKIE, auth.sign_session(user["id"], user.get("session_ver", 1)),
+    session_tok = auth.sign_session(user["id"], user.get("session_ver", 1))
+    resp.set_cookie(auth.SESSION_COOKIE, session_tok,
                     max_age=auth.SESSION_TTL, httponly=True, samesite="lax", secure=True, path="/")
+    # CHIPS companion for the Meet add-on iframe (Starlette can't emit Partitioned)
+    resp.headers.append("set-cookie",
+                        f"{auth.PARTITIONED_COOKIE}={session_tok}; Max-Age={auth.SESSION_TTL}; "
+                        f"Path=/; Secure; HttpOnly; SameSite=None; Partitioned")
     resp.delete_cookie(auth.STATE_COOKIE, path="/auth")
     logger.info("login: %s (%s)", user.get("email"), user.get("role"))
     if user.get("role") == "admin":
@@ -868,6 +873,9 @@ def auth_callback(request: Request, code: str = "", state: str = ""):
 def auth_logout():
     resp = RedirectResponse("/console", status_code=302)
     resp.delete_cookie(auth.SESSION_COOKIE, path="/")
+    resp.headers.append("set-cookie",
+                        f"{auth.PARTITIONED_COOKIE}=; Max-Age=0; Path=/; Secure; HttpOnly; "
+                        f"SameSite=None; Partitioned")
     return resp
 
 
@@ -957,6 +965,16 @@ def meet_addon():
 @app.get("/og.png")
 def og_image():
     return FileResponse(str(_HERE / "og.png"), media_type="image/png")
+
+
+@app.get("/icon-120.png")
+def icon_120():
+    return FileResponse(str(_HERE / "icon-120.png"), media_type="image/png")
+
+
+@app.get("/icon-128.png")
+def icon_128():
+    return FileResponse(str(_HERE / "icon-128.png"), media_type="image/png")
 
 
 @app.get("/console-shot.png")
