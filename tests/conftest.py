@@ -34,6 +34,14 @@ def _hermetic_sonave_env(monkeypatch, tmp_path):
         monkeypatch.delenv(var, raising=False)
     monkeypatch.setenv("SONAVE_APP_DB", str(tmp_path / "app.db"))
     monkeypatch.setenv("SONAVE_SESSION_SECRET", "hermetic-test-secret")
+    monkeypatch.setenv("SONAVE_INCIDENT_DB", str(tmp_path / "incidents.db"))
+    monkeypatch.setenv("SONAVE_DATA_DIR", str(tmp_path / "captured"))
+    monkeypatch.setenv("SONAVE_ENROLL_DIR", str(tmp_path / "enrollments"))
+    # incidents.py bakes DB_PATH at import; if it's already cached from an earlier
+    # test file, re-point the attribute so no test can ever touch /data.
+    inc = sys.modules.get("incidents")
+    if inc is not None:
+        monkeypatch.setattr(inc, "DB_PATH", tmp_path / "incidents.db")
 
 
 @pytest.fixture
