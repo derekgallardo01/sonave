@@ -51,7 +51,20 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
 .btn{padding:9px 18px;border-radius:9px;background:var(--green);color:var(--on-green);font:700 12px var(--font);border:0;cursor:pointer}
 .btn:hover{background:#4deda0}
 .btn:disabled{opacity:.55;cursor:default}
-.wait{border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:12px}
+.ph{text-align:center;padding:16px 6px 2px}
+.radar{position:relative;width:76px;height:76px;margin:0 auto 12px}
+.radar svg{position:absolute;inset:16px;width:44px;height:44px}
+.radar i{position:absolute;inset:0;border:1.5px solid rgba(46,229,132,.5);border-radius:50%;animation:ping 2.4s ease-out infinite}
+.radar i:nth-child(2){animation-delay:1.2s}
+@keyframes ping{0%{transform:scale(.55);opacity:.9}100%{transform:scale(1.18);opacity:0}}
+.ph-t{font-size:15px;font-weight:800;letter-spacing:-.01em}
+.ph-s{font-size:11.5px;color:var(--ink2);margin:5px auto 15px;max-width:242px;line-height:1.55}
+.steps{display:flex;flex-direction:column;gap:7px;margin-top:12px}
+.steps>div{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:9px 12px}
+.steps b{width:18px;height:18px;border-radius:50%;background:rgba(46,229,132,.12);color:var(--green);font-size:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.steps span{font-size:11px;color:var(--ink2);line-height:1.5}
+.ps{font-size:10px;color:var(--muted);margin-top:11px;text-align:center;line-height:1.5}
+.wait{border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:12px;margin-top:4px}
 .wait-row{display:flex;align-items:center;gap:9px;font-size:12px}
 .wait-hint{margin-top:8px;font-size:11px;color:var(--ink2);line-height:1.55}
 .spin{width:14px;height:14px;border:2px solid var(--line2);border-top-color:var(--green);border-radius:50%;display:inline-block;animation:sp 1s linear infinite;flex-shrink:0}
@@ -86,10 +99,23 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
 </div>
 
 <div id="live" style="display:none">
- <div class="banner"><span class="verdict" id="room">—</span><div class="note" id="roomNote">waiting for audio…</div></div>
- <div id="protect" style="display:none;padding:12px;border-bottom:1px solid var(--line)">
+ <div class="banner" id="banner" style="display:none"><span class="verdict" id="room">—</span><div class="note" id="roomNote">waiting for audio…</div></div>
+ <div id="protect" style="display:none;padding:12px 14px 16px;border-bottom:1px solid var(--line)">
+  <div class="ph" id="protectHero">
+   <div class="radar">
+    <i></i><i></i>
+    <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.6" stroke="var(--green)" stroke-width="2.2"></circle><path d="M6.9 12h.9l.6-1.4.7 2.9.8-4.1.9 5.4.9-7.2.9 8.3.8-6.9.7 4.8.7-2.9.6 1.6.5-.5h1.2" stroke="var(--green)" stroke-width="1.15" stroke-linejoin="round" stroke-linecap="round"></path><circle cx="18.1" cy="5.9" r="2.6" fill="var(--bg)"></circle><circle cx="18.1" cy="5.9" r="1.8" fill="var(--green)"></circle></svg>
+   </div>
+   <div class="ph-t">This call isn’t protected yet</div>
+   <div class="ph-s">Deploy the Sonave bot and every voice in this meeting is verified live, while it speaks.</div>
+  </div>
   <button class="btn" id="protectBtn" style="width:100%" onclick="protectMeeting()">Protect this meeting</button>
-  <div id="protectStatus" style="font-size:10.5px;color:var(--muted);margin-top:7px;line-height:1.5">Deploys the Sonave bot into this call — it joins visibly and scores every speaker. Announce recording to participants.</div>
+  <div class="steps" id="protectSteps">
+   <div><b>1</b><span>The bot joins visibly — everyone in the call can see it</span></div>
+   <div><b>2</b><span>Each speaker is scored in ~4 s, refreshed every 4 s</span></div>
+   <div><b>3</b><span>Synthetic voice → red alert + exportable forensic report</span></div>
+  </div>
+  <div id="protectStatus" class="ps">Announce recording to participants before you deploy.</div>
   <div id="admitWait" class="wait" style="display:none">
    <div class="wait-row"><span class="spin"></span><b>Bot joining this meeting…</b></div>
    <div class="wait-hint" id="waitHint"><span class="up">▲</span> Watch the top of Meet — admit <b>“Sonave”</b> when the prompt appears (a few seconds).</div>
@@ -181,6 +207,8 @@ function deployWait(){
  // spinner card until audio actually flows. Survives the panel reloading.
  WAITING=true;
  try{sessionStorage.setItem('sonave_deploy_t',String(Date.now()))}catch(x){}
+ document.getElementById('protectHero').style.display='none';
+ document.getElementById('protectSteps').style.display='none';
  document.getElementById('protectBtn').style.display='none';
  document.getElementById('protectStatus').style.display='none';
  document.getElementById('admitWait').style.display='block';
@@ -222,9 +250,10 @@ async function poll(){
   var hasAudio=ks.length>0;
   if(hasAudio)deployDone();
   document.getElementById('protect').style.display=hasAudio?'none':'block';
+  document.getElementById('banner').style.display=hasAudio?'block':'none';
   document.getElementById('room').textContent=hasAudio?(maxP>0?vname(maxP):'—'):'—';
   document.getElementById('room').style.color=vcolor(maxP);
-  document.getElementById('roomNote').textContent=hasAudio? (maxP>=0.7?'A speaker is scoring in the red band.':anyTalk?'All speakers within normal range.':'No one is speaking right now.') :(WAITING?'Bot joining — admit “Sonave” at the top of Meet.':'No bot in this meeting yet.');
+  document.getElementById('roomNote').textContent=hasAudio? (maxP>=0.7?'A speaker is scoring in the red band.':anyTalk?'All speakers within normal range.':'No one is speaking right now.') :'';
  }catch(e){}
 }
 var _pt={},_pd={};
