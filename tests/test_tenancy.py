@@ -202,15 +202,43 @@ def test_bot_deploy_dedupes_same_meeting(mod, monkeypatch):
     assert r4.json()["ok"] and not r4.json().get("already") and calls["n"] == 3
 
 
-def test_quality_reports_idle_seconds(mod):
-    """idle_sec drives the muted/silent state in the console and Meet panel."""
+def test_quality_reports_speaking_and_quiet_state(mod):
+    """state drives the live UI. Recall exposes no mute flag, so a silent
+    speaker is 'quiet' — the UI must never claim 'muted'."""
     ua = _mk_user(mod, "s-idle", "idle@x.com")
-    mod._quality(ua["id"], "Derek", b"\x40\x00" * mod.SR)
+    mod._quality(ua["id"], "Derek", b"\x00\x40" * mod.SR)         # loud second
     q = _client_as(mod, ua["id"]).get("/api/quality").json()
-    assert q["Derek"]["idle_sec"] in (0, 1)                       # just spoke
-    mod.QUALITY[(ua["id"], "Derek")]["last_audio_ts"] -= 100      # went quiet/muted
+    assert q["Derek"]["state"] == "speaking"
+    for _ in range(4):                                            # Meet mute streams zeros
+        mod._quality(ua["id"], "Derek", b"\x00\x00" * mod.SR)
     q = _client_as(mod, ua["id"]).get("/api/quality").json()
-    assert q["Derek"]["idle_sec"] >= 99
+    assert q["Derek"]["state"] == "quiet" and q["Derek"]["quiet_sec"] >= 3
+    assert q["Derek"]["verdict"] == "quiet"
+    assert "muted" not in json.dumps(q)
+    mod.QUALITY[(ua["id"], "Derek")]["last_audio_ts"] -= 1000     # stream died 16 min ago
+    q = _client_as(mod, ua["id"]).get("/api/quality").json()
+    assert "Derek" not in q                                       # ghost aged out
+
+
+def test_participant_events_drive_presence(mod):
+    """speech_on/off + join/leave from Recall are authoritative for the live view."""
+    admin = _mk_user(mod, "s-pres", "pres@x.com", role="admin")
+
+    def ev(kind, name):
+        return json.dumps({"event": f"participant_events.{kind}",
+                           "data": {"data": {"participant": {"name": name}}}})
+
+    with TestClient(mod.app).websocket_connect(f"/api/ws/audio?token={TOKEN}") as ws:
+        ws.send_text(ev("join", "Bob"))
+        ws.send_text(ev("speech_on", "Bob"))
+    q = _client_as(mod, admin["id"]).get("/api/quality").json()
+    assert q["Bob"]["state"] == "speaking"
+    assert q["Bob"]["verdict"] == "waiting for speech"            # present, never scored
+    with TestClient(mod.app).websocket_connect(f"/api/ws/audio?token={TOKEN}") as ws:
+        ws.send_text(ev("speech_off", "Bob"))
+        ws.send_text(ev("leave", "Bob"))
+    q = _client_as(mod, admin["id"]).get("/api/quality").json()
+    assert "Bob" not in q                                         # left -> dropped
 
 
 # --- legacy migration ---------------------------------------------------------

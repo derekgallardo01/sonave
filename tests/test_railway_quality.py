@@ -16,10 +16,15 @@ def test_quality_odd_byte_pcm_does_not_crash(railway_mod):
     assert ("admin", "spk") in railway_mod.QUALITY
 
 
-def test_silence_reads_too_quiet(railway_mod):
-    railway_mod._quality("admin", "spk", pcm16([0.0] * 16000 * 4))  # 4 s of silence
+def test_silence_reads_quiet_and_faint_reads_too_quiet(railway_mod):
+    # digital silence (all zeros) is what Meet streams for a muted speaker -> "quiet";
+    # faint-but-present audio is a mic problem -> "TOO QUIET"
+    railway_mod._quality("admin", "spk", pcm16([0.0] * 16000 * 4))
     v = railway_mod._quality_verdict(railway_mod.QUALITY[("admin", "spk")])
-    assert v == "TOO QUIET — raise volume"
+    assert v == "quiet"
+    railway_mod._quality("admin", "spk2", pcm16([0.005] * 16000 * 4))
+    v2 = railway_mod._quality_verdict(railway_mod.QUALITY[("admin", "spk2")])
+    assert v2 == "TOO QUIET — raise volume"
 
 
 def test_loud_tone_reads_good(railway_mod):

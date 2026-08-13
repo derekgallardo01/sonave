@@ -117,7 +117,7 @@ a:hover{color:var(--green-hover)}
 .risk-lbl{font-size:10px;color:var(--muted);letter-spacing:.07em;font-weight:600}
 .risk-pct{font-family:var(--mono);font-size:16px;font-weight:600}
 .risk-track{height:6px;background:var(--chip);border-radius:3px;margin-top:6px;overflow:hidden}
-.risk-fill{height:100%;border-radius:3px;transition:width .5s ease}
+.risk-fill{height:100%;border-radius:3px}
 .spark{display:flex;align-items:flex-end;gap:2px;height:26px;margin-top:10px}
 .spark-b{flex:1;border-radius:1.5px;min-height:2px}
 .spk-meta{display:flex;gap:12px;margin-top:10px;font-size:10.5px;color:var(--muted);font-family:var(--mono)}
@@ -275,7 +275,7 @@ a:hover{color:var(--green-hover)}
    <div class="tile">
     <div class="tile-lbl">WINDOWS SCORED</div>
     <div class="tile-val mono" id="tileWindows">&#8212;</div>
-    <div class="tile-sub">8 s windows &#183; 10 s hop</div>
+    <div class="tile-sub">8 s windows &#183; 4 s hop</div>
    </div>
    <div class="tile">
     <div class="tile-lbl">MEDIAN LATENCY</div>
@@ -510,7 +510,7 @@ function dologin(){var t=document.getElementById('tok').value.trim();if(!t)retur
 function toast(msg,type){var el=document.getElementById('toast');clearTimeout(el._t1);clearTimeout(el._t2);el.textContent=msg;el.className='toast '+(type||'');el._t1=setTimeout(function(){el.classList.add('show')},10);el._t2=setTimeout(function(){el.classList.remove('show')},3500)}
 
 var _started=0;
-function start(){if(_started)return;_started=1;list();quality();incidents();enrolled();modelInfo();dataProgress();setInterval(list,5000);setInterval(quality,700);setInterval(incidents,3000);setInterval(enrolled,10000);setInterval(dataProgress,60000)}
+function start(){if(_started)return;_started=1;list();quality();incidents();enrolled();modelInfo();dataProgress();setInterval(list,5000);setInterval(quality,500);setInterval(incidents,3000);setInterval(enrolled,10000);setInterval(dataProgress,60000)}
 
 async function dataProgress(){
  var d;try{d=await jget('/api/data_progress')}catch(e){return}
@@ -556,8 +556,9 @@ setInterval(tickClock,1000);tickClock();
 
 /* ---- shared render pipeline (real + demo feed the same functions) ---- */
 function fmtIdle(s){return s<60?s+'s':Math.floor(s/60)+'m'}
-function spkQuiet(s){return s.idle!=null&&s.idle>5}
-function spkSub(s){return spkQuiet(s)?'muted or not speaking · '+fmtIdle(s.idle):s.sub}
+function spkQuiet(s){return s.state==='quiet'&&(s.quiet||0)>5}
+function spkSub(s){return spkQuiet(s)?'not speaking · '+fmtIdle(s.quiet):s.sub}
+function spkTalking(s){return s.state==='speaking'||(!spkQuiet(s)&&(s.level||0)>0.02)}
 function sparkHTML(s){
  var bars=s.bars.slice(-22);while(bars.length<22)bars.unshift(null);
  return bars.map(function(b){
@@ -576,11 +577,10 @@ function cardHTML(s){
   var a=String(s.name).replace(/_/g,' ').toLowerCase(), b=me.name.toLowerCase();
   if(a===b||a.split(' ')[0]===b.split(' ')[0])you=' <span style="color:var(--muted);font-weight:500">· you</span>';
  }
- var talking=!spkQuiet(s)&&(s.level||0)>0.02;
- return '<div class="spk-card'+(s.verdict=='fake'?' fake':'')+(spkQuiet(s)?' quiet':'')+'">'+
+ return '<div class="spk-card'+(s.verdict=='fake'?' fake':'')+(spkQuiet(s)?' quiet':'')+'" data-spk="'+esc(s.name)+'">'+
   '<div class="spk-top"><div class="spk-who">'+
    '<div class="avatar">'+esc(s.name.charAt(0).toUpperCase())+'</div>'+
-   '<div style="min-width:0"><div class="spk-name">'+esc(s.name)+you+'<span class="eq'+(talking?' on':'')+'"><i></i><i></i><i></i></span></div><div class="spk-sub">'+esc(spkSub(s))+'</div></div>'+
+   '<div style="min-width:0"><div class="spk-name">'+esc(s.name)+you+'<span class="eq'+(spkTalking(s)?' on':'')+'"><i></i><i></i><i></i></span></div><div class="spk-sub">'+esc(spkSub(s))+'</div></div>'+
   '</div><span class="badge '+bcls(s.verdict)+'">'+esc(s.verdict.toUpperCase())+'</span></div>'+
   '<div class="risk-row"><span class="risk-lbl">DEEPFAKE RISK</span><span class="risk-pct" style="color:'+c+'">'+pct+'%</span></div>'+
   '<div class="risk-track"><div class="risk-fill" style="width:'+pct+'%;background:'+c+'"></div></div>'+
@@ -589,20 +589,37 @@ function cardHTML(s){
  '</div>';
 }
 function patchCard(el,s){
- // In-place update so the risk bar's CSS width transition actually animates
- // between polls (a full innerHTML rebuild resets it every frame).
- var pct=Math.round(s.p*100),c=vcolor(s.p);
+ // In-place update: discrete parts patch here; the risk bar + % glide via the
+ // 60 fps lerp loop below instead of stepping once per poll.
  el.className='spk-card'+(s.verdict=='fake'?' fake':'')+(spkQuiet(s)?' quiet':'');
  var badge=el.querySelector('.badge');badge.className='badge '+bcls(s.verdict);badge.textContent=s.verdict.toUpperCase();
- var rp=el.querySelector('.risk-pct');rp.style.color=c;rp.textContent=pct+'%';
- var rf=el.querySelector('.risk-fill');rf.style.width=pct+'%';rf.style.background=c;
  el.querySelector('.spk-sub').textContent=spkSub(s);
- el.querySelector('.eq').className='eq'+((!spkQuiet(s)&&(s.level||0)>0.02)?' on':'');
+ el.querySelector('.eq').className='eq'+(spkTalking(s)?' on':'');
  el.querySelector('.spark').innerHTML=sparkHTML(s);
  el.querySelector('.spk-meta').innerHTML=metaHTML(s);
 }
+var _targets={},_disp={};
+function animLoop(){
+ /* 60 fps: ease each card's displayed risk toward its latest polled value */
+ var grid=document.getElementById('speakersGrid');
+ if(grid&&grid.style.display!=='none'){
+  for(var i=0;i<grid.children.length;i++){
+   var el=grid.children[i],k=el.getAttribute('data-spk');
+   var t=_targets[k];if(t==null)continue;
+   var d=_disp[k]==null?t:_disp[k];
+   d+=(t-d)*0.10;if(Math.abs(t-d)<0.0005)d=t;
+   _disp[k]=d;
+   var c=vcolor(d);
+   var rf=el.querySelector('.risk-fill');rf.style.width=(d*100)+'%';rf.style.background=c;
+   var rp=el.querySelector('.risk-pct');rp.textContent=Math.round(d*100)+'%';rp.style.color=c;
+  }
+ }
+ requestAnimationFrame(animLoop);
+}
+requestAnimationFrame(animLoop);
 function renderSpeakers(items){
  var grid=document.getElementById('speakersGrid'),idle=document.getElementById('idleState');
+ items.forEach(function(s){_targets[s.name]=s.p});
  if(!items.length){grid.style.display='none';idle.style.display='flex';grid.innerHTML='';grid._keys='';return}
  idle.style.display='none';grid.style.display='grid';
  var keys=items.map(function(s){return s.name}).join('');
@@ -646,6 +663,7 @@ var _sparkHistory={};
 async function quality(){
  if(DEMO)return;
  var d;try{d=await jget('/api/quality')}catch(e){return}
+ if(d._v){if(window._vSeen&&window._vSeen!==d._v){location.reload();return}window._vSeen=d._v}
  var scorerOff=d._scorer&&!d._scorer.configured;
  var ks=Object.keys(d).filter(function(k){return k[0]!=='_'&&!SKIP.test(k)});
  if(!ks.length){
@@ -657,27 +675,28 @@ async function quality(){
  var items=[],maxP=0,maxV='real',active=0,windows=0,enrolledLive=0,lats=[];
  ks.forEach(function(k){
   var s=d[k];
-  if(s.level>0.01&&!(s.idle_sec!=null&&s.idle_sec>5))active++;
+  if(s.state==='speaking')active++;
   if(s.enrolled)enrolledLive++;
-  windows+=Math.floor((s.total_sec||0)/10);
+  windows+=Math.floor((s.total_sec||0)/4);
   if(s.latency_ms!=null)lats.push(s.latency_ms);
   var p=s.auth_p!=null?s.auth_p:(s.verdict=='fake'?0.85:s.verdict=='suspect'?0.55:0.2);
   if(p>maxP){maxP=p;maxV=s.auth_verdict||vname(p).toLowerCase()}
   var h=_sparkHistory[k]=(_sparkHistory[k]||[]);
-  h.push(p);if(h.length>22)h.shift();
+  var nowT=Date.now();
+  if(!h._t||nowT-h._t>=1400){h.push(p);if(h.length>22)h.shift();h._t=nowT}
   var match=(s.speaker_check&&s.speaker_check.enrolled)?Math.round(s.speaker_check.similarity*100):(s.match_conf?Math.round(s.match_conf*100):0);
   items.push({
    name:k,sub:s.enrolled?'voiceprint enrolled':'audio '+(s.verdict||'—'),
    verdict:s.auth_verdict||'pending',p:p,bars:h.slice(),
    speech:s.speech_pct||0,dur:hms(s.total_sec||0),clips:s.clips||0,match:match,
-   idle:s.idle_sec,level:s.level||0
+   state:s.state,quiet:s.quiet_sec,level:s.level||0
   });
  });
  lats.sort(function(a,b){return a-b});
  var medLat=lats.length?Math.round(lats[lats.length>>1])+' ms':'—';
  renderSpeakers(items);
  renderTiles({verdict:maxV.toUpperCase(),color:bcolor(maxV),risk:Math.round(maxP*100),live:ks.length,enrolled:enrolledLive,windows:windows.toLocaleString(),latency:medLat});
- setStatus(active,scorerOff?'no scorer configured':'live · 0.7s');
+ setStatus(active,scorerOff?'no scorer configured':'live · 0.5s');
 }
 
 /* ---- real data: incidents (banner gated by demo; history always real) ---- */

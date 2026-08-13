@@ -19,19 +19,38 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
 .verdict{font-size:19px;font-weight:800;letter-spacing:-.01em}
 .note{font-size:10.5px;color:var(--ink2);margin-top:2px}
 .list{padding:10px 12px;display:flex;flex-direction:column;gap:8px}
-.spk{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--bg)}
+.spk{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--bg);transition:opacity .4s ease}
 .spk.fake{border-color:rgba(255,77,94,.45)}
 .row{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .name{font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pct{font-family:var(--mono);font-size:12px;font-weight:600;flex-shrink:0}
 .track{height:4px;background:#161c22;border-radius:2px;margin-top:7px;overflow:hidden}
-.fill{height:100%;border-radius:2px;transition:width .5s ease}
+.fill{height:100%;border-radius:2px}
+.dim{color:var(--muted);font-weight:500}
+.eq{display:none;gap:2px;align-items:flex-end;height:10px;margin-left:6px;vertical-align:-1px}
+.eq.on{display:inline-flex}
+.eq i{width:2.5px;background:var(--green);border-radius:1px;animation:eqb .9s ease-in-out infinite}
+.eq i:nth-child(2){animation-delay:.25s}.eq i:nth-child(3){animation-delay:.5s}
+@keyframes eqb{0%,100%{height:3px}50%{height:10px}}
 .ft{padding:10px 14px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--muted)}
 .ft a{color:var(--green);text-decoration:none;font-weight:600;font-size:11px}
-.center{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:60px 20px;text-align:center}
+.center{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:44px 22px;text-align:center;min-height:calc(100vh - 120px)}
 .center p{color:var(--muted);font-size:12px;max-width:240px}
+.hero{width:58px;height:58px;margin-bottom:14px;filter:drop-shadow(0 0 26px rgba(46,229,132,.4))}
+.hero-t{font-size:21px;font-weight:800;letter-spacing:-.02em}
+.hero-s{color:var(--ink2);font-size:12px;line-height:1.6;max-width:232px;margin:7px 0 20px}
+.feat{display:flex;flex-direction:column;gap:8px;width:100%;max-width:250px;margin-bottom:22px}
+.feat>div{display:flex;justify-content:space-between;align-items:baseline;border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:9px 13px}
+.feat span{font-size:11px;color:var(--muted)}
+.feat b{font-size:12.5px;color:var(--green);font-family:var(--mono);font-weight:600}
+.gbtn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;max-width:250px;padding:11px 16px;border-radius:10px;background:#fff;color:#1f1f1f;font:600 13px var(--font);border:0;cursor:pointer}
+.gbtn:hover{background:#f1f3f4}
+.gbtn svg{width:17px;height:17px;flex-shrink:0}
+.fine{margin-top:14px;font-size:9.5px;color:var(--muted);max-width:250px}
+.fine a{color:var(--muted)}
 .btn{padding:9px 18px;border-radius:9px;background:var(--green);color:var(--on-green);font:700 12px var(--font);border:0;cursor:pointer}
 .btn:hover{background:#4deda0}
+.btn:disabled{opacity:.55;cursor:default}
 .mark{width:26px;height:26px}
 </style>
 </head>
@@ -44,8 +63,19 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
 </div>
 
 <div id="signin" class="center" style="display:none">
- <p>Sign in to see live authenticity verdicts for this meeting's speakers.</p>
- <button class="btn" onclick="popupLogin()">Sign in with Google</button>
+ <svg class="hero" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.6" stroke="var(--green)" stroke-width="2.2"></circle><path d="M6.9 12h.9l.6-1.4.7 2.9.8-4.1.9 5.4.9-7.2.9 8.3.8-6.9.7 4.8.7-2.9.6 1.6.5-.5h1.2" stroke="var(--green)" stroke-width="1.15" stroke-linejoin="round" stroke-linecap="round"></path><circle cx="18.1" cy="5.9" r="2.6" fill="var(--bg)"></circle><circle cx="18.1" cy="5.9" r="1.8" fill="var(--green)"></circle></svg>
+ <div class="hero-t">Sonave</div>
+ <p class="hero-s">Live deepfake-voice detection for this call. Every speaker's voice, verified while they talk.</p>
+ <div class="feat">
+  <div><span>First verdict</span><b>~4 s</b></div>
+  <div><span>Catch rate, 27 unseen voice tools</span><b>95%</b></div>
+  <div><span>Free monitoring</span><b>5 h / mo</b></div>
+ </div>
+ <button class="gbtn" onclick="popupLogin()">
+  <svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+  Continue with Google
+ </button>
+ <p class="fine">Free 5 monitored hours a month. By continuing you agree to the <a href="/terms" target="_blank" rel="noopener">Terms</a> &amp; <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.</p>
 </div>
 
 <div id="live" style="display:none">
@@ -144,33 +174,63 @@ async function poll(){
    show('signin');return
   }
   var d=await r.json();
+  if(d._v){if(window._vSeen&&window._vSeen!==d._v){location.reload();return}window._vSeen=d._v}
   show('live');
   if(!ME){try{ME=await (await fetch('/api/me',{headers:authHeaders()})).json()}catch(e){ME={}}}
   var ks=Object.keys(d).filter(function(k){return k[0]!=='_'});
-  var maxP=0, rows='';
-  var allQuiet=ks.length>0;
-  ks.forEach(function(k){
+  var list=document.getElementById('speakers');
+  var keys=ks.join('|');
+  if(list._keys!==keys){list.innerHTML=ks.map(rowHTML).join('');list._keys=keys}
+  var maxP=0, anyTalk=false;
+  ks.forEach(function(k,i){
    var s=d[k], p=s.auth_p!=null?s.auth_p:0;
    if(p>maxP)maxP=p;
-   var quiet=s.idle_sec!=null&&s.idle_sec>5;
-   if(!quiet)allQuiet=false;
-   var pct=Math.round(p*100), c=vcolor(p);
-   var you=isMe(k)?' <span style="color:var(--muted);font-weight:500">· you</span>':'';
-   var mut=quiet?' <span style="color:var(--muted);font-weight:500">· muted</span>':'';
-   rows+='<div class="spk'+(p>=0.7?' fake':'')+'"'+(quiet?' style="opacity:.5"':'')+'><div class="row"><span class="name">'+esc(k)+you+mut+'</span>'+
-    '<span class="pct" style="color:'+c+'">'+(s.auth_verdict?pct+'%':'—')+'</span></div>'+
-    '<div class="track"><div class="fill" style="width:'+pct+'%;background:'+c+'"></div></div></div>';
+   if(s.state==='speaking')anyTalk=true;
+   patchRow(list.children[i],k,s);
   });
   var hasAudio=ks.length>0;
   document.getElementById('protect').style.display=hasAudio?'none':'block';
-  document.getElementById('speakers').innerHTML=rows||'';
   document.getElementById('room').textContent=hasAudio?(maxP>0?vname(maxP):'—'):'—';
   document.getElementById('room').style.color=vcolor(maxP);
-  document.getElementById('roomNote').textContent=hasAudio? (maxP>=0.7?'A speaker is scoring in the red band.':allQuiet?'Speakers are muted or silent.':'All speakers within normal range.') :'No bot in this meeting yet.';
+  document.getElementById('roomNote').textContent=hasAudio? (maxP>=0.7?'A speaker is scoring in the red band.':anyTalk?'All speakers within normal range.':'No one is speaking right now.') :'No bot in this meeting yet.';
  }catch(e){}
 }
-function show(id){['signin','live'].forEach(function(x){document.getElementById(x).style.display=x===id?'block':'none'})}
-function boot(){poll();setInterval(poll,1000)}
+var _pt={},_pd={};
+function rowHTML(k){
+ return '<div class="spk" data-spk="'+esc(k)+'"><div class="row"><span class="name"></span>'+
+  '<span class="pct">—</span></div>'+
+  '<div class="track"><div class="fill" style="width:0%"></div></div></div>';
+}
+function patchRow(el,k,s){
+ var p=s.auth_p!=null?s.auth_p:0;
+ _pt[k]=p;
+ var quiet=s.state==='quiet'&&(s.quiet_sec||0)>5;
+ var talk=s.state==='speaking'||(!quiet&&(s.level||0)>0.02);
+ el.className='spk'+(p>=0.7?' fake':'');
+ el.style.opacity=quiet?'.55':'1';
+ el.setAttribute('data-v',s.auth_verdict?'1':'0');
+ var you=isMe(k)?' <span class="dim">· you</span>':'';
+ // Recall exposes no mute state, so "quiet" is the honest label here
+ var st=quiet?' <span class="dim">· quiet</span>':(talk?' <span class="eq on"><i></i><i></i><i></i></span>':'');
+ el.querySelector('.name').innerHTML=esc(k)+you+st;
+}
+function panelAnim(){
+ /* 60 fps: ease each row's bar toward its latest polled risk */
+ var list=document.getElementById('speakers');
+ if(list)for(var i=0;i<list.children.length;i++){
+  var el=list.children[i],k=el.getAttribute('data-spk');
+  var t=_pt[k];if(t==null)continue;
+  var d=_pd[k]==null?t:_pd[k];d+=(t-d)*0.1;if(Math.abs(t-d)<0.0005)d=t;_pd[k]=d;
+  var c=vcolor(d);
+  var f=el.querySelector('.fill');f.style.width=(d*100)+'%';f.style.background=c;
+  var pc=el.querySelector('.pct');pc.style.color=c;
+  if(el.getAttribute('data-v')==='1')pc.textContent=Math.round(d*100)+'%';
+ }
+ requestAnimationFrame(panelAnim);
+}
+requestAnimationFrame(panelAnim);
+function show(id){['signin','live'].forEach(function(x){var e=document.getElementById(x);e.style.display=x===id?(x==='signin'?'flex':'block'):'none'})}
+function boot(){poll();setInterval(poll,700)}
 boot();
 </script>
 </body>

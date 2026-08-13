@@ -174,7 +174,11 @@ def send_bot(req: BotReq, request: Request, p: "auth.Principal" = Depends(requir
         "recording_config": {
             "audio_separate_raw": {},
             "realtime_endpoints": [
-                {"type": "websocket", "url": ws, "events": ["audio_separate_raw.data"]}
+                {"type": "websocket", "url": ws,
+                 "events": ["audio_separate_raw.data",
+                            # presence: show every participant, speaking state, drop leavers
+                            "participant_events.join", "participant_events.leave",
+                            "participant_events.speech_on", "participant_events.speech_off"]}
             ],
         },
     }
@@ -224,7 +228,7 @@ _STATE_LOCK = threading.Lock()   # guards ROLL/VERDICTS across scoring threads
 # Real-time scoring: decouple from the 2-min capture-file flush. Score a short sliding
 # window every SCORE_SEC so a verdict appears in seconds, not minutes. Capture still
 # writes 2-min WAVs for training; only the *scoring* cadence is fast.
-SCORE_SEC = int(os.environ.get("SONAVE_SCORE_SEC", "6"))        # cadence between scores
+SCORE_SEC = int(os.environ.get("SONAVE_SCORE_SEC", "4"))        # cadence between scores
 SCORE_FIRST_SEC = int(os.environ.get("SONAVE_SCORE_FIRST_SEC", "4"))  # audio before FIRST score
 SCORE_WIN_SEC = int(os.environ.get("SONAVE_SCORE_WIN_SEC", "8"))  # window length scored
 SCORE_EMA = float(os.environ.get("SONAVE_SCORE_EMA", "0.6"))     # weight on the newest score
@@ -238,6 +242,15 @@ _SCORE_WIN_BYTES = SCORE_WIN_SEC * SR * 2
 INCIDENT_STREAK = int(os.environ.get("SONAVE_INCIDENT_STREAK", "3"))
 FAKE_STREAK: dict[tuple[str, str], int] = {}  # consecutive fake verdicts (guarded by _STATE_LOCK)
 _INFLIGHT: set[tuple[str, str]] = set()       # scorer requests in flight (guarded by _STATE_LOCK)
+
+# Presence from Recall participant_events (authoritative where available; Recall
+# exposes NO mute state, so the UI says "quiet", never "muted"). Keyed (uid, spk):
+# {"present": bool, "speaking": bool, "ts": last event time}
+PRESENCE: dict[tuple[str, str], dict] = {}
+
+# Build stamp served on /api/quality — open consoles/panels reload themselves on
+# deploy instead of running week-old JS until someone remembers to hard-refresh.
+_BUILD = (os.environ.get("RAILWAY_GIT_COMMIT_SHA") or "")[:8] or str(int(time.time()))
 
 if not SCORER_URL:
     logger.warning("SONAVE_SCORER_URL unset — live authenticity scoring is DISABLED; "
@@ -261,7 +274,12 @@ def _quality(user_id: str, spk: str, pcm: bytes):
     sec = n / SR
     q = QUALITY.setdefault((user_id, spk), {"level": 0.0, "peak": 0.0, "clips": 0,
                                             "speech_sec": 0.0, "total_sec": 0.0})
-    q["last_audio_ts"] = time.time()   # muted/left speakers stop sending chunks entirely
+    q["last_audio_ts"] = time.time()   # speakers who LEFT stop sending chunks entirely
+    # Meet mute keeps streaming digital silence, so muted = a streak of ~zero RMS
+    if rms < 0.001:
+        q["silent_sec"] = q.get("silent_sec", 0.0) + sec
+    else:
+        q["silent_sec"] = 0.0
     q["level"] = 0.25 * rms + 0.75 * q["level"]       # smoothed current level
     q["peak"] = max(peak, q["peak"] * 0.99)            # decaying peak-hold
     if peak >= 0.99:
@@ -274,6 +292,8 @@ def _quality(user_id: str, spk: str, pcm: bytes):
 def _quality_verdict(q: dict) -> str:
     if q["total_sec"] < 3:
         return "warming up"
+    if q.get("silent_sec", 0) > 3:
+        return "quiet"
     if q["peak"] >= 0.985 or q["clips"] > 5:
         return "CLIPPING — lower volume"
     if q["level"] < 0.01:
@@ -322,7 +342,25 @@ async def ws_audio(ws: WebSocket):
                 _meter_tick(bot_row["bot_id"], uid, time.time() - last_tick)
                 last_tick = time.time()
             try:
-                d = (json.loads(msg).get("data") or {}).get("data") or {}
+                evt = json.loads(msg)
+                ev = evt.get("event") or ""
+                d = (evt.get("data") or {}).get("data") or {}
+                if ev.startswith("participant_events."):
+                    pname = _SPK_RE.sub("_", ((d.get("participant") or {}).get("name") or "")).strip("_")
+                    if pname:
+                        pr = PRESENCE.setdefault((uid, pname),
+                                                 {"present": True, "speaking": False, "ts": 0.0})
+                        kind = ev.rsplit(".", 1)[1]
+                        if kind == "leave":
+                            pr["present"], pr["speaking"] = False, False
+                        elif kind == "speech_on":
+                            pr["present"], pr["speaking"] = True, True
+                        elif kind == "speech_off":
+                            pr["speaking"] = False
+                        else:            # join / anything else -> at least present
+                            pr["present"] = True
+                        pr["ts"] = time.time()
+                    continue
                 buf = d.get("buffer")
                 if not buf:
                     continue
@@ -639,19 +677,40 @@ def api_quality(p: auth.Principal = Depends(require_principal)):
     out = {}
     uid = p.user_id
     udir = enroll.ENROLL_DIR / uid
-    speakers = {s for (u, s) in QUALITY if u == uid} | {s for (u, s) in VERDICTS if u == uid}
+    speakers = ({s for (u, s) in QUALITY if u == uid} | {s for (u, s) in VERDICTS if u == uid}
+                | {s for (u, s), pr in PRESENCE.items() if u == uid and pr["present"]})
     for spk in speakers:
         if any(s in spk for s in SKIP_SPEAKERS):
             continue
+        pr = PRESENCE.get((uid, spk))
+        if pr and not pr["present"]:
+            continue                     # left the meeting — drop from the live view
         q = QUALITY.get((uid, spk))
-        row = {"verdict": _quality_verdict(q) if q else "—"}
+        row = {"verdict": _quality_verdict(q) if q else "waiting for speech"}
+        # speaking state: authoritative from participant_events when the bot sends
+        # them; otherwise inferred from the audio stream. Recall exposes NO mute
+        # flag, so a silent speaker is only ever "quiet" — never claimed "muted".
+        idle = (time.time() - q["last_audio_ts"]) if q and q.get("last_audio_ts") else 0.0
+        silent = q.get("silent_sec", 0.0) if q else 0.0
+        if pr:
+            speaking = pr["speaking"]
+            quiet_sec = 0 if speaking else time.time() - pr["ts"]
+        elif q:
+            speaking = q["level"] > 0.02 and idle < 2 and silent < 1
+            quiet_sec = 0 if speaking else min(max(silent, idle), 1e6)
+        else:               # verdict-only row (no audio stats yet): no timing to age on
+            speaking, quiet_sec = False, 0.0
+        # ghost guard: an ended meeting's speakers age out of the live view
+        # (presence-tracked speakers stay until 'leave', capped at 4 h stale)
+        if quiet_sec > (4 * 3600 if pr else 900):
+            continue
+        row["state"] = "speaking" if speaking else "quiet"
+        row["quiet_sec"] = round(quiet_sec)
         if q:
             speech = q["speech_sec"] / max(q["total_sec"], 1e-6)
             row.update({"level": round(q["level"], 3), "peak": round(q["peak"], 3),
                         "clips": q["clips"], "speech_pct": round(speech * 100),
                         "total_sec": round(q["total_sec"])})
-            if q.get("last_audio_ts"):
-                row["idle_sec"] = round(time.time() - q["last_audio_ts"])
         av = VERDICTS.get((uid, spk))
         if av:
             row["auth_verdict"] = av["verdict"]
@@ -666,6 +725,7 @@ def api_quality(p: auth.Principal = Depends(require_principal)):
         out[spk] = row
     # meta row (underscore prefix = not a speaker; the console filters these out)
     out["_scorer"] = {"configured": bool(SCORER_URL)}
+    out["_v"] = _BUILD          # clients auto-reload when a new build deploys
     return out
 
 
