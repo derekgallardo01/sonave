@@ -44,11 +44,15 @@ def _fake_urlopen(payload):
 
 def test_score_and_store_updates_verdict(railway_mod, monkeypatch):
     railway_mod.SCORER_URL = "http://scorer.test"
-    monkeypatch.setattr(railway_mod.urllib.request, "urlopen", _fake_urlopen({"p_fake": 0.8}))
+    monkeypatch.setattr(railway_mod.urllib.request, "urlopen", _fake_urlopen({"p_fake": 0.9}))
     railway_mod._score_and_store("admin", "Derek", WAV)
     v = railway_mod.VERDICTS[("admin", "Derek")]
-    assert v["p_fake"] == 0.8 and v["verdict"] == "fake"
-    assert railway_mod.ROLL[("admin", "Derek")] == pytest.approx(0.8)
+    a, pr = railway_mod.SCORE_EMA, railway_mod.SCORE_PRIOR
+    # neutral-prior seed: one hot window shows SUSPECT, never an instant FAKE flash
+    assert v["p_fake"] == 0.9 and v["verdict"] == "suspect"
+    assert railway_mod.ROLL[("admin", "Derek")] == pytest.approx(a * 0.9 + (1 - a) * pr)
+    railway_mod._score_and_store("admin", "Derek", WAV)      # sustained -> confirmed
+    assert railway_mod.VERDICTS[("admin", "Derek")]["verdict"] == "fake"
 
 
 def test_score_and_store_rolling_ema(railway_mod, monkeypatch):
@@ -87,7 +91,9 @@ def test_score_and_store_retries_then_succeeds(railway_mod, monkeypatch):
 
     monkeypatch.setattr(railway_mod.urllib.request, "urlopen", _flaky)
     railway_mod._score_and_store("admin", "Derek", WAV)
-    assert calls["n"] == 2 and railway_mod.VERDICTS[("admin", "Derek")]["verdict"] == "fake"
+    v = railway_mod.VERDICTS[("admin", "Derek")]
+    assert calls["n"] == 2 and v["p_fake"] == 0.9                 # retried, then scored
+    assert v["verdict"] == "suspect"                              # prior-seeded first window
 
 
 def test_score_and_store_ignores_silence_response(railway_mod, monkeypatch):
@@ -119,5 +125,6 @@ def test_ws_streams_a_verdict_well_before_the_2min_flush(railway_mod, tmp_path, 
         for _ in range(n):
             ws.send_text(json.dumps({"data": {"data": {"buffer": frame,
                                                         "participant": {"name": "Derek"}}}}))
-    # a verdict landed from ~10 s of audio — no 2-min file flush needed
-    assert railway_mod.VERDICTS[("admin", "Derek")]["verdict"] == "fake"
+    # a verdict landed from seconds of audio — no 2-min file flush needed
+    # (single hot window -> SUSPECT under the neutral-prior EMA seed)
+    assert railway_mod.VERDICTS[("admin", "Derek")]["verdict"] == "suspect"

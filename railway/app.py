@@ -232,6 +232,8 @@ SCORE_SEC = int(os.environ.get("SONAVE_SCORE_SEC", "4"))        # cadence betwee
 SCORE_FIRST_SEC = int(os.environ.get("SONAVE_SCORE_FIRST_SEC", "4"))  # audio before FIRST score
 SCORE_WIN_SEC = int(os.environ.get("SONAVE_SCORE_WIN_SEC", "8"))  # window length scored
 SCORE_EMA = float(os.environ.get("SONAVE_SCORE_EMA", "0.6"))     # weight on the newest score
+SCORE_PRIOR = float(os.environ.get("SONAVE_SCORE_PRIOR", "0.15"))  # EMA seed ("probably real"):
+# one hot first window lands in SUSPECT at worst; sustained fake confirms on window 2
 _SCORE_HOP_BYTES = SCORE_SEC * SR * 2
 _SCORE_FIRST_BYTES = SCORE_FIRST_SEC * SR * 2   # 4 s matches the model's training windows,
                                                 # so the first verdict lands in ~4 s not ~10 s
@@ -530,7 +532,9 @@ def _score_and_store(user_id: str, spk: str, wav_bytes: bytes):
         key = (user_id, spk)
         with _STATE_LOCK:
             prev = ROLL.get(key)
-            roll = p if prev is None else SCORE_EMA * p + (1 - SCORE_EMA) * prev
+            if prev is None:
+                prev = SCORE_PRIOR   # a single first window must never set the verdict alone
+            roll = SCORE_EMA * p + (1 - SCORE_EMA) * prev
             ROLL[key] = roll
             verdict = _av(roll)
             streak = FAKE_STREAK[key] = FAKE_STREAK.get(key, 0) + 1 if verdict == "fake" else 0
