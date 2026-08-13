@@ -31,13 +31,24 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
 .steps strong{color:var(--ink);font-weight:600}
 .dot{width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;margin-right:6px;vertical-align:1px;animation:dotp 2s ease-in-out infinite}
 @keyframes dotp{50%{opacity:.35}}
-.spk{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--bg);transition:opacity .4s ease}
+.spk{border:1px solid var(--line);border-radius:12px;padding:11px 13px;background:var(--panel);transition:opacity .4s ease}
 .spk.fake{border-color:rgba(255,77,94,.45)}
-.row{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.name{font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pct{font-family:var(--mono);font-size:12px;font-weight:600;flex-shrink:0}
-.track{height:4px;background:#161c22;border-radius:2px;margin-top:7px;overflow:hidden}
+.srow{display:flex;align-items:center;gap:9px}
+.savatar{width:28px;height:28px;border-radius:50%;background:#161c22;border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--ink2);flex-shrink:0}
+.smain{flex:1;min-width:0}
+.sname{font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ssub{font-size:10px;color:var(--muted);margin-top:1px}
+.spct{font-family:var(--mono);font-size:15px;font-weight:700;flex-shrink:0}
+.track{height:4px;background:#161c22;border-radius:2px;margin-top:9px;overflow:hidden}
 .fill{height:100%;border-radius:2px}
+.smeta{display:flex;gap:11px;font-size:9.5px;color:var(--muted);margin-top:7px;font-family:var(--mono)}
+.smeta .vword{margin-left:auto;font-weight:700;letter-spacing:.04em}
+#sstats{display:none;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:2px 12px 12px}
+#sstats>div{border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:8px 10px}
+#sstats b{display:block;font-size:8.5px;letter-spacing:.08em;color:var(--muted);font-weight:600;margin-bottom:2px}
+#sstats span{font-family:var(--mono);font-size:13.5px;font-weight:600}
+.pulse{animation:lp 1.6s ease-in-out infinite}
+@keyframes lp{50%{opacity:.5}}
 .dim{color:var(--muted);font-weight:500}
 .eq{display:none;gap:2px;align-items:flex-end;height:10px;margin-left:6px;vertical-align:-1px}
 .eq.on{display:inline-flex}
@@ -139,6 +150,11 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
   <div class="gnote">Speaker cards appear here once the bot is admitted</div>
  </div>
  <div class="list" id="speakers"></div>
+ <div id="sstats">
+  <div><b>WINDOWS</b><span id="stWin">0</span></div>
+  <div><b>SESSION</b><span id="stSess">0:00</span></div>
+  <div><b>PEAK RISK</b><span id="stPeak">0%</span></div>
+ </div>
  <div class="ft"><span id="meta"><span class="dot"></span>sonave-xlsr-meet</span><a href="/console" target="_blank" rel="noopener">Open console ↗</a></div>
 </div>
 
@@ -257,11 +273,14 @@ async function poll(){
   var list=document.getElementById('speakers');
   var keys=ks.join('|');
   if(list._keys!==keys){list.innerHTML=ks.map(rowHTML).join('');list._keys=keys}
-  var maxP=0, anyTalk=false;
+  var maxP=0, anyTalk=false, anyVerdict=false, windows=0, sess=0;
   ks.forEach(function(k,i){
    var s=d[k], p=s.auth_p!=null?s.auth_p:0;
    if(p>maxP)maxP=p;
    if(s.state==='speaking')anyTalk=true;
+   if(s.auth_verdict)anyVerdict=true;
+   windows+=Math.floor((s.total_sec||0)/4);
+   if((s.total_sec||0)>sess)sess=s.total_sec;
    patchRow(list.children[i],k,s);
   });
   var hasAudio=ks.length>0;
@@ -270,16 +289,29 @@ async function poll(){
   document.getElementById('ghost').style.display=hasAudio?'none':'flex';
   list.style.display=hasAudio?'flex':'none';
   document.getElementById('banner').style.display=hasAudio?'block':'none';
-  document.getElementById('room').textContent=hasAudio?(maxP>0?vname(maxP):'—'):'—';
-  document.getElementById('room').style.color=vcolor(maxP);
-  document.getElementById('roomNote').textContent=hasAudio? (maxP>=0.7?'A speaker is scoring in the red band.':anyTalk?'All speakers within normal range.':'No one is speaking right now.') :'';
+  document.getElementById('sstats').style.display=hasAudio?'grid':'none';
+  if(hasAudio){
+   _peak=Math.max(_peak,maxP);
+   document.getElementById('stWin').textContent=windows;
+   document.getElementById('stSess').textContent=hmsP(sess);
+   var pk=document.getElementById('stPeak');pk.textContent=Math.round(_peak*100)+'%';pk.style.color=vcolor(_peak);
+  }else{_peak=0}
+  var room=document.getElementById('room');
+  room.textContent=hasAudio?(anyVerdict?vname(maxP):'LISTENING'):'—';
+  room.style.color=anyVerdict?vcolor(maxP):'var(--green)';
+  room.className='verdict'+(hasAudio&&!anyVerdict?' pulse':'');
+  document.getElementById('roomNote').textContent=hasAudio? (anyVerdict? (maxP>=0.7?'A speaker is scoring in the red band.':anyTalk?'All speakers within normal range.':'No one is speaking right now.') : 'First verdict lands in a few seconds — just talk.') :'';
  }catch(e){}
 }
-var _pt={},_pd={};
+var _pt={},_pd={},_peak=0;
+function hmsP(t){t=Math.round(t||0);return Math.floor(t/60)+':'+('0'+t%60).slice(-2)}
 function rowHTML(k){
- return '<div class="spk" data-spk="'+esc(k)+'"><div class="row"><span class="name"></span>'+
-  '<span class="pct">—</span></div>'+
-  '<div class="track"><div class="fill" style="width:0%"></div></div></div>';
+ return '<div class="spk" data-spk="'+esc(k)+'">'+
+  '<div class="srow"><div class="savatar">'+esc(k.charAt(0).toUpperCase())+'</div>'+
+  '<div class="smain"><div class="sname"></div><div class="ssub"></div></div>'+
+  '<span class="spct">—</span></div>'+
+  '<div class="track"><div class="fill" style="width:0%"></div></div>'+
+  '<div class="smeta"></div></div>';
 }
 function patchRow(el,k,s){
  var p=s.auth_p!=null?s.auth_p:0;
@@ -291,8 +323,15 @@ function patchRow(el,k,s){
  el.setAttribute('data-v',s.auth_verdict?'1':'0');
  var you=isMe(k)?' <span class="dim">· you</span>':'';
  // Recall exposes no mute state, so "quiet" is the honest label here
- var st=quiet?' <span class="dim">· quiet</span>':(talk?' <span class="eq on"><i></i><i></i><i></i></span>':'');
- el.querySelector('.name').innerHTML=esc(k)+you+st;
+ var st=talk?' <span class="eq on"><i></i><i></i><i></i></span>':'';
+ el.querySelector('.sname').innerHTML=esc(k.replace(/_/g,' '))+you+st;
+ el.querySelector('.ssub').textContent=
+  !s.auth_verdict?(quiet?'quiet · waiting for speech':'listening — first verdict in seconds'):
+  quiet?'quiet · '+(s.quiet_sec<60?s.quiet_sec+'s':Math.floor(s.quiet_sec/60)+'m'):
+  talk?'speaking':'monitoring';
+ var vw=s.auth_verdict?'<span class="vword" style="color:'+vcolor(p)+'">'+esc(s.auth_verdict.toUpperCase())+'</span>'
+                      :'<span class="vword" style="color:var(--muted)">PENDING</span>';
+ el.querySelector('.smeta').innerHTML='<span>'+esc(s.speech_pct||0)+'% speech</span><span>'+hmsP(s.total_sec)+'</span>'+vw;
 }
 function panelAnim(){
  /* 60 fps: ease each row's bar toward its latest polled risk */
@@ -303,7 +342,7 @@ function panelAnim(){
   var d=_pd[k]==null?t:_pd[k];d+=(t-d)*0.1;if(Math.abs(t-d)<0.0005)d=t;_pd[k]=d;
   var c=vcolor(d);
   var f=el.querySelector('.fill');f.style.width=(d*100)+'%';f.style.background=c;
-  var pc=el.querySelector('.pct');pc.style.color=c;
+  var pc=el.querySelector('.spct');pc.style.color=c;
   if(el.getAttribute('data-v')==='1')pc.textContent=Math.round(d*100)+'%';
  }
  requestAnimationFrame(panelAnim);
