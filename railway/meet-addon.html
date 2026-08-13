@@ -10,7 +10,9 @@
 --muted:#718695;--green:#2ee584;--green-dark:#0d9e56;--on-green:#06130b;--amber:#ffb224;--red:#ff4d5e;
 --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;--mono:ui-monospace,Consolas,monospace}
 *{box-sizing:border-box;margin:0}
-body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13px;line-height:1.5;min-height:100vh}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13px;line-height:1.5;min-height:100vh;display:flex;flex-direction:column}
+#signin,#live{flex:1}
+#live{flex-direction:column}
 .hd{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line)}
 .brand{display:flex;align-items:center;gap:8px}
 .brand b{font-size:13px}
@@ -18,7 +20,12 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
 .banner{padding:12px 14px;border-bottom:1px solid var(--line)}
 .verdict{font-size:19px;font-weight:800;letter-spacing:-.01em}
 .note{font-size:10.5px;color:var(--ink2);margin-top:2px}
-.list{padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.list{padding:10px 12px;display:flex;flex-direction:column;gap:8px;flex:1}
+#protect{background:radial-gradient(circle at 50% 15%,rgba(46,229,132,.07),transparent 62%)}
+.btn.cta{box-shadow:0 8px 28px rgba(46,229,132,.22)}
+.steps strong{color:var(--ink);font-weight:600}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;margin-right:6px;vertical-align:1px;animation:dotp 2s ease-in-out infinite}
+@keyframes dotp{50%{opacity:.35}}
 .spk{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--bg);transition:opacity .4s ease}
 .spk.fake{border-color:rgba(255,77,94,.45)}
 .row{display:flex;align-items:center;justify-content:space-between;gap:8px}
@@ -34,7 +41,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
 @keyframes eqb{0%,100%{height:3px}50%{height:10px}}
 .ft{padding:10px 14px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--muted)}
 .ft a{color:var(--green);text-decoration:none;font-weight:600;font-size:11px}
-.center{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:44px 22px;text-align:center;min-height:calc(100vh - 120px)}
+.center{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:44px 22px;text-align:center}
 .center p{color:var(--muted);font-size:12px;max-width:240px}
 .hero{width:58px;height:58px;margin-bottom:14px;filter:drop-shadow(0 0 26px rgba(46,229,132,.4))}
 .hero-t{font-size:21px;font-weight:800;letter-spacing:-.02em}
@@ -109,11 +116,11 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
    <div class="ph-t">This call isn’t protected yet</div>
    <div class="ph-s">Deploy the Sonave bot and every voice in this meeting is verified live, while it speaks.</div>
   </div>
-  <button class="btn" id="protectBtn" style="width:100%" onclick="protectMeeting()">Protect this meeting</button>
+  <button class="btn cta" id="protectBtn" style="width:100%" onclick="protectMeeting()">Protect this meeting</button>
   <div class="steps" id="protectSteps">
-   <div><b>1</b><span>The bot joins visibly — everyone in the call can see it</span></div>
-   <div><b>2</b><span>Each speaker is scored in ~4 s, refreshed every 4 s</span></div>
-   <div><b>3</b><span>Synthetic voice → red alert + exportable forensic report</span></div>
+   <div><b>1</b><span>The bot <strong>joins visibly</strong> — everyone in the call can see it</span></div>
+   <div><b>2</b><span>Each speaker is scored in <strong>~4 seconds</strong>, refreshed every 4 s</span></div>
+   <div><b>3</b><span>Synthetic voice → <strong>red alert</strong> + exportable forensic report</span></div>
   </div>
   <div id="protectStatus" class="ps">Announce recording to participants before you deploy.</div>
   <div id="admitWait" class="wait" style="display:none">
@@ -122,7 +129,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
   </div>
  </div>
  <div class="list" id="speakers"></div>
- <div class="ft"><span id="meta">sonave-xlsr-meet</span><a href="/console" target="_blank" rel="noopener">Open console ↗</a></div>
+ <div class="ft"><span id="meta"><span class="dot"></span>sonave-xlsr-meet</span><a href="/console" target="_blank" rel="noopener">Open console ↗</a></div>
 </div>
 
 <script>
@@ -290,7 +297,7 @@ function panelAnim(){
  requestAnimationFrame(panelAnim);
 }
 requestAnimationFrame(panelAnim);
-function show(id){['signin','live'].forEach(function(x){var e=document.getElementById(x);e.style.display=x===id?(x==='signin'?'flex':'block'):'none'})}
+function show(id){['signin','live'].forEach(function(x){document.getElementById(x).style.display=x===id?'flex':'none'})}
 function boot(){poll();setInterval(poll,700)}
 boot();
 </script>
