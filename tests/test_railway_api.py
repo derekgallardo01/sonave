@@ -20,13 +20,13 @@ def test_post_verdict_stores_it(railway_mod):
     r = c.post("/api/verdict", json={"speaker": "Derek", "p_fake": 0.82,
                                      "rolling": 0.75, "verdict": "fake"})
     assert r.status_code == 200 and r.json()["ok"] is True
-    assert railway_mod.VERDICTS["Derek"]["verdict"] == "fake"
+    assert railway_mod.VERDICTS[("admin", "Derek")]["verdict"] == "fake"
 
 
 def test_quality_merges_verdict_and_filters_test_speakers(railway_mod):
-    railway_mod.VERDICTS["Derek"] = {"p_fake": 0.1, "rolling": 0.1, "verdict": "real"}
-    railway_mod.VERDICTS["deploycheck"] = {"p_fake": 0.1, "rolling": 0.1, "verdict": "real"}
-    railway_mod.VERDICTS["HealthCheck"] = {"p_fake": 0.1, "rolling": 0.1, "verdict": "real"}
+    railway_mod.VERDICTS[("admin", "Derek")] = {"p_fake": 0.1, "rolling": 0.1, "verdict": "real"}
+    railway_mod.VERDICTS[("admin", "deploycheck")] = {"p_fake": 0.1, "rolling": 0.1, "verdict": "real"}
+    railway_mod.VERDICTS[("admin", "HealthCheck")] = {"p_fake": 0.1, "rolling": 0.1, "verdict": "real"}
     out = client(railway_mod).get("/api/quality").json()
     assert "Derek" in out and out["Derek"]["auth_verdict"] == "real"
     assert "deploycheck" not in out and "HealthCheck" not in out  # SKIP_SPEAKERS
@@ -34,10 +34,12 @@ def test_quality_merges_verdict_and_filters_test_speakers(railway_mod):
 
 def test_data_progress_odometer(railway_mod, tmp_path, monkeypatch):
     monkeypatch.setattr(railway_mod, "DATA_DIR", tmp_path)
+    ws = tmp_path / "admin"                                 # the machine principal's workspace
+    ws.mkdir()
     body = b"\x00" * (44 + 32000 * 60)                      # 60 s of PCM16 mono 16k
-    (tmp_path / "meet_Derek_1755024300_000.wav").write_bytes(body)
-    (tmp_path / "meet_Ana_1755024900_000.wav").write_bytes(body)
-    (tmp_path / "meet_HealthCheck_1_000.wav").write_bytes(body)   # filtered test speaker
+    (ws / "meet_Derek_1755024300_000.wav").write_bytes(body)
+    (ws / "meet_Ana_1755024900_000.wav").write_bytes(body)
+    (ws / "meet_HealthCheck_1_000.wav").write_bytes(body)   # filtered test speaker
     out = client(railway_mod).get("/api/data_progress").json()
     assert out["files"] == 2 and out["speakers"] == 2 and out["sessions"] == 2
     assert out["hours"] == round(120 / 3600, 2)
@@ -57,7 +59,8 @@ def test_download_rejects_path_traversal(railway_mod, tmp_path, monkeypatch):
 
 def test_captures_returns_files_list(railway_mod, tmp_path, monkeypatch):
     monkeypatch.setattr(railway_mod, "DATA_DIR", tmp_path)
-    (tmp_path / "meet_Derek_1_000.wav").write_bytes(b"RIFF0000WAVE")
+    (tmp_path / "admin").mkdir()
+    (tmp_path / "admin" / "meet_Derek_1_000.wav").write_bytes(b"RIFF0000WAVE")
     out = client(railway_mod).get("/captures").json()
     assert out["files"] and out["files"][0]["name"] == "meet_Derek_1_000.wav"
 

@@ -27,7 +27,7 @@ def test_pcm_to_wav_is_valid_wav(railway_mod):
 
 def test_score_and_store_noop_without_url(railway_mod):
     railway_mod.SCORER_URL = ""
-    railway_mod._score_and_store("Derek", WAV)
+    railway_mod._score_and_store("admin", "Derek", WAV)
     assert "Derek" not in railway_mod.VERDICTS
 
 
@@ -45,19 +45,19 @@ def _fake_urlopen(payload):
 def test_score_and_store_updates_verdict(railway_mod, monkeypatch):
     railway_mod.SCORER_URL = "http://scorer.test"
     monkeypatch.setattr(railway_mod.urllib.request, "urlopen", _fake_urlopen({"p_fake": 0.8}))
-    railway_mod._score_and_store("Derek", WAV)
-    v = railway_mod.VERDICTS["Derek"]
+    railway_mod._score_and_store("admin", "Derek", WAV)
+    v = railway_mod.VERDICTS[("admin", "Derek")]
     assert v["p_fake"] == 0.8 and v["verdict"] == "fake"
-    assert railway_mod.ROLL["Derek"] == pytest.approx(0.8)
+    assert railway_mod.ROLL[("admin", "Derek")] == pytest.approx(0.8)
 
 
 def test_score_and_store_rolling_ema(railway_mod, monkeypatch):
     railway_mod.SCORER_URL = "http://scorer.test"
     monkeypatch.setattr(railway_mod.urllib.request, "urlopen", _fake_urlopen({"p_fake": 1.0}))
-    railway_mod.ROLL["Derek"] = 0.0
-    railway_mod._score_and_store("Derek", WAV)
+    railway_mod.ROLL[("admin", "Derek")] = 0.0
+    railway_mod._score_and_store("admin", "Derek", WAV)
     a = railway_mod.SCORE_EMA
-    assert railway_mod.ROLL["Derek"] == pytest.approx(a * 1.0 + (1 - a) * 0.0)
+    assert railway_mod.ROLL[("admin", "Derek")] == pytest.approx(a * 1.0 + (1 - a) * 0.0)
 
 
 def test_score_and_store_swallows_errors(railway_mod, monkeypatch):
@@ -66,7 +66,7 @@ def test_score_and_store_swallows_errors(railway_mod, monkeypatch):
     def _boom(req, timeout=None):
         raise ConnectionError("scorer down")
     monkeypatch.setattr(railway_mod.urllib.request, "urlopen", _boom)
-    railway_mod._score_and_store("Derek", WAV)   # must NOT raise even after retries
+    railway_mod._score_and_store("admin", "Derek", WAV)   # must NOT raise even after retries
     assert "Derek" not in railway_mod.VERDICTS
 
 
@@ -86,14 +86,14 @@ def test_score_and_store_retries_then_succeeds(railway_mod, monkeypatch):
         return _Resp(json.dumps({"p_fake": 0.9}).encode())
 
     monkeypatch.setattr(railway_mod.urllib.request, "urlopen", _flaky)
-    railway_mod._score_and_store("Derek", WAV)
-    assert calls["n"] == 2 and railway_mod.VERDICTS["Derek"]["verdict"] == "fake"
+    railway_mod._score_and_store("admin", "Derek", WAV)
+    assert calls["n"] == 2 and railway_mod.VERDICTS[("admin", "Derek")]["verdict"] == "fake"
 
 
 def test_score_and_store_ignores_silence_response(railway_mod, monkeypatch):
     railway_mod.SCORER_URL = "http://scorer.test"
     monkeypatch.setattr(railway_mod.urllib.request, "urlopen", _fake_urlopen({"p_fake": None}))
-    railway_mod._score_and_store("Derek", WAV)
+    railway_mod._score_and_store("admin", "Derek", WAV)
     assert "Derek" not in railway_mod.VERDICTS
 
 
@@ -120,4 +120,4 @@ def test_ws_streams_a_verdict_well_before_the_2min_flush(railway_mod, tmp_path, 
             ws.send_text(json.dumps({"data": {"data": {"buffer": frame,
                                                         "participant": {"name": "Derek"}}}}))
     # a verdict landed from ~10 s of audio — no 2-min file flush needed
-    assert railway_mod.VERDICTS["Derek"]["verdict"] == "fake"
+    assert railway_mod.VERDICTS[("admin", "Derek")]["verdict"] == "fake"

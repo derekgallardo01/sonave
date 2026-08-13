@@ -64,21 +64,24 @@ def _cos(a, b) -> float:
     return float(np.dot(a, b))
 
 
-def is_enrolled(speaker_id: str) -> bool:
-    return (ENROLL_DIR / f"{speaker_id}.npy").exists()
+def is_enrolled(speaker_id: str, base_dir: Path | None = None) -> bool:
+    d = base_dir if base_dir is not None else ENROLL_DIR
+    return (d / f"{speaker_id}.npy").exists()
 
 
-def list_enrolled() -> list:
-    return [p.stem for p in ENROLL_DIR.glob("*.npy")] if ENROLL_DIR.exists() else []
+def list_enrolled(base_dir: Path | None = None) -> list:
+    d = base_dir if base_dir is not None else ENROLL_DIR
+    return [p.stem for p in d.glob("*.npy")] if d.exists() else []
 
 
-def enroll(speaker_id: str, wav_paths: list) -> np.ndarray:
+def enroll(speaker_id: str, wav_paths: list, base_dir: Path | None = None) -> np.ndarray:
     """Build + persist a voiceprint from several real clips of one person."""
-    ENROLL_DIR.mkdir(parents=True, exist_ok=True)
+    d = base_dir if base_dir is not None else ENROLL_DIR
+    d.mkdir(parents=True, exist_ok=True)
     embs = [embed(p) for p in wav_paths]
     vp = np.mean(embs, axis=0)
     vp = vp / (np.linalg.norm(vp) + 1e-8)
-    np.save(ENROLL_DIR / f"{speaker_id}.npy", vp)
+    np.save(d / f"{speaker_id}.npy", vp)
     return vp
 
 

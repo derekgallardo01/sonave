@@ -28,6 +28,7 @@ Endpoints:
 from __future__ import annotations
 
 import base64
+import hashlib
 import io
 import json
 import logging
@@ -147,16 +148,21 @@ class BotReq(BaseModel):
 
 
 @app.post("/bot", dependencies=[Depends(require_auth)])
-def send_bot(req: BotReq, request: Request):
+def send_bot(req: BotReq, request: Request, p: "auth.Principal" = Depends(require_principal)):
     if not RECALL_API_KEY:
         return {"error": "SONAVE_RECALL_API_KEY not set on the service"}
     u = urlparse(req.meeting_url.strip())
     if u.scheme not in ("http", "https") or not any(
             u.netloc == h or u.netloc.endswith("." + h) for h in ALLOWED_MEET_HOSTS):
         return {"ok": False, "detail": "meeting_url must be a Google Meet / Zoom / Teams link"}
+    gate = _bot_gate(p)
+    if gate is not None:
+        return gate
     ws = _ws_url(request)
-    if API_TOKEN:                       # the Recall bot must authenticate to our WS
-        ws = f"{ws}?token={API_TOKEN}"
+    # Per-bot single-purpose WS token: bot-scoped, hashed at rest, 24 h expiry —
+    # strictly tighter than the old global token in the same slot.
+    bot_tok = secrets.token_urlsafe(32)
+    ws = f"{ws}?token={bot_tok}"
     payload = {
         "meeting_url": req.meeting_url,
         "bot_name": req.bot_name,
@@ -173,13 +179,26 @@ def send_bot(req: BotReq, request: Request):
     try:
         resp = json.loads(urllib.request.urlopen(r, timeout=20).read())
         bot_id = resp.get("id")
-        logger.info("bot created id=%s for %s", bot_id, req.meeting_url)
+        db.insert_bot(bot_id or "unknown", p.user_id,
+                      hashlib.sha256(bot_tok.encode()).hexdigest(), req.meeting_url)
+        logger.info("bot created id=%s for %s (user=%s)", bot_id, req.meeting_url, p.user_id)
         if SCORER_URL:                      # pre-warm the scale-to-zero scorer so the
             threading.Thread(target=_warm_scorer, daemon=True).start()  # first verdict skips the cold start
-        return {"ok": True, "bot_id": bot_id, "ws": ws}
+        return {"ok": True, "bot_id": bot_id}
     except urllib.error.HTTPError as e:
         logger.error("bot creation failed: HTTP %s", e.code)
         return {"ok": False, "status": e.code, "detail": e.read().decode()[:300]}
+
+
+def _bot_gate(p: "auth.Principal"):
+    """Entitlement / abuse guard for bot launches. Stage C prices it; Stage B
+    only enforces the concurrency cap. Returns an error dict or None (allowed)."""
+    if p.role == "admin":
+        return None
+    if db.count_active_bots(p.user_id) >= int(os.environ.get("SONAVE_MAX_CONCURRENT_BOTS", "2")):
+        return {"ok": False, "code": "too_many_bots",
+                "detail": "Concurrent bot limit reached — end a running meeting first."}
+    return None
 
 
 # --- real-time audio capture -------------------------------------------------
@@ -187,10 +206,12 @@ CHUNK_SEC = 120          # flush each speaker's audio every ~2 min (all-day safe
 _CHUNK_BYTES = CHUNK_SEC * SR * 2
 
 # --- live stream-quality monitoring -----------------------------------------
-QUALITY: dict[str, dict] = {}
+# All live-state dicts are keyed by (user_id, speaker) — one workspace per user;
+# machine-token sessions land in the admin workspace.
+QUALITY: dict[tuple[str, str], dict] = {}
 # authenticity verdicts pushed up from the local GPU scorer (tools/verdict_monitor.py)
-VERDICTS: dict[str, dict] = {}
-ROLL: dict[str, float] = {}      # speaker -> rolling P(fake), for the hosted scorer
+VERDICTS: dict[tuple[str, str], dict] = {}
+ROLL: dict[tuple[str, str], float] = {}   # rolling P(fake), for the hosted scorer
 _STATE_LOCK = threading.Lock()   # guards ROLL/VERDICTS across scoring threads
 
 # Real-time scoring: decouple from the 2-min capture-file flush. Score a short sliding
@@ -205,15 +226,15 @@ _SCORE_WIN_BYTES = SCORE_WIN_SEC * SR * 2
 # An incident (and the wire-hold webhook) needs this many CONSECUTIVE fake-band
 # rolling verdicts — one hot window on a cold EMA must not hold a wire.
 INCIDENT_STREAK = int(os.environ.get("SONAVE_INCIDENT_STREAK", "3"))
-FAKE_STREAK: dict[str, int] = {}   # speaker -> consecutive fake verdicts (guarded by _STATE_LOCK)
-_INFLIGHT: set[str] = set()        # speakers with a scorer request in flight (guarded by _STATE_LOCK)
+FAKE_STREAK: dict[tuple[str, str], int] = {}  # consecutive fake verdicts (guarded by _STATE_LOCK)
+_INFLIGHT: set[tuple[str, str]] = set()       # scorer requests in flight (guarded by _STATE_LOCK)
 
 if not SCORER_URL:
     logger.warning("SONAVE_SCORER_URL unset — live authenticity scoring is DISABLED; "
                    "the console will show PENDING for every speaker")
 
 
-def _quality(spk: str, pcm: bytes):
+def _quality(user_id: str, spk: str, pcm: bytes):
     """Update rolling audio-quality stats for a speaker from a raw PCM16 chunk.
     Uses stdlib array/math (audioop was removed in Python 3.13)."""
     import array
@@ -228,8 +249,8 @@ def _quality(spk: str, pcm: bytes):
     ss = sum(s[i] * s[i] for i in range(0, n, step))
     rms = math.sqrt(ss / (n // step + 1)) / 32768.0
     sec = n / SR
-    q = QUALITY.setdefault(spk, {"level": 0.0, "peak": 0.0, "clips": 0,
-                                 "speech_sec": 0.0, "total_sec": 0.0})
+    q = QUALITY.setdefault((user_id, spk), {"level": 0.0, "peak": 0.0, "clips": 0,
+                                            "speech_sec": 0.0, "total_sec": 0.0})
     q["level"] = 0.25 * rms + 0.75 * q["level"]       # smoothed current level
     q["peak"] = max(peak, q["peak"] * 0.99)            # decaying peak-hold
     if peak >= 0.99:
@@ -254,9 +275,22 @@ def _quality_verdict(q: dict) -> str:
 
 @app.websocket("/api/ws/audio")
 async def ws_audio(ws: WebSocket):
-    if API_TOKEN and not _token_ok(ws.query_params.get("token")):
-        await ws.close(code=1008)        # policy violation — bot lacked the token
-        return
+    # Resolve the stream's workspace: machine token -> admin; per-bot token -> the
+    # bot owner's workspace (and metering). Unknown token in secured mode -> 1008.
+    tok = ws.query_params.get("token")
+    uid, bot_row = None, None
+    if _token_ok(tok):
+        uid = db.first_admin_id() or auth.MACHINE_WORKSPACE
+    elif tok:
+        bot_row = db.resolve_bot_token(hashlib.sha256(tok.encode()).hexdigest())
+        if bot_row:
+            uid = bot_row["user_id"]
+            db.mark_bot(bot_row["bot_id"], started_ts=time.time(), status="streaming")
+    if uid is None:
+        if API_TOKEN or auth.google_configured():
+            await ws.close(code=1008)    # policy violation — no valid token
+            return
+        uid = db.first_admin_id() or auth.MACHINE_WORKSPACE   # fully-open dev mode
     await ws.accept()
     buffers: dict[str, bytearray] = {}
     tails: dict[str, bytearray] = {}  # trailing SCORE_WIN_SEC per speaker — scoring reads this,
@@ -266,10 +300,16 @@ async def ws_audio(ws: WebSocket):
     scored: dict[str, int] = {}      # cumulative bytes at last score
     session = int(time.time())
     msgs = 0
+    conn_start = last_tick = time.time()
     try:
         while True:
             msg = await ws.receive_text()
             msgs += 1
+            # Metering (bot sessions only): incremental server-clock ticks so a
+            # crash mid-meeting never loses more than a minute of accounting.
+            if bot_row is not None and time.time() - last_tick >= 60:
+                _meter_tick(bot_row["bot_id"], uid, time.time() - last_tick)
+                last_tick = time.time()
             try:
                 d = (json.loads(msg).get("data") or {}).get("data") or {}
                 buf = d.get("buffer")
@@ -281,7 +321,7 @@ async def ws_audio(ws: WebSocket):
                 b = buffers.setdefault(spk, bytearray())     # CAPTURE FIRST (critical path)
                 b.extend(raw)
                 if len(b) >= _CHUNK_BYTES:               # periodic flush -> ~2 min training files
-                    _write(spk, bytes(b), session, idx.get(spk, 0))
+                    _write(uid, spk, bytes(b), session, idx.get(spk, 0))
                     idx[spk] = idx.get(spk, 0) + 1
                     b.clear()
                 # real-time scoring: every SCORE_SEC, score the last ~SCORE_WIN_SEC off-path
@@ -295,14 +335,14 @@ async def ws_audio(ws: WebSocket):
                     # one request in flight per speaker — during a scorer outage the
                     # cadence just drops instead of piling up retrying threads
                     with _STATE_LOCK:
-                        busy = spk in _INFLIGHT
+                        busy = (uid, spk) in _INFLIGHT
                         if not busy:
-                            _INFLIGHT.add(spk)
+                            _INFLIGHT.add((uid, spk))
                     if not busy:
                         window = _pcm_to_wav(bytes(t))
-                        threading.Thread(target=_score_and_store, args=(spk, window), daemon=True).start()
+                        threading.Thread(target=_score_and_store, args=(uid, spk, window), daemon=True).start()
                 try:
-                    _quality(spk, raw)                   # quality is best-effort, never breaks capture
+                    _quality(uid, spk, raw)              # quality is best-effort, never breaks capture
                 except Exception:
                     pass
             except json.JSONDecodeError:
@@ -316,12 +356,27 @@ async def ws_audio(ws: WebSocket):
     finally:
         for spk, b in buffers.items():                   # flush the remainder to disk
             if len(b) >= SR * 2:
-                _write(spk, bytes(b), session, idx.get(spk, 0))
+                _write(uid, spk, bytes(b), session, idx.get(spk, 0))
+        if bot_row is not None:
+            _meter_tick(bot_row["bot_id"], uid, time.time() - last_tick)
+            db.mark_bot(bot_row["bot_id"], ended_ts=time.time(), status="ended")
 
 
-def _write(spk: str, pcm: bytes, session: int, idx: int):
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    out = DATA_DIR / f"meet_{spk}_{session}_{idx:03d}.wav"
+def _meter_tick(bot_id: str, user_id: str, sec: float):
+    """Record monitored seconds for a bot session (crash-safe incremental)."""
+    if sec <= 0:
+        return
+    try:
+        db.add_bot_seconds(bot_id, sec)
+        db.add_usage_minutes(user_id, time.strftime("%Y-%m", time.gmtime()), sec / 60)
+    except Exception as e:  # noqa: BLE001 — accounting must never break capture
+        logger.warning("meter tick failed: %s", repr(e)[:80])
+
+
+def _write(user_id: str, spk: str, pcm: bytes, session: int, idx: int):
+    out_dir = DATA_DIR / user_id
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out = out_dir / f"meet_{spk}_{session}_{idx:03d}.wav"
     with wave.open(str(out), "wb") as w:
         w.setnchannels(1)
         w.setsampwidth(2)            # 16-bit PCM (S16LE, matches Recall)
@@ -361,17 +416,18 @@ def _warm_scorer():
         logger.warning("scorer pre-warm failed: %s", repr(e)[:80])
 
 
-def _score_and_store(spk: str, wav_bytes: bytes):
+def _score_and_store(user_id: str, spk: str, wav_bytes: bytes):
     """Best-effort: POST a live window to the hosted scorer (Modal /score_clip) and store
     the rolling verdict. Runs in a daemon thread with bounded retry — never the capture path."""
     if not SCORER_URL:
         return
     try:
-        # Load voiceprint if speaker is enrolled
+        # Load voiceprint if speaker is enrolled in this workspace
         voiceprint_b64 = None
         try:
-            if enroll.is_enrolled(spk):
-                vp = np.load(enroll.ENROLL_DIR / f"{spk}.npy")
+            udir = enroll.ENROLL_DIR / user_id
+            if enroll.is_enrolled(spk, base_dir=udir):
+                vp = np.load(udir / f"{spk}.npy")
                 voiceprint_b64 = base64.b64encode(vp.tobytes()).decode()
         except Exception:
             pass
@@ -417,13 +473,14 @@ def _score_and_store(spk: str, wav_bytes: bytes):
         p = res.get("risk") if res.get("speaker_check") else res.get("p_fake")
         if p is None:
             return
+        key = (user_id, spk)
         with _STATE_LOCK:
-            prev = ROLL.get(spk)
+            prev = ROLL.get(key)
             roll = p if prev is None else SCORE_EMA * p + (1 - SCORE_EMA) * prev
-            ROLL[spk] = roll
+            ROLL[key] = roll
             verdict = _av(roll)
-            streak = FAKE_STREAK[spk] = FAKE_STREAK.get(spk, 0) + 1 if verdict == "fake" else 0
-            VERDICTS[spk] = {
+            streak = FAKE_STREAK[key] = FAKE_STREAK.get(key, 0) + 1 if verdict == "fake" else 0
+            VERDICTS[key] = {
                 "p_fake": round(res.get("p_fake", p), 3),
                 "rolling": round(roll, 3),
                 "verdict": verdict,
@@ -431,18 +488,18 @@ def _score_and_store(spk: str, wav_bytes: bytes):
                 "speaker_check": res.get("speaker_check"),
                 "match_conf": res.get("match_conf"),
             }
-        logger.info("score %s: p_fake=%.3f risk=%.3f rolling=%.3f -> %s (streak=%d match=%s)",
-                    spk, res.get("p_fake", p), p, roll, verdict, streak,
+        logger.info("score %s/%s: p_fake=%.3f risk=%.3f rolling=%.3f -> %s (streak=%d match=%s)",
+                    user_id, spk, res.get("p_fake", p), p, roll, verdict, streak,
                     res.get("speaker_check", {}).get("match") if res.get("speaker_check") else None)
         if verdict == "fake" and streak >= INCIDENT_STREAK:   # sustained deepfake -> incident + alert
-            inc = incidents.record(spk, roll, res.get("model_version", "?"))
+            inc = incidents.record(spk, roll, res.get("model_version", "?"), user_id=user_id)
             if inc:
                 incidents.notify(inc)
     except Exception as e:  # noqa: BLE001 — scoring must never crash capture
         logger.warning("score skip %s: %s", spk, repr(e)[:80])
     finally:
         with _STATE_LOCK:
-            _INFLIGHT.discard(spk)
+            _INFLIGHT.discard((user_id, spk))
 
 
 # --- enrollment endpoints ----------------------------------------------------
@@ -456,38 +513,45 @@ class EnrollReq(BaseModel):
         return (_SPK_RE.sub("_", str(v)).strip("_") or "unknown")[:64]
 
 
-@app.post("/api/enroll", dependencies=[Depends(require_auth)])
-def api_enroll(req: EnrollReq):
+def _user_capture_dir(user_id: str) -> Path:
+    return DATA_DIR / user_id
+
+
+@app.post("/api/enroll")
+def api_enroll(req: EnrollReq, p: auth.Principal = Depends(require_principal)):
     """Enroll a speaker from captured clips. If clip_names is omitted, uses all
     captures whose filename contains the speaker name."""
     speaker = req.speaker_id
-    if not DATA_DIR.exists():
+    cap_dir = _user_capture_dir(p.user_id)
+    if not cap_dir.exists():
         return {"ok": False, "detail": "no capture directory"}
 
     if req.clip_names:
-        paths = [DATA_DIR / Path(n).name for n in req.clip_names]
-        paths = [p for p in paths if p.exists()]
+        paths = [cap_dir / Path(n).name for n in req.clip_names]
+        paths = [pp for pp in paths if pp.exists()]
     else:
-        paths = sorted(DATA_DIR.glob(f"meet_{speaker}_*.wav"))
+        paths = sorted(cap_dir.glob(f"meet_{speaker}_*.wav"))
 
     if len(paths) < 1:
         return {"ok": False, "detail": f"no captures found for '{speaker}'"}
 
+    udir = enroll.ENROLL_DIR / p.user_id
     try:
-        vp = enroll.enroll(speaker, paths)
+        vp = enroll.enroll(speaker, paths, base_dir=udir)
         return {"ok": True, "speaker": speaker, "clips": len(paths),
-                "dim": len(vp), "voiceprint_path": str(enroll.ENROLL_DIR / f"{speaker}.npy")}
+                "dim": len(vp), "voiceprint_path": str(udir / f"{speaker}.npy")}
     except Exception as exc:
         logger.exception("enrollment failed for %s", speaker)
         return {"ok": False, "detail": str(exc)[:200]}
 
 
-@app.get("/api/enrolled", dependencies=[Depends(require_auth)])
-def api_enrolled():
+@app.get("/api/enrolled")
+def api_enrolled(p: auth.Principal = Depends(require_principal)):
     """List enrolled speakers with file metadata."""
+    udir = enroll.ENROLL_DIR / p.user_id
     out = []
-    for sid in enroll.list_enrolled():
-        f = enroll.ENROLL_DIR / f"{sid}.npy"
+    for sid in enroll.list_enrolled(base_dir=udir):
+        f = udir / f"{sid}.npy"
         st = f.stat() if f.exists() else None
         out.append({
             "speaker_id": sid,
@@ -497,9 +561,10 @@ def api_enrolled():
     return {"enrolled": out}
 
 
-@app.delete("/api/enroll/{speaker}", dependencies=[Depends(require_auth)])
-def api_delete_enroll(speaker: str):
-    f = enroll.ENROLL_DIR / f"{_SPK_RE.sub('_', speaker).strip('_') or 'unknown'}.npy"
+@app.delete("/api/enroll/{speaker}")
+def api_delete_enroll(speaker: str, p: auth.Principal = Depends(require_principal)):
+    udir = enroll.ENROLL_DIR / p.user_id
+    f = udir / f"{_SPK_RE.sub('_', speaker).strip('_') or 'unknown'}.npy"
     if f.exists():
         f.unlink()
         return {"ok": True, "detail": "deleted"}
@@ -536,33 +601,36 @@ class VerdictReq(BaseModel):
         return (_SPK_RE.sub("_", str(v)).strip("_") or "unknown")[:64]
 
 
-@app.post("/api/verdict", dependencies=[Depends(require_auth)])
-def api_verdict(v: VerdictReq):
+@app.post("/api/verdict")
+def api_verdict(v: VerdictReq, p: auth.Principal = Depends(require_principal)):
     """Local GPU scorer pushes authenticity verdicts here; the page shows them."""
     with _STATE_LOCK:
-        VERDICTS[v.speaker] = {"p_fake": round(v.p_fake, 3), "rolling": round(v.rolling, 3),
-                               "verdict": v.verdict}
+        VERDICTS[(p.user_id, v.speaker)] = {"p_fake": round(v.p_fake, 3),
+                                            "rolling": round(v.rolling, 3),
+                                            "verdict": v.verdict}
     return {"ok": True}
 
 
 SKIP_SPEAKERS = ("HealthCheck", "FIXCHECK", "WSTEST", "deploycheck")
 
 
-@app.get("/api/quality", dependencies=[Depends(require_auth)])
-def api_quality():
+@app.get("/api/quality")
+def api_quality(p: auth.Principal = Depends(require_principal)):
     out = {}
-    speakers = set(QUALITY) | set(VERDICTS)
+    uid = p.user_id
+    udir = enroll.ENROLL_DIR / uid
+    speakers = {s for (u, s) in QUALITY if u == uid} | {s for (u, s) in VERDICTS if u == uid}
     for spk in speakers:
         if any(s in spk for s in SKIP_SPEAKERS):
             continue
-        q = QUALITY.get(spk)
+        q = QUALITY.get((uid, spk))
         row = {"verdict": _quality_verdict(q) if q else "—"}
         if q:
             speech = q["speech_sec"] / max(q["total_sec"], 1e-6)
             row.update({"level": round(q["level"], 3), "peak": round(q["peak"], 3),
                         "clips": q["clips"], "speech_pct": round(speech * 100),
                         "total_sec": round(q["total_sec"])})
-        av = VERDICTS.get(spk)
+        av = VERDICTS.get((uid, spk))
         if av:
             row["auth_verdict"] = av["verdict"]
             row["auth_p"] = av["rolling"]
@@ -572,7 +640,7 @@ def api_quality():
                 row["speaker_check"] = av["speaker_check"]
                 row["match_conf"] = av.get("match_conf")
         # show enrollment status
-        row["enrolled"] = enroll.is_enrolled(spk)
+        row["enrolled"] = enroll.is_enrolled(spk, base_dir=udir)
         out[spk] = row
     # meta row (underscore prefix = not a speaker; the console filters these out)
     out["_scorer"] = {"configured": bool(SCORER_URL)}
@@ -589,11 +657,12 @@ def api_model():
 
 
 @app.get("/api/data_progress", dependencies=[Depends(require_auth)])
-def api_data_progress():
-    """Data-program odometer: how much captured meeting audio exists on the volume.
-    Duration from file size (PCM16 mono 16 kHz = 32 kB/s). Drives the console's
-    Data Program card; milestone M1 = 15 h of captured audio."""
-    files = sorted(DATA_DIR.glob("*.wav")) if DATA_DIR.exists() else []
+def api_data_progress(p: auth.Principal = Depends(require_principal)):
+    """Data-program odometer: how much captured meeting audio exists in this
+    workspace. Duration from file size (PCM16 mono 16 kHz = 32 kB/s). Drives
+    the console's Data Program card; milestone M1 = 15 h of captured audio."""
+    cap_dir = _user_capture_dir(p.user_id)
+    files = sorted(cap_dir.glob("*.wav")) if cap_dir.exists() else []
     files = [f for f in files if not any(s in f.name for s in SKIP_SPEAKERS)]
     total_sec = sum(max(0, f.stat().st_size - 44) for f in files) / 32000
     sessions: set[str] = set()
@@ -614,31 +683,36 @@ def api_data_progress():
             "last_capture_ts": last_ts or None, "m1_target_hours": 15}
 
 
-@app.get("/api/incidents", dependencies=[Depends(require_auth)])
-def api_incidents():
-    return {"incidents": incidents.list_incidents()}
+@app.get("/api/incidents")
+def api_incidents(p: auth.Principal = Depends(require_principal)):
+    # Admin sees everything (incl. pre-tenancy rows with user_id NULL); members
+    # see only their workspace.
+    uid = None if p.role == "admin" else p.user_id
+    return {"incidents": incidents.list_incidents(user_id=uid)}
 
 
 class AckReq(BaseModel):
     id: int
 
 
-@app.post("/api/incidents/ack", dependencies=[Depends(require_auth)])
-def api_ack(a: AckReq):
-    return {"ok": incidents.acknowledge(a.id)}
+@app.post("/api/incidents/ack")
+def api_ack(a: AckReq, p: auth.Principal = Depends(require_principal)):
+    uid = None if p.role == "admin" else p.user_id
+    return {"ok": incidents.acknowledge(a.id, user_id=uid)}
 
 
-@app.get("/captures", dependencies=[Depends(require_auth)])
-def captures():
-    if not DATA_DIR.exists():
+@app.get("/captures")
+def captures(p: auth.Principal = Depends(require_principal)):
+    cap_dir = _user_capture_dir(p.user_id)
+    if not cap_dir.exists():
         return {"files": []}
-    fs = sorted(DATA_DIR.glob("*.wav"))
+    fs = sorted(cap_dir.glob("*.wav"))
     return {"files": [{"name": f.name, "mb": round(f.stat().st_size / 1e6, 2)} for f in fs]}
 
 
-@app.get("/download/{name}", dependencies=[Depends(require_auth)])
-def download(name: str):
-    f = DATA_DIR / Path(name).name          # prevent path traversal
+@app.get("/download/{name}")
+def download(name: str, p: auth.Principal = Depends(require_principal)):
+    f = _user_capture_dir(p.user_id) / Path(name).name    # prevent path traversal
     return FileResponse(str(f)) if f.exists() else {"error": "not found"}
 
 
@@ -672,6 +746,8 @@ def auth_callback(request: Request, code: str = "", state: str = ""):
                     max_age=auth.SESSION_TTL, httponly=True, samesite="lax", secure=True, path="/")
     resp.delete_cookie(auth.STATE_COOKIE, path="/auth")
     logger.info("login: %s (%s)", user.get("email"), user.get("role"))
+    if user.get("role") == "admin":
+        db.migrate_legacy(DATA_DIR, enroll.ENROLL_DIR, user["id"])
     return resp
 
 
@@ -707,5 +783,12 @@ def console():
 def onboarding():
     html = (_HERE / "onboarding.html").read_text(encoding="utf-8")
     return html.replace("__FAVICON__", _FAVICON_B64)
+
+
+@app.on_event("startup")
+def _startup_migrate():
+    admin = db.first_admin_id()
+    if admin:
+        db.migrate_legacy(DATA_DIR, enroll.ENROLL_DIR, admin)
 
 

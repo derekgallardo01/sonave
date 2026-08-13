@@ -117,25 +117,32 @@ def rw_enroll(monkeypatch, tmp_path):
     mod.QUALITY.clear()
     mod.VERDICTS.clear()
     mod.ROLL.clear()
-    # Mock enroll functions to avoid ECAPA load
-    monkeypatch.setattr(mod.enroll, "is_enrolled", lambda sid: (mod.enroll.ENROLL_DIR / f"{sid}.npy").exists())
-    monkeypatch.setattr(mod.enroll, "list_enrolled", lambda: [p.stem for p in mod.enroll.ENROLL_DIR.glob("*.npy")] if mod.enroll.ENROLL_DIR.exists() else [])
-    monkeypatch.setattr(mod.enroll, "enroll", lambda sid, paths: _fake_enroll(mod, sid, paths))
+    # Mock enroll functions to avoid ECAPA load (base_dir-aware, like the real ones)
+    def _dir(base_dir):
+        return base_dir if base_dir is not None else mod.enroll.ENROLL_DIR
+    monkeypatch.setattr(mod.enroll, "is_enrolled",
+                        lambda sid, base_dir=None: (_dir(base_dir) / f"{sid}.npy").exists())
+    monkeypatch.setattr(mod.enroll, "list_enrolled",
+                        lambda base_dir=None: [p.stem for p in _dir(base_dir).glob("*.npy")] if _dir(base_dir).exists() else [])
+    monkeypatch.setattr(mod.enroll, "enroll",
+                        lambda sid, paths, base_dir=None: _fake_enroll(mod, sid, paths, base_dir))
     return mod
 
 
-def _fake_enroll(mod, speaker_id, paths):
-    mod.enroll.ENROLL_DIR.mkdir(parents=True, exist_ok=True)
+def _fake_enroll(mod, speaker_id, paths, base_dir=None):
+    d = base_dir if base_dir is not None else mod.enroll.ENROLL_DIR
+    d.mkdir(parents=True, exist_ok=True)
     vp = np.array([0.1, 0.2, 0.3], dtype=np.float32)
-    np.save(mod.enroll.ENROLL_DIR / f"{speaker_id}.npy", vp)
+    np.save(d / f"{speaker_id}.npy", vp)
     return vp
 
 
 def test_enroll_from_captures(rw_enroll, tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
     monkeypatch.setattr(rw_enroll, "DATA_DIR", tmp_path)
-    (tmp_path / "meet_Derek_1_000.wav").write_bytes(b"RIFF0000WAVE")
-    (tmp_path / "meet_Derek_1_001.wav").write_bytes(b"RIFF0000WAVE")
+    (tmp_path / "admin").mkdir()                        # the machine principal's workspace
+    (tmp_path / "admin" / "meet_Derek_1_000.wav").write_bytes(b"RIFF0000WAVE")
+    (tmp_path / "admin" / "meet_Derek_1_001.wav").write_bytes(b"RIFF0000WAVE")
     c = TestClient(rw_enroll.app)
     r = c.post("/api/enroll", json={"speaker_id": "Derek"})
     assert r.status_code == 200
@@ -159,8 +166,9 @@ def test_enroll_missing_captures(rw_enroll, tmp_path, monkeypatch):
 def test_delete_enrollment(rw_enroll, tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
     monkeypatch.setattr(rw_enroll, "DATA_DIR", tmp_path)
-    rw_enroll.enroll.ENROLL_DIR.mkdir(parents=True, exist_ok=True)
-    np.save(rw_enroll.enroll.ENROLL_DIR / "Derek.npy", np.array([1.0, 2.0]))
+    udir = rw_enroll.enroll.ENROLL_DIR / "admin"
+    udir.mkdir(parents=True, exist_ok=True)
+    np.save(udir / "Derek.npy", np.array([1.0, 2.0]))
     c = TestClient(rw_enroll.app)
     r = c.delete("/api/enroll/Derek")
     assert r.status_code == 200
@@ -170,9 +178,10 @@ def test_delete_enrollment(rw_enroll, tmp_path, monkeypatch):
 
 def test_quality_shows_enrollment_status(rw_enroll, monkeypatch):
     from fastapi.testclient import TestClient
-    rw_enroll.enroll.ENROLL_DIR.mkdir(parents=True, exist_ok=True)
-    np.save(rw_enroll.enroll.ENROLL_DIR / "Derek.npy", np.array([1.0, 2.0]))
-    rw_enroll.VERDICTS["Derek"] = {"p_fake": 0.1, "rolling": 0.1, "verdict": "real"}
+    udir = rw_enroll.enroll.ENROLL_DIR / "admin"
+    udir.mkdir(parents=True, exist_ok=True)
+    np.save(udir / "Derek.npy", np.array([1.0, 2.0]))
+    rw_enroll.VERDICTS[("admin", "Derek")] = {"p_fake": 0.1, "rolling": 0.1, "verdict": "real"}
     c = TestClient(rw_enroll.app)
     q = c.get("/api/quality").json()
     assert q["Derek"]["enrolled"] is True
@@ -181,9 +190,10 @@ def test_quality_shows_enrollment_status(rw_enroll, monkeypatch):
 # --- Railway live scoring with voiceprint ------------------------------------
 def test_score_and_store_sends_voiceprint_when_enrolled(rw_enroll, monkeypatch, tmp_path):
     rw_enroll.SCORER_URL = "http://scorer.test"
-    rw_enroll.enroll.ENROLL_DIR.mkdir(parents=True, exist_ok=True)
+    udir = rw_enroll.enroll.ENROLL_DIR / "admin"
+    udir.mkdir(parents=True, exist_ok=True)
     vp = np.array([0.1, 0.2, 0.3], dtype=np.float32)
-    np.save(rw_enroll.enroll.ENROLL_DIR / "Derek.npy", vp)
+    np.save(udir / "Derek.npy", vp)
 
     captured = {"body": None}
 
@@ -196,12 +206,12 @@ def test_score_and_store_sends_voiceprint_when_enrolled(rw_enroll, monkeypatch, 
                                  "speaker_check": {"similarity": 0.55, "match": True}}).encode())
 
     monkeypatch.setattr(rw_enroll.urllib.request, "urlopen", _capture_req)
-    rw_enroll._score_and_store("Derek", b"RIFFxxxxWAVE")
+    rw_enroll._score_and_store("admin", "Derek", b"RIFFxxxxWAVE")
 
     # Verify the request body contained the voiceprint
     body = captured["body"]
     assert body is not None
     assert b"voiceprint_b64" in body
     # Verify verdict stored uses risk when speaker_check present
-    assert rw_enroll.VERDICTS["Derek"]["verdict"] == "real"
-    assert rw_enroll.VERDICTS["Derek"]["speaker_check"]["match"] is True
+    assert rw_enroll.VERDICTS[("admin", "Derek")]["verdict"] == "real"
+    assert rw_enroll.VERDICTS[("admin", "Derek")]["speaker_check"]["match"] is True

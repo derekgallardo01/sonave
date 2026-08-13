@@ -82,11 +82,11 @@ def test_sustained_fake_opens_incident_and_alerts(railway_mod, tmp_path, monkeyp
 
     monkeypatch.setattr(railway_mod.urllib.request, "urlopen",
                         lambda req, timeout=None: _R(json.dumps({"p_fake": 1.0, "model_version": "m"}).encode()))
-    railway_mod.ROLL["Derek"] = 0.9                      # already high -> EMA lands in 'fake'
+    railway_mod.ROLL[("admin", "Derek")] = 0.9                      # already high -> EMA lands in 'fake'
     for i in range(railway_mod.INCIDENT_STREAK - 1):
-        railway_mod._score_and_store("Derek", b"wavbytes")
+        railway_mod._score_and_store("admin", "Derek", b"wavbytes")
         assert incidents.list_incidents() == []          # not sustained yet -> no incident
-    railway_mod._score_and_store("Derek", b"wavbytes")   # streak reached
+    railway_mod._score_and_store("admin", "Derek", b"wavbytes")   # streak reached
     assert incidents.list_incidents()[0]["speaker"] == "Derek"
     assert fired["n"] == 1                               # alerted exactly once
 
@@ -103,10 +103,10 @@ def test_real_window_resets_fake_streak(railway_mod, tmp_path, monkeypatch):
     payloads = iter([{"p_fake": 1.0}, {"p_fake": 1.0}, {"p_fake": 0.0}, {"p_fake": 1.0}])
     monkeypatch.setattr(railway_mod.urllib.request, "urlopen",
                         lambda req, timeout=None: _R(json.dumps(next(payloads) | {"model_version": "m"}).encode()))
-    railway_mod.ROLL["Derek"] = 0.95
+    railway_mod.ROLL[("admin", "Derek")] = 0.95
     railway_mod.FAKE_STREAK.clear()
     for _ in range(4):
-        railway_mod._score_and_store("Derek", b"wavbytes")
+        railway_mod._score_and_store("admin", "Derek", b"wavbytes")
     # streak was broken by the clean window -> never reached INCIDENT_STREAK
     assert incidents.list_incidents() == []
 
@@ -122,6 +122,6 @@ def test_score_real_opens_no_incident(railway_mod, tmp_path, monkeypatch):
 
     monkeypatch.setattr(railway_mod.urllib.request, "urlopen",
                         lambda req, timeout=None: _R(json.dumps({"p_fake": 0.02, "model_version": "m"}).encode()))
-    railway_mod.ROLL.pop("Derek", None)
-    railway_mod._score_and_store("Derek", b"wavbytes")
+    railway_mod.ROLL.pop(("admin", "Derek"), None)
+    railway_mod._score_and_store("admin", "Derek", b"wavbytes")
     assert incidents.list_incidents() == []

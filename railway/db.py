@@ -239,6 +239,57 @@ def get_usage_minutes(user_id: str, month: str) -> float:
         c.close()
 
 
+def migrate_legacy(data_dir: Path, enroll_dir: Path, admin_uid: str) -> None:
+    """One-time move of pre-tenancy flat data into the admin's workspace:
+    flat capture WAVs and voiceprints into per-user subdirs, plus anything that
+    landed in the interim 'admin' machine workspace before the first sign-in.
+    Same-volume renames are atomic; a marker file prevents re-runs."""
+    marker = data_dir.parent / ".tenancy_migrated" if data_dir.parent != data_dir else data_dir / ".tenancy_migrated"
+    if marker.exists():
+        return
+    moved = 0
+    try:
+        if data_dir.exists():
+            target = data_dir / admin_uid
+            target.mkdir(parents=True, exist_ok=True)
+            for f in list(data_dir.glob("*.wav")):                    # flat legacy files
+                f.rename(target / f.name)
+                moved += 1
+            interim = data_dir / "admin"
+            if admin_uid != "admin" and interim.exists():             # pre-signin machine dir
+                for f in list(interim.glob("*.wav")):
+                    f.rename(target / f.name)
+                    moved += 1
+        if enroll_dir.exists():
+            etarget = enroll_dir / admin_uid
+            etarget.mkdir(parents=True, exist_ok=True)
+            for f in list(enroll_dir.glob("*.npy")):
+                f.rename(etarget / f.name)
+                moved += 1
+            einterim = enroll_dir / "admin"
+            if admin_uid != "admin" and einterim.exists():
+                for f in list(einterim.glob("*.npy")):
+                    f.rename(etarget / f.name)
+                    moved += 1
+        try:
+            import incidents
+            with _LOCK:
+                c = incidents._conn()
+                try:
+                    c.execute("UPDATE incidents SET user_id=? WHERE user_id IS NULL", (admin_uid,))
+                    c.commit()
+                finally:
+                    c.close()
+        except Exception:  # noqa: BLE001 — incidents backfill is best-effort
+            pass
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.write_text(f"{admin_uid} {time.time()}\n")
+    except Exception:  # noqa: BLE001 — never break startup over migration
+        pass
+    if moved:
+        print(f"tenancy migration: moved {moved} legacy files into workspace {admin_uid}")
+
+
 def webhook_seen(event_id: str, event_type: str) -> bool:
     """True if this Stripe event was already processed (and records it if not)."""
     with _LOCK:

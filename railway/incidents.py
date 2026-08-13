@@ -23,7 +23,7 @@ DB_PATH = Path(os.environ.get("SONAVE_INCIDENT_DB",
 ALERT_WEBHOOK = os.environ.get("SONAVE_ALERT_WEBHOOK", "")    # Slack (or compatible) incoming webhook
 WIRE_HOLD = os.environ.get("SONAVE_WIRE_HOLD", "1") != "0"    # a sustained fake holds the wire
 _LOCK = threading.Lock()
-_COLS = ["id", "speaker", "first_ts", "last_ts", "rolling", "model", "status", "hold"]
+_COLS = ["id", "speaker", "first_ts", "last_ts", "rolling", "model", "status", "hold", "user_id"]
 
 
 def _conn() -> sqlite3.Connection:
@@ -32,49 +32,64 @@ def _conn() -> sqlite3.Connection:
     c.execute("""CREATE TABLE IF NOT EXISTS incidents(
         id INTEGER PRIMARY KEY AUTOINCREMENT, speaker TEXT, first_ts REAL, last_ts REAL,
         rolling REAL, model TEXT, status TEXT DEFAULT 'open', hold INTEGER DEFAULT 0)""")
+    cols = [r[1] for r in c.execute("PRAGMA table_info(incidents)").fetchall()]
+    if "user_id" not in cols:                       # additive migration, idempotent
+        c.execute("ALTER TABLE incidents ADD COLUMN user_id TEXT")
     return c
 
 
-def record(speaker: str, rolling: float, model: str) -> dict | None:
-    """Open a fresh incident for `speaker` if none is currently open (dedup), else just
-    refresh it. Returns the new incident (to alert on) or None if one was already open."""
+def record(speaker: str, rolling: float, model: str, user_id: str | None = None) -> dict | None:
+    """Open a fresh incident for `speaker` in this workspace if none is currently open
+    (dedup), else just refresh it. Returns the new incident or None if already open."""
     now = time.time()
     with _LOCK:
         c = _conn()
         try:
-            if c.execute("SELECT id FROM incidents WHERE speaker=? AND status='open'",
-                         (speaker,)).fetchone():
-                c.execute("UPDATE incidents SET last_ts=?, rolling=? WHERE speaker=? AND status='open'",
-                          (now, rolling, speaker))
+            if c.execute("SELECT id FROM incidents WHERE speaker=? AND status='open' "
+                         "AND (user_id=? OR (user_id IS NULL AND ? IS NULL))",
+                         (speaker, user_id, user_id)).fetchone():
+                c.execute("UPDATE incidents SET last_ts=?, rolling=? WHERE speaker=? AND status='open' "
+                          "AND (user_id=? OR (user_id IS NULL AND ? IS NULL))",
+                          (now, rolling, speaker, user_id, user_id))
                 c.commit()
                 return None
             cur = c.execute(
-                "INSERT INTO incidents(speaker,first_ts,last_ts,rolling,model,status,hold) "
-                "VALUES(?,?,?,?,?, 'open', ?)",
-                (speaker, now, now, rolling, model, 1 if WIRE_HOLD else 0))
+                "INSERT INTO incidents(speaker,first_ts,last_ts,rolling,model,status,hold,user_id) "
+                "VALUES(?,?,?,?,?, 'open', ?, ?)",
+                (speaker, now, now, rolling, model, 1 if WIRE_HOLD else 0, user_id))
             c.commit()
             return {"id": cur.lastrowid, "speaker": speaker, "rolling": rolling,
-                    "model": model, "hold": WIRE_HOLD}
+                    "model": model, "hold": WIRE_HOLD, "user_id": user_id}
         finally:
             c.close()
 
 
-def list_incidents(limit: int = 50) -> list[dict]:
+def list_incidents(limit: int = 50, user_id: str | None = None) -> list[dict]:
+    """user_id=None -> all incidents (admin / single-tenant view)."""
     c = _conn()
     try:
-        rows = c.execute(f"SELECT {','.join(_COLS)} FROM incidents ORDER BY id DESC LIMIT ?",
-                         (limit,)).fetchall()
+        if user_id is None:
+            rows = c.execute(f"SELECT {','.join(_COLS)} FROM incidents ORDER BY id DESC LIMIT ?",
+                             (limit,)).fetchall()
+        else:
+            rows = c.execute(f"SELECT {','.join(_COLS)} FROM incidents WHERE user_id=? "
+                             "ORDER BY id DESC LIMIT ?", (user_id, limit)).fetchall()
     finally:
         c.close()
     return [dict(zip(_COLS, r)) for r in rows]
 
 
-def acknowledge(incident_id: int) -> bool:
+def acknowledge(incident_id: int, user_id: str | None = None) -> bool:
+    """user_id=None -> unrestricted (admin); else only that workspace's incident."""
     with _LOCK:
         c = _conn()
         try:
-            cur = c.execute("UPDATE incidents SET status='acknowledged', hold=0 WHERE id=?",
-                            (incident_id,))
+            if user_id is None:
+                cur = c.execute("UPDATE incidents SET status='acknowledged', hold=0 WHERE id=?",
+                                (incident_id,))
+            else:
+                cur = c.execute("UPDATE incidents SET status='acknowledged', hold=0 "
+                                "WHERE id=? AND user_id=?", (incident_id, user_id))
             c.commit()
             return cur.rowcount > 0
         finally:
