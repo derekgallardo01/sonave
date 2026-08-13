@@ -303,6 +303,19 @@ a:hover{color:var(--green-hover)}
      <div class="hint">The bot joins as a participant, streams per-speaker audio and scores it in real time. Announce recording to participants — required.</div>
     </div>
 
+    <div class="card-pad" id="planCard" style="display:none">
+     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <span class="card-lbl">PLAN &amp; USAGE</span>
+      <span class="update-note" id="planName">&#8212;</span>
+     </div>
+     <div class="train-row"><span style="font-size:11.5px;color:var(--ink2)" id="usageLbl">&#8212;</span><span class="mono" id="usageVal" style="font-size:13px;font-weight:600">&#8212;</span></div>
+     <div class="bar-track" style="margin-top:8px"><div class="bar-fill" id="usageBar" style="width:0%"></div></div>
+     <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn-soft" id="btnUpgrade" style="display:none" onclick="checkout()">Add card &#8212; $8/hr after free</button>
+      <button class="btn" id="btnPortal" style="display:none" onclick="portal()">Manage billing</button>
+     </div>
+    </div>
+
     <div class="card-pad">
      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <span class="card-lbl">VOICEPRINT ENROLLMENT</span>
@@ -450,8 +463,25 @@ function needlogin(){
 async function me(){
  try{var r=await fetch('/api/me');if(!r.ok)return false;var d=await r.json();
   var el=document.getElementById('userChip');if(el&&d.email)el.textContent=d.email;
-  window._me=d;return true}catch(e){return false}
+  window._me=d;renderPlan(d);return true}catch(e){return false}
 }
+function renderPlan(d){
+ if(!d.plan)return;
+ document.getElementById('planCard').style.display='block';
+ document.getElementById('planName').textContent=d.plan==='admin'?'operator · unlimited':(d.plan==='metered'?'pay-as-you-go':'free');
+ if(d.plan==='admin'){
+  document.getElementById('usageLbl').textContent='Monitored this month';
+  document.getElementById('usageVal').textContent=Math.round(d.minutes_used)+' min';
+ }else{
+  document.getElementById('usageLbl').textContent='Free minutes · then $'+d.rate_usd_per_hour+'/hr';
+  document.getElementById('usageVal').textContent=Math.round(d.minutes_used)+' / '+d.free_minutes+' min';
+  document.getElementById('usageBar').style.width=Math.min(100,Math.round(d.minutes_used/Math.max(1,d.free_minutes)*100))+'%';
+  document.getElementById('btnUpgrade').style.display=(!d.has_card&&d.billing)?'inline-block':'none';
+  document.getElementById('btnPortal').style.display=(d.has_card&&d.billing)?'inline-block':'none';
+ }
+}
+async function checkout(){var r=await fetch('/api/billing/checkout',{method:'POST'});var d=await r.json();if(d.ok)location=d.url;else toast('✕ '+(d.detail||'checkout failed'),'err')}
+async function portal(){var r=await fetch('/api/billing/portal',{method:'POST'});var d=await r.json();if(d.ok&&d.url)location=d.url;else toast('✕ '+(d.detail||'portal unavailable'),'err')}
 function signout(){fetch('/auth/logout',{method:'POST'}).finally(function(){document.cookie='sonave_token=;path=/;Max-Age=0';location.reload()})}
 async function jget(u){var r=await fetch(u);if(r.status===401){needlogin();throw'auth'}return r.json()}
 function dologin(){var t=document.getElementById('tok').value.trim();if(!t)return;document.cookie='sonave_token='+t+';path=/;SameSite=Strict;Max-Age=2592000';document.getElementById('login').style.display='none';start();me()}
@@ -713,6 +743,7 @@ async function deployBot(){
  try{var r=await fetch('/bot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({meeting_url:u})});
   if(r.status===401){needlogin();b.disabled=false;b.textContent='Deploy';return}
   var d=await r.json();
+  if(r.status===402){toast('✕ '+esc(d.detail||'Free hours used — add a card to continue.'),'err');var up=document.getElementById('btnUpgrade');if(up)up.style.display='inline-block';b.disabled=false;b.textContent='Deploy';return}
   toast(d.ok?'✓ Bot deployed · '+d.bot_id:'✕ '+esc(d.detail||d.error||d.status),d.ok?'ok':'err')}
  catch(e){toast('✕ '+e,'err')}
  b.disabled=false;b.textContent='Deploy';

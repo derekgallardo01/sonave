@@ -111,6 +111,48 @@ curl -F "file=@test.wav" -H "X-Sonave-Token: $SONAVE_API_TOKEN" https://<you>--s
 | `SONAVE_MODEL_CACHE` | `/data/models/ecapa` (ECAPA model cache, optional) |
 | `SONAVE_PUBLIC_DOMAIN` | Auto-set by Railway; only override if using a custom domain |
 
+### 4.2b Multi-user: Google sign-in (optional but required for public users)
+
+Create an OAuth client at **console.cloud.google.com → APIs & Services → Credentials →
+Create credentials → OAuth client ID → Web application**, authorized redirect URI
+`https://<your-railway-domain>/auth/callback` (add `http://localhost:8000/auth/callback` for dev).
+
+| Variable | Value |
+|----------|-------|
+| `SONAVE_GOOGLE_CLIENT_ID` / `SONAVE_GOOGLE_CLIENT_SECRET` | From the OAuth client |
+| `SONAVE_SESSION_SECRET` | `python -c "import secrets;print(secrets.token_urlsafe(32))"` |
+| `SONAVE_ADMIN_EMAILS` | Comma list; these Google accounts become admin (unlimited, see all data) |
+| `SONAVE_SIGNUP_MODE` | `open` (default) or `closed` (unknown emails rejected) |
+| `SONAVE_APP_DB` | default `/data/app.db` (users/bots/billing; on the volume) |
+
+On the first admin sign-in, pre-existing single-tenant data (flat captures,
+voiceprints, incidents) migrates into that admin's workspace automatically
+(idempotent; marker file `/.tenancy_migrated` on the volume).
+
+### 4.2c Billing: Stripe metered (free 5 h/month, then $8/monitored-hour)
+
+In the Stripe dashboard (test mode first): **Billing → Meters → Create meter**
+(event name `sonave_monitored_minutes`, aggregation **sum**); **Product**
+"Sonave" with a **usage-based Price** on that meter, per-unit
+`$0.13333` per minute, monthly; **Developers → Webhooks → Add endpoint**
+`https://<railway-domain>/api/billing/webhook` with events
+`checkout.session.completed`, `customer.subscription.updated`,
+`customer.subscription.deleted`.
+
+| Variable | Value |
+|----------|-------|
+| `SONAVE_STRIPE_SECRET_KEY` | `sk_live_...` (or `sk_test_...`) |
+| `SONAVE_STRIPE_WEBHOOK_SECRET` | `whsec_...` from the webhook endpoint |
+| `SONAVE_STRIPE_PRICE_METERED` | `price_...` of the usage-based price |
+| `SONAVE_STRIPE_METER_EVENT` | default `sonave_monitored_minutes` |
+| `SONAVE_FREE_MINUTES` | default `300` (5 monitored hours/month free) |
+| `SONAVE_MONTHLY_CAP_USD` | default `200` — bot launches blocked past this spend |
+| `SONAVE_MAX_CONCURRENT_BOTS` | default `2` per non-admin user |
+
+Unset Stripe vars = billing disabled: free tier is enforced, but no card flow
+(users simply hit the quota). Note: the service must run as a **single worker**
+(live state is in-memory; already the case with the default Procfile).
+
 ### 4.3 Verify deploy
 
 - `https://<your-railway-domain>/` serves the public marketing landing page

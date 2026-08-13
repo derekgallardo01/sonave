@@ -47,7 +47,7 @@ from urllib.parse import urlparse
 
 import numpy as np
 from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel, field_validator
 
 # Make sibling modules importable (incidents, enroll)
@@ -59,6 +59,7 @@ import incidents   # incident store + alerting (torch-free)
 import enroll      # local speaker enrollment (vendored from service/enroll.py)
 import auth        # Google OAuth + sessions + principals (stdlib-only)
 import db          # app database: users, bots, billing (/data/app.db)
+import billing     # Stripe metered billing (stdlib-only)
 os.environ.setdefault("SONAVE_ENROLL_DIR", "/data/enrollments")
 os.environ.setdefault("SONAVE_MODEL_CACHE", "/data/models/ecapa")
 
@@ -191,13 +192,15 @@ def send_bot(req: BotReq, request: Request, p: "auth.Principal" = Depends(requir
 
 
 def _bot_gate(p: "auth.Principal"):
-    """Entitlement / abuse guard for bot launches. Stage C prices it; Stage B
-    only enforces the concurrency cap. Returns an error dict or None (allowed)."""
+    """Entitlement / abuse guard for bot launches. Returns a response or None (allowed)."""
     if p.role == "admin":
         return None
     if db.count_active_bots(p.user_id) >= int(os.environ.get("SONAVE_MAX_CONCURRENT_BOTS", "2")):
         return {"ok": False, "code": "too_many_bots",
                 "detail": "Concurrent bot limit reached — end a running meeting first."}
+    denied = billing.can_launch_bot(p.user_id, p.role)
+    if denied is not None:
+        return JSONResponse(status_code=402, content=denied)
     return None
 
 
@@ -363,12 +366,16 @@ async def ws_audio(ws: WebSocket):
 
 
 def _meter_tick(bot_id: str, user_id: str, sec: float):
-    """Record monitored seconds for a bot session (crash-safe incremental)."""
+    """Record monitored seconds for a bot session (crash-safe incremental) and
+    report the billable slice to Stripe (beyond the free tier)."""
     if sec <= 0:
         return
     try:
         db.add_bot_seconds(bot_id, sec)
-        db.add_usage_minutes(user_id, time.strftime("%Y-%m", time.gmtime()), sec / 60)
+        u = db.get_user(user_id)
+        role = u.get("role", "member") if u else "member"
+        billing.meter_usage(user_id, role, sec / 60,
+                            idempotency_key=f"{bot_id}:{int(time.time() // 60)}")
     except Exception as e:  # noqa: BLE001 — accounting must never break capture
         logger.warning("meter tick failed: %s", repr(e)[:80])
 
@@ -760,9 +767,54 @@ def auth_logout():
 
 @app.get("/api/me")
 def api_me(p: auth.Principal = Depends(require_principal)):
-    return {"kind": p.kind, "email": p.email or "operator", "name": p.name,
-            "picture": p.picture, "role": p.role,
-            "google": auth.google_configured()}
+    out = {"kind": p.kind, "email": p.email or "operator", "name": p.name,
+           "picture": p.picture, "role": p.role,
+           "google": auth.google_configured(), "billing": billing.configured()}
+    out.update(billing.entitlement(p.user_id, p.role))
+    return out
+
+
+def _base_url(request: Request) -> str:
+    domain = _domain(request) or "localhost:8000"
+    scheme = "http" if domain.startswith(("localhost", "127.0.0.1")) else "https"
+    return f"{scheme}://{domain}"
+
+
+@app.post("/api/billing/checkout")
+def api_billing_checkout(request: Request, p: auth.Principal = Depends(require_principal)):
+    if not billing.configured():
+        return {"ok": False, "detail": "billing not configured"}
+    try:
+        return {"ok": True, "url": billing.create_checkout(p.user_id, _base_url(request))}
+    except Exception as e:  # noqa: BLE001
+        logger.warning("checkout failed: %s", repr(e)[:120])
+        return {"ok": False, "detail": "could not start checkout"}
+
+
+@app.post("/api/billing/portal")
+def api_billing_portal(request: Request, p: auth.Principal = Depends(require_principal)):
+    if not billing.configured():
+        return {"ok": False, "detail": "billing not configured"}
+    try:
+        url = billing.create_portal(p.user_id, _base_url(request))
+        return {"ok": bool(url), "url": url}
+    except Exception as e:  # noqa: BLE001
+        logger.warning("portal failed: %s", repr(e)[:120])
+        return {"ok": False, "detail": "could not open portal"}
+
+
+@app.post("/api/billing/webhook")
+async def api_billing_webhook(request: Request):
+    secret = os.environ.get("SONAVE_STRIPE_WEBHOOK_SECRET", "")
+    body = await request.body()
+    sig = request.headers.get("stripe-signature", "")
+    if not secret or not billing.verify_webhook_sig(body, sig, secret):
+        raise HTTPException(status_code=400, detail="bad signature")
+    event = json.loads(body)
+    if db.webhook_seen(event.get("id", ""), event.get("type", "")):
+        return {"ok": True, "duplicate": True}
+    billing.handle_webhook(event)
+    return {"ok": True}
 
 
 @app.get("/", response_class=HTMLResponse)
