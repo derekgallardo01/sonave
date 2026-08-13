@@ -21,6 +21,11 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
 .verdict{font-size:19px;font-weight:800;letter-spacing:-.01em}
 .note{font-size:10.5px;color:var(--ink2);margin-top:2px}
 .list{padding:10px 12px;display:flex;flex-direction:column;gap:8px;flex:1}
+#ghost{padding:14px 12px;flex:1;flex-direction:column;gap:8px}
+.gcard{border:1px dashed var(--line2);border-radius:10px;height:52px;position:relative;overflow:hidden;opacity:.7}
+.gcard::after{content:'';position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,.03) 50%,transparent 70%);animation:shim 2.2s linear infinite}
+@keyframes shim{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+.gnote{text-align:center;font-size:10.5px;color:var(--muted);margin-top:6px}
 #protect{background:radial-gradient(circle at 50% 15%,rgba(46,229,132,.07),transparent 62%)}
 .btn.cta{box-shadow:0 8px 28px rgba(46,229,132,.22)}
 .steps strong{color:var(--ink);font-weight:600}
@@ -127,6 +132,11 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
    <div class="wait-row"><span class="spin"></span><b>Bot joining this meeting…</b></div>
    <div class="wait-hint" id="waitHint"><span class="up">▲</span> Watch the top of Meet — admit <b>“Sonave”</b> when the prompt appears (a few seconds).</div>
   </div>
+ </div>
+ <div id="ghost" style="display:none">
+  <div class="gcard"></div>
+  <div class="gcard"></div>
+  <div class="gnote">Speaker cards appear here once the bot is admitted</div>
  </div>
  <div class="list" id="speakers"></div>
  <div class="ft"><span id="meta"><span class="dot"></span>sonave-xlsr-meet</span><a href="/console" target="_blank" rel="noopener">Open console ↗</a></div>
@@ -257,6 +267,8 @@ async function poll(){
   var hasAudio=ks.length>0;
   if(hasAudio)deployDone();
   document.getElementById('protect').style.display=hasAudio?'none':'block';
+  document.getElementById('ghost').style.display=hasAudio?'none':'flex';
+  list.style.display=hasAudio?'flex':'none';
   document.getElementById('banner').style.display=hasAudio?'block':'none';
   document.getElementById('room').textContent=hasAudio?(maxP>0?vname(maxP):'—'):'—';
   document.getElementById('room').style.color=vcolor(maxP);
