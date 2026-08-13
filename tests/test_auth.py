@@ -139,6 +139,28 @@ def test_partitioned_cookie_authenticates(mod):
     assert c.get("/api/me").json()["email"] == "part@x.com"
 
 
+def test_bearer_session_token_authenticates(mod):
+    u = mod.db.upsert_google_user("s-bear", "bear@x.com", "B", "", "member")
+    tok = mod.auth.sign_session(u["id"])
+    r = client(mod).get("/api/me", headers={"Authorization": f"Bearer {tok}"})
+    assert r.status_code == 200 and r.json()["email"] == "bear@x.com"
+
+
+def test_popup_callback_posts_token_and_closes(mod):
+    c = client(mod)
+    mod.auth._exchange_code = lambda code: {"access_token": "at"}
+    mod.auth._fetch_userinfo = lambda at: dict(USERINFO)
+    r = c.get("/auth/login?ctx=popup", follow_redirects=False)
+    state = parse_qs(urlparse(r.headers["location"]).query)["state"][0]
+    r2 = c.get(f"/auth/callback?code=abc&state={state}", follow_redirects=False)
+    assert r2.status_code == 200                       # HTML page, not a redirect
+    assert "postMessage" in r2.text and "window.close()" in r2.text
+    assert "sonave_auth" in r2.text
+    cookies = r2.headers.get_list("set-cookie")
+    assert any(x.startswith("sonave_session=") for x in cookies)   # cookies still set
+    assert c.get("/api/me").status_code == 200
+
+
 def test_meet_addon_page_renders(mod):
     r = client(mod).get("/meet-addon")
     assert r.status_code == 200

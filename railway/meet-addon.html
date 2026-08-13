@@ -77,15 +77,31 @@ function vcolor(p){return p>=0.7?'var(--red)':p>=0.4?'var(--amber)':'var(--green
 function vname(p){return p>=0.7?'FAKE':p>=0.4?'SUSPECT':'REAL'}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 
+// Session token handoff: cookies can't cross the CHIPS partition into this
+// iframe, so the sign-in popup posts the signed session token back to us and
+// we authenticate with a Bearer header. sessionStorage here is partitioned to
+// this Meet context, which is exactly the scope we want.
+var TOK=sessionStorage.getItem('sonave_tok')||'';
+window.addEventListener('message',function(e){
+ if(e.origin===location.origin&&e.data&&e.data.type==='sonave_auth'&&e.data.token){
+  TOK=e.data.token;
+  try{sessionStorage.setItem('sonave_tok',TOK)}catch(x){}
+  boot();
+ }
+});
+
 function popupLogin(){
- var w=window.open('/auth/login','sonave_login','width=480,height=640');
- var t=setInterval(function(){ if(w&&w.closed){clearInterval(t);boot()} },800);
+ var w=window.open('/auth/login?ctx=popup','sonave_login','width=480,height=640');
+ var t=setInterval(function(){ if(w&&w.closed){clearInterval(t);poll()} },800);
 }
 
 async function poll(){
  try{
-  var r=await fetch('/api/quality');
-  if(r.status===401){show('signin');return}
+  var r=await fetch('/api/quality',TOK?{headers:{'Authorization':'Bearer '+TOK}}:{});
+  if(r.status===401){
+   if(TOK){TOK='';try{sessionStorage.removeItem('sonave_tok')}catch(x){}}
+   show('signin');return
+  }
   var d=await r.json();
   show('live');
   var ks=Object.keys(d).filter(function(k){return k[0]!=='_'});

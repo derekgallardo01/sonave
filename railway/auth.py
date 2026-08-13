@@ -114,8 +114,14 @@ def verify_session(token: str | None) -> str | None:
     return p["uid"]
 
 
-def make_state() -> str:
-    return _sign({"n": pysecrets.token_urlsafe(16), "exp": int(time.time() + STATE_TTL)})
+def make_state(ctx: str = "") -> str:
+    return _sign({"n": pysecrets.token_urlsafe(16), "ctx": ctx[:16],
+                  "exp": int(time.time() + STATE_TTL)})
+
+
+def state_ctx(param_val: str | None) -> str:
+    p = _verify(param_val) if param_val else None
+    return (p or {}).get("ctx", "")
 
 
 def verify_state(cookie_val: str | None, param_val: str | None) -> bool:
@@ -195,7 +201,10 @@ def get_principal(request) -> Principal | None:
     if _machine_token_ok(tok):
         uid = db.first_admin_id() or MACHINE_WORKSPACE
         return Principal("machine", uid, "admin", email="operator")
-    uid = verify_session(request.cookies.get(SESSION_COOKIE)) \
+    # A signed session token may also arrive as a bearer header — the Meet add-on
+    # iframe authenticates this way (cookies can't cross CHIPS partitions).
+    uid = verify_session(tok) \
+        or verify_session(request.cookies.get(SESSION_COOKIE)) \
         or verify_session(request.cookies.get(PARTITIONED_COOKIE))
     if uid:
         u = db.get_user(uid)

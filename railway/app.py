@@ -831,10 +831,10 @@ def download(name: str, p: auth.Principal = Depends(require_principal)):
 
 # --- Google OAuth ------------------------------------------------------------
 @app.get("/auth/login")
-def auth_login():
+def auth_login(ctx: str = ""):
     if not auth.google_configured():
         return RedirectResponse("/console", status_code=302)
-    state = auth.make_state()
+    state = auth.make_state(ctx)
     resp = RedirectResponse(auth.login_url(state), status_code=302)
     resp.set_cookie(auth.STATE_COOKIE, state, max_age=auth.STATE_TTL,
                     httponly=True, samesite="lax", secure=True, path="/auth")
@@ -854,11 +854,24 @@ def auth_callback(request: Request, code: str = "", state: str = ""):
     except Exception as e:  # noqa: BLE001 — Google/network failures
         logger.warning("oauth callback failed: %s", repr(e)[:120])
         raise HTTPException(status_code=502, detail="google sign-in failed")
-    resp = RedirectResponse("/console", status_code=302)
     session_tok = auth.sign_session(user["id"], user.get("session_ver", 1))
+    if auth.state_ctx(state) == "popup":
+        # Meet add-on sign-in: hand the session token to the opener iframe via
+        # postMessage (CHIPS partitions make cookie handoff impossible), then close.
+        origin = _base_url(request)
+        resp = HTMLResponse(
+            "<title>Sonave — signed in</title>"
+            "<body style='font-family:sans-serif;background:#0a0e12;color:#e8eef2;"
+            "display:flex;align-items:center;justify-content:center;height:100vh;margin:0'>"
+            "<p>Signed in — you can close this window.</p><script>"
+            "try{if(window.opener)window.opener.postMessage("
+            f"{{type:'sonave_auth',token:{json.dumps(session_tok)}}},{json.dumps(origin)});"
+            "}catch(e){}window.close();</script></body>")
+    else:
+        resp = RedirectResponse("/console", status_code=302)
     resp.set_cookie(auth.SESSION_COOKIE, session_tok,
                     max_age=auth.SESSION_TTL, httponly=True, samesite="lax", secure=True, path="/")
-    # CHIPS companion for the Meet add-on iframe (Starlette can't emit Partitioned)
+    # CHIPS companion (helps re-loads in already-partitioned contexts)
     resp.headers.append("set-cookie",
                         f"{auth.PARTITIONED_COOKIE}={session_tok}; Max-Age={auth.SESSION_TTL}; "
                         f"Path=/; Secure; HttpOnly; SameSite=None; Partitioned")
