@@ -669,7 +669,8 @@ def api_verdict(v: VerdictReq, p: auth.Principal = Depends(require_principal)):
     return {"ok": True}
 
 
-SKIP_SPEAKERS = ("HealthCheck", "FIXCHECK", "WSTEST", "deploycheck")
+SKIP_SPEAKERS = ("HealthCheck", "FIXCHECK", "WSTEST", "deploycheck",
+                 "Sonave")   # the bot itself joins as a participant — never a speaker card
 
 
 @app.get("/api/quality")

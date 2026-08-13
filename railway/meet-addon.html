@@ -51,6 +51,13 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
 .btn{padding:9px 18px;border-radius:9px;background:var(--green);color:var(--on-green);font:700 12px var(--font);border:0;cursor:pointer}
 .btn:hover{background:#4deda0}
 .btn:disabled{opacity:.55;cursor:default}
+.wait{border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:12px}
+.wait-row{display:flex;align-items:center;gap:9px;font-size:12px}
+.wait-hint{margin-top:8px;font-size:11px;color:var(--ink2);line-height:1.55}
+.spin{width:14px;height:14px;border:2px solid var(--line2);border-top-color:var(--green);border-radius:50%;display:inline-block;animation:sp 1s linear infinite;flex-shrink:0}
+@keyframes sp{to{transform:rotate(360deg)}}
+.up{color:var(--green);display:inline-block;animation:upb 1.2s ease-in-out infinite}
+@keyframes upb{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
 .mark{width:26px;height:26px}
 </style>
 </head>
@@ -83,6 +90,10 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
  <div id="protect" style="display:none;padding:12px;border-bottom:1px solid var(--line)">
   <button class="btn" id="protectBtn" style="width:100%" onclick="protectMeeting()">Protect this meeting</button>
   <div id="protectStatus" style="font-size:10.5px;color:var(--muted);margin-top:7px;line-height:1.5">Deploys the Sonave bot into this call — it joins visibly and scores every speaker. Announce recording to participants.</div>
+  <div id="admitWait" class="wait" style="display:none">
+   <div class="wait-row"><span class="spin"></span><b>Bot joining this meeting…</b></div>
+   <div class="wait-hint" id="waitHint"><span class="up">▲</span> Watch the top of Meet — admit <b>“Sonave”</b> when the prompt appears (a few seconds).</div>
+  </div>
  </div>
  <div class="list" id="speakers"></div>
  <div class="ft"><span id="meta">sonave-xlsr-meet</span><a href="/console" target="_blank" rel="noopener">Open console ↗</a></div>
@@ -159,12 +170,32 @@ async function protectMeeting(){
                             body:JSON.stringify({meeting_url:'https://meet.google.com/'+code})});
   var d=await r.json();
   if(r.status===402){st.textContent=d.detail||'Free hours used — add a card in the console.';btn.disabled=false;return}
-  if(d.ok&&d.already){st.textContent='✓ A Sonave bot is already in this meeting — admit it from the waiting room if you haven’t yet.';return}
-  if(d.ok){st.textContent='✓ Bot joining — admit “Sonave” from the waiting room, then just talk.';return}
+  if(d.ok){deployWait();return}
   st.textContent=d.detail||d.error||'Deploy failed — try from the console.';
   btn.disabled=false;
  }catch(e){st.textContent='Deploy failed — try from the console.';btn.disabled=false}
 }
+var WAITING=false;
+function deployWait(){
+ // The gap between clicking and Meet's "Admit" chip needs a visible home:
+ // spinner card until audio actually flows. Survives the panel reloading.
+ WAITING=true;
+ try{sessionStorage.setItem('sonave_deploy_t',String(Date.now()))}catch(x){}
+ document.getElementById('protectBtn').style.display='none';
+ document.getElementById('protectStatus').style.display='none';
+ document.getElementById('admitWait').style.display='block';
+ setTimeout(function(){
+  if(WAITING)document.getElementById('waitHint').innerHTML='<span class="up">▲</span> Still waiting — the host must admit the guest named <b>“Sonave”</b> at the top of Meet. Everyone in the call can see it join.';
+ },45000);
+}
+function deployDone(){
+ WAITING=false;
+ try{sessionStorage.removeItem('sonave_deploy_t')}catch(x){}
+}
+try{
+ var _dt=+sessionStorage.getItem('sonave_deploy_t');
+ if(_dt&&Date.now()-_dt<180000)deployWait();
+}catch(x){}
 
 async function poll(){
  try{
@@ -189,10 +220,11 @@ async function poll(){
    patchRow(list.children[i],k,s);
   });
   var hasAudio=ks.length>0;
+  if(hasAudio)deployDone();
   document.getElementById('protect').style.display=hasAudio?'none':'block';
   document.getElementById('room').textContent=hasAudio?(maxP>0?vname(maxP):'—'):'—';
   document.getElementById('room').style.color=vcolor(maxP);
-  document.getElementById('roomNote').textContent=hasAudio? (maxP>=0.7?'A speaker is scoring in the red band.':anyTalk?'All speakers within normal range.':'No one is speaking right now.') :'No bot in this meeting yet.';
+  document.getElementById('roomNote').textContent=hasAudio? (maxP>=0.7?'A speaker is scoring in the red band.':anyTalk?'All speakers within normal range.':'No one is speaking right now.') :(WAITING?'Bot joining — admit “Sonave” at the top of Meet.':'No bot in this meeting yet.');
  }catch(e){}
 }
 var _pt={},_pd={};
