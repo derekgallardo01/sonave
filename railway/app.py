@@ -944,6 +944,22 @@ def onboarding():
     return html.replace("__FAVICON__", _FAVICON_B64)
 
 
+@app.get("/og.png")
+def og_image():
+    return FileResponse(str(_HERE / "og.png"), media_type="image/png")
+
+
+@app.get("/console-shot.png")
+def console_shot():
+    return FileResponse(str(_HERE / "console-shot.png"), media_type="image/png")
+
+
+@app.get("/robots.txt")
+def robots():
+    from fastapi.responses import PlainTextResponse
+    return PlainTextResponse("User-agent: *\nAllow: /\nDisallow: /console\nDisallow: /report/\n")
+
+
 @app.get("/privacy", response_class=HTMLResponse)
 def privacy():
     html = (_HERE / "privacy.html").read_text(encoding="utf-8")
