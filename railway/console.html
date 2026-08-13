@@ -11,7 +11,7 @@
 <style>
 :root{
  --bg:#0a0e12;--panel:#0d1319;--panel2:#111820;--chip:#131b22;--line:#161e25;--line2:#1e2830;
- --ink:#e8eef2;--ink2:#8a99a5;--muted:#5d6d79;--dim:#3d4a54;
+ --ink:#e8eef2;--ink2:#9aa9b5;--muted:#718695;--dim:#4a5a66;
  --green:#2ee584;--green-hover:#4deda0;--green-dark:#0d9e56;--on-green:#06130b;
  --amber:#ffb224;--red:#ff4d5e;--red-soft:#ff8a95;
  --font:'Sora',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
@@ -245,7 +245,7 @@ a:hover{color:var(--green-hover)}
  <div class="topbar">
   <div class="view-title" id="viewTitle">Live Monitor</div>
   <div class="topbar-right">
-   <span class="update-note" id="userChip" style="cursor:pointer" title="sign out" onclick="signout()"></span>
+   <span id="userChip" style="cursor:pointer;font-size:12.5px;color:#c7d2da;font-family:var(--font)" title="sign out" onclick="signout()"></span>
    <div class="clock" id="clock"></div>
    <button class="btn" id="demoBtn" onclick="demoToggle()">Simulate call</button>
   </div>
