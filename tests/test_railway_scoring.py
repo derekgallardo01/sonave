@@ -119,7 +119,8 @@ def test_ws_streams_a_verdict_well_before_the_2min_flush(railway_mod, tmp_path, 
     railway_mod.SCORER_URL = "http://scorer.test"
     monkeypatch.setattr(railway_mod.urllib.request, "urlopen", _fake_urlopen({"p_fake": 0.9}))
     monkeypatch.setattr(railway_mod.threading, "Thread", _Inline)   # score inline
-    frame = base64.b64encode(b"\x40\x00" * railway_mod.SR).decode()  # 1 s of PCM per frame
+    # voice-level PCM (0x0800 ≈ rms 0.06) — loud enough to pass the silence gate
+    frame = base64.b64encode(b"\x00\x08" * railway_mod.SR).decode()  # 1 s of PCM per frame
     n = railway_mod.SCORE_SEC + 3                                    # exceed the score hop
     with TestClient(railway_mod.app).websocket_connect("/api/ws/audio") as ws:
         for _ in range(n):
@@ -128,3 +129,24 @@ def test_ws_streams_a_verdict_well_before_the_2min_flush(railway_mod, tmp_path, 
     # a verdict landed from seconds of audio — no 2-min file flush needed
     # (single hot window -> SUSPECT under the neutral-prior EMA seed)
     assert railway_mod.VERDICTS[("admin", "Derek")]["verdict"] == "suspect"
+
+
+def test_silence_dominated_windows_are_never_scored(railway_mod, tmp_path, monkeypatch):
+    """Mostly-silence audio is OOD for the detector and used to produce hot
+    first windows on real speakers — the gate must keep it away from the scorer."""
+    import base64
+    from fastapi.testclient import TestClient
+    monkeypatch.setattr(railway_mod, "DATA_DIR", tmp_path)
+    railway_mod.SCORER_URL = "http://scorer.test"
+
+    def _never(req, timeout=None):
+        raise AssertionError("silence must not reach the scorer")
+
+    monkeypatch.setattr(railway_mod.urllib.request, "urlopen", _never)
+    monkeypatch.setattr(railway_mod.threading, "Thread", _Inline)
+    frame = base64.b64encode(b"\x00\x00" * railway_mod.SR).decode()  # digital silence
+    with TestClient(railway_mod.app).websocket_connect("/api/ws/audio") as ws:
+        for _ in range(railway_mod.SCORE_SEC + 3):
+            ws.send_text(json.dumps({"data": {"data": {"buffer": frame,
+                                                        "participant": {"name": "Derek"}}}}))
+    assert ("admin", "Derek") not in railway_mod.VERDICTS

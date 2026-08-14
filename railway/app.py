@@ -234,6 +234,9 @@ SCORE_WIN_SEC = int(os.environ.get("SONAVE_SCORE_WIN_SEC", "8"))  # window lengt
 SCORE_EMA = float(os.environ.get("SONAVE_SCORE_EMA", "0.6"))     # weight on the newest score
 SCORE_PRIOR = float(os.environ.get("SONAVE_SCORE_PRIOR", "0.15"))  # EMA seed ("probably real"):
 # one hot first window lands in SUSPECT at worst; sustained fake confirms on window 2
+MIN_SPEECH_FRAC = float(os.environ.get("SONAVE_MIN_SPEECH_FRAC", "0.35"))
+# windows below this voiced fraction are never scored — mostly-silence audio is
+# out-of-distribution for the detector and scores garbage (hot first windows)
 _SCORE_HOP_BYTES = SCORE_SEC * SR * 2
 _SCORE_FIRST_BYTES = SCORE_FIRST_SEC * SR * 2   # 4 s matches the model's training windows,
                                                 # so the first verdict lands in ~4 s not ~10 s
@@ -296,6 +299,31 @@ def _quality(user_id: str, spk: str, pcm: bytes):
     if rms > 0.01:
         q["speech_sec"] += sec
     q["total_sec"] += sec
+
+
+def _speech_fraction(pcm: bytes) -> float:
+    """Fraction of 100 ms segments at voice-level RMS — the cheap gate deciding
+    whether a window has enough actual speech to be worth scoring."""
+    import array
+    import math
+    s = array.array("h")
+    s.frombytes(pcm if len(pcm) % 2 == 0 else pcm[:-1])
+    n = len(s)
+    if n == 0:
+        return 0.0
+    seg = SR // 10
+    voiced = total = 0
+    for i in range(0, n, seg):
+        c = s[i:i + seg]
+        if not c:
+            break
+        step = max(1, len(c) // 200)
+        idx = range(0, len(c), step)
+        rms = math.sqrt(sum(c[j] * c[j] for j in idx) / len(idx)) / 32768.0
+        total += 1
+        if rms > 0.01:
+            voiced += 1
+    return voiced / max(total, 1)
 
 
 def _quality_verdict(q: dict) -> str:
@@ -400,15 +428,18 @@ async def ws_audio(ws: WebSocket):
                 hop = _SCORE_HOP_BYTES if spk in scored else _SCORE_FIRST_BYTES
                 if SCORER_URL and seen[spk] - scored.get(spk, 0) >= hop:
                     scored[spk] = seen[spk]
-                    # one request in flight per speaker — during a scorer outage the
-                    # cadence just drops instead of piling up retrying threads
-                    with _STATE_LOCK:
-                        busy = (uid, spk) in _INFLIGHT
+                    # silence gate: a window without enough voiced audio is never
+                    # scored (OOD for the detector); the next hop re-evaluates
+                    if _speech_fraction(bytes(t)) >= MIN_SPEECH_FRAC:
+                        # one request in flight per speaker — during a scorer outage
+                        # the cadence just drops instead of piling up retry threads
+                        with _STATE_LOCK:
+                            busy = (uid, spk) in _INFLIGHT
+                            if not busy:
+                                _INFLIGHT.add((uid, spk))
                         if not busy:
-                            _INFLIGHT.add((uid, spk))
-                    if not busy:
-                        window = _pcm_to_wav(bytes(t))
-                        threading.Thread(target=_score_and_store, args=(uid, spk, window), daemon=True).start()
+                            window = _pcm_to_wav(bytes(t))
+                            threading.Thread(target=_score_and_store, args=(uid, spk, window), daemon=True).start()
                 try:
                     _quality(uid, spk, raw)              # quality is best-effort, never breaks capture
                 except Exception:
