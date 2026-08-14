@@ -259,13 +259,34 @@ function deployWait(){
  document.getElementById('protectBtn').style.display='none';
  document.getElementById('protectStatus').style.display='none';
  document.getElementById('admitWait').style.display='block';
- setTimeout(function(){
-  if(WAITING)document.getElementById('waitHint').innerHTML='<span class="up">▲</span> Still waiting — the host must admit the guest named <b>“Sonave”</b> at the top of Meet. Everyone in the call can see it join.';
- },45000);
- setTimeout(function(){if(WAITING)deployReset()},180000);
+ _botT=setInterval(pollBotStatus,6000);pollBotStatus();
+ setTimeout(function(){if(WAITING&&!_lastBot)deployReset()},180000);
+}
+// Live bot status while waiting — the server asks Recall, so the card can say
+// exactly where the bot is instead of spinning blind. Meet's admit toast
+// auto-hides, so the in_waiting_room hint points at People > Waiting to join.
+var _botT=null,_lastBot=null;
+var BOT_HINTS={
+ joining_call:'Bot is connecting to the meeting…',
+ in_waiting_room:'The bot is at the door. If Meet’s popup is gone, open <b>People</b> (bottom right) → <b>Waiting to join</b> → admit <b>“Sonave”</b>.',
+ in_call_not_recording:'Bot admitted — starting audio…',
+ in_call_recording:'Bot is in — audio arriving…'
+};
+async function pollBotStatus(){
+ try{
+  var d=await (await fetch('/api/bots',{headers:authHeaders()})).json();
+  var b=(d.bots||[]).filter(function(x){return !x.ended_ts})[0];
+  if(!b||!b.recall_status)return;
+  _lastBot=b.recall_status;
+  if(_lastBot==='call_ended'||_lastBot==='done'||_lastBot==='fatal'){
+   deployReset();return
+  }
+  if(BOT_HINTS[_lastBot])document.getElementById('waitHint').innerHTML='<span class="up">▲</span> '+BOT_HINTS[_lastBot];
+ }catch(e){}
 }
 function deployDone(){
- WAITING=false;
+ WAITING=false;_lastBot=null;
+ if(_botT){clearInterval(_botT);_botT=null}
  try{sessionStorage.removeItem('sonave_deploy_t')}catch(x){}
 }
 function deployReset(){
@@ -276,7 +297,7 @@ function deployReset(){
  document.getElementById('protectSteps').style.display='';
  var b=document.getElementById('protectBtn');b.style.display='';b.disabled=false;
  var st=document.getElementById('protectStatus');st.style.display='';
- st.textContent='The bot wasn’t admitted. Deploy again when ready — a brand-new bot will knock. (A denied deploy frees up after ~5 minutes.)';
+ st.textContent='The bot wasn’t admitted. Deploy again when ready — a brand-new bot will knock.';
 }
 try{
  var _dt=+sessionStorage.getItem('sonave_deploy_t');
