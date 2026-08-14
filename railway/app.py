@@ -462,6 +462,10 @@ async def ws_audio(ws: WebSocket):
     session = int(time.time())
     msgs = 0
     conn_start = last_tick = time.time()
+    # host recognition: the workspace owner's Google profile name, sanitized the
+    # same way as participant names, so we can tell THEIR joins/leaves apart
+    owner_name = _SPK_RE.sub("_", ((db.get_user(uid) or {}).get("name") or "")).strip("_").lower()
+    host_away = False
     try:
         while True:
             msg = await ws.receive_text()
@@ -490,6 +494,17 @@ async def ws_audio(ws: WebSocket):
                         else:            # join / anything else -> at least present
                             pr["present"] = True
                         pr["ts"] = time.time()
+                        # host left / came back while the bot keeps monitoring
+                        low = pname.lower()
+                        is_host = bool(owner_name) and (
+                            low == owner_name or low.split("_")[0] == owner_name.split("_")[0])
+                        if is_host and bot_row is not None:
+                            if kind == "leave" and not host_away:
+                                host_away = True
+                                _track(uid, "host_left", bot_id=bot_row["bot_id"])
+                            elif kind in ("join", "speech_on") and host_away:
+                                host_away = False
+                                _track(uid, "host_rejoined", bot_id=bot_row["bot_id"])
                     continue
                 buf = d.get("buffer")
                 if not buf:
@@ -551,9 +566,20 @@ async def ws_audio(ws: WebSocket):
                 metered = c.execute("SELECT metered_sec FROM bots WHERE bot_id=?",
                                     (bot_row["bot_id"],)).fetchone()
                 c.close()
+                # end cause from presence we already hold (no network on close):
+                # participants still present -> bot was removed mid-call; nobody
+                # left -> meeting over (end-for-all / last leaver / window closed
+                # / connection drop all look the same from inside the call);
+                # no presence data (legacy bot) -> unknown
+                prows = [pr for (u, s), pr in PRESENCE.items()
+                         if u == uid and not any(x in s for x in SKIP_SPEAKERS)]
+                cause = ("" if not prows else
+                         "removed_while_active" if any(r.get("present") for r in prows)
+                         else "everyone_left")
                 _track(uid, "meeting_ended", bot_id=bot_row["bot_id"],
                        duration_sec=int(time.time() - conn_start),
-                       metered_min=round((metered["metered_sec"] if metered else 0) / 60, 1))
+                       metered_min=round((metered["metered_sec"] if metered else 0) / 60, 1),
+                       cause=cause)
             except Exception:
                 pass
         with _STATE_LOCK:

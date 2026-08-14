@@ -150,6 +150,43 @@ def test_meeting_started_and_ended_events(mod, monkeypatch):
     assert "duration_sec" in d and "metered_min" in d
 
 
+def _pev(kind, name):
+    return json.dumps({"event": f"participant_events.{kind}",
+                       "data": {"data": {"participant": {"name": name}}}})
+
+
+def test_host_leave_rejoin_and_removed_cause(mod):
+    """Host leaves -> monitoring continues (host_left); rejoins (host_rejoined);
+    bot kicked while people are still in the call -> cause=removed_while_active."""
+    u = mod.db.upsert_google_user("s-h1", "h1@x.com", "Derek Gallardo", "", "member")
+    tok = "tok-h1"
+    mod.db.insert_bot("bot-h1", u["id"], hashlib.sha256(tok.encode()).hexdigest(),
+                      "https://meet.google.com/h")
+    with TestClient(mod.app).websocket_connect(f"/api/ws/audio?token={tok}") as ws:
+        ws.send_text(_pev("join", "Derek Gallardo"))
+        ws.send_text(_pev("leave", "Derek Gallardo"))
+        ws.send_text(_pev("join", "Derek Gallardo"))
+    kinds = _kinds(mod, u["id"])
+    assert "host_left" in kinds and "host_rejoined" in kinds
+    end = json.loads(mod.db.list_events(user_id=u["id"], kind="meeting_ended")[0]["detail"])
+    assert end["cause"] == "removed_while_active"        # host was present at close
+
+
+def test_meeting_end_cause_everyone_left(mod):
+    u = mod.db.upsert_google_user("s-h2", "h2@x.com", "Derek Gallardo", "", "member")
+    tok = "tok-h2"
+    mod.db.insert_bot("bot-h2", u["id"], hashlib.sha256(tok.encode()).hexdigest(),
+                      "https://meet.google.com/h2")
+    with TestClient(mod.app).websocket_connect(f"/api/ws/audio?token={tok}") as ws:
+        ws.send_text(_pev("join", "Derek Gallardo"))
+        ws.send_text(_pev("leave", "Derek Gallardo"))    # last human out
+    end = json.loads(mod.db.list_events(user_id=u["id"], kind="meeting_ended")[0]["detail"])
+    assert end["cause"] == "everyone_left"
+    # exactly one host_left, no rejoin
+    assert _kinds(mod, u["id"]).count("host_left") == 1
+    assert "host_rejoined" not in _kinds(mod, u["id"])
+
+
 # --- settings events ----------------------------------------------------------
 def test_settings_changed_fields_only_no_urls(mod):
     ua = _mk_user(mod, "s-s1", "s1@x.com")

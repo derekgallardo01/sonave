@@ -564,7 +564,8 @@ function est(ts){/* seconds -> "Aug 14, 9:48 AM" pinned to US Eastern */
 }
 function setAdmKind(k,el){_admKind=k;document.querySelectorAll('#admPills .pill').forEach(function(p){p.classList.remove('on')});el.classList.add('on');admEvents()}
 function kcol(k){
- if(k=='signup'||k=='subscription_checkout'||k=='enroll_added')return'var(--green)';
+ if(k=='signup'||k=='subscription_checkout'||k=='enroll_added'||k=='host_rejoined')return'var(--green)';
+ if(k=='host_left')return'var(--amber)';
  if(k=='incident_open'||k=='bot_denied'||k=='subscription_canceled')return'var(--red)';
  if(k=='signin'||k=='signout'||k=='settings_changed'||k=='enroll_deleted')return'var(--ink2)';
  return'#5aa7e8';
@@ -572,7 +573,9 @@ function kcol(k){
 function admSummary(k,d){
  try{d=d?JSON.parse(d):{}}catch(e){d={}}
  if(k=='bot_created')return(d.source||'')+' · '+(d.meeting_url||'');
- if(k=='meeting_ended')return Math.round((d.duration_sec||0)/60)+' min · '+(d.metered_min||0)+' metered';
+ if(k=='meeting_ended')return Math.round((d.duration_sec||0)/60)+' min · '+(d.metered_min||0)+' metered'+(d.cause==='removed_while_active'?' · bot removed by host':d.cause==='everyone_left'?' · everyone left':'');
+ if(k=='host_left')return'host left — monitoring continues';
+ if(k=='host_rejoined')return'host rejoined the meeting';
  if(k=='bot_denied')return(d.code||'')+' · '+(d.source||'');
  if(k=='settings_changed')return Object.keys(d).map(function(f){return f+' '+d[f]}).join(' · ');
  if(k=='incident_open'||k=='enroll_added'||k=='enroll_deleted')return d.speaker||'';
