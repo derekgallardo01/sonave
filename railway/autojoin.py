@@ -12,8 +12,10 @@ MONTHLY/YEARLY rules are ignored.
 """
 from __future__ import annotations
 
+import json
 import re
 import time
+import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
@@ -123,6 +125,59 @@ def parse_ics(text: str, now: float | None = None,
             if now - 600 <= ts <= now + horizon_sec and (int(ts) // 60) not in exdates:
                 events.append({"uid": uid, "start_ts": ts, "meet_url": murl.group(0)})
     return events
+
+
+# --- Google Calendar API source (OAuth variant; sensitive scope, opt-in) -----
+GOOGLE_CAL_EVENTS_URL = "https://www.googleapis.com/calendar/v3/calendars/primary/events"
+
+
+def _rfc3339(ts: float) -> str:
+    return datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _parse_rfc3339(s: str) -> float | None:
+    try:
+        return datetime.fromisoformat(s.replace("Z", "+00:00")).timestamp()
+    except Exception:
+        return None
+
+
+def google_calendar_events(access_token: str, now: float | None = None,
+                           horizon_sec: float = 1800) -> list[dict]:
+    """Upcoming Meet events from the user's primary calendar via the Calendar
+    API (recurrences come pre-expanded via singleEvents). Same event shape as
+    parse_ics so the join loop treats both sources identically."""
+    now = time.time() if now is None else now
+    q = urllib.parse.urlencode({
+        "timeMin": _rfc3339(now - 600), "timeMax": _rfc3339(now + horizon_sec),
+        "singleEvents": "true", "orderBy": "startTime", "maxResults": "25",
+    })
+    req = urllib.request.Request(f"{GOOGLE_CAL_EVENTS_URL}?{q}",
+                                 headers={"Authorization": f"Bearer {access_token}"})
+    with urllib.request.urlopen(req, timeout=15) as r:
+        data = json.loads(r.read())
+    out = []
+    for it in data.get("items", []):
+        if it.get("status") == "cancelled":
+            continue
+        url = it.get("hangoutLink") or ""
+        if not url:
+            for ep in ((it.get("conferenceData") or {}).get("entryPoints") or []):
+                if MEET_RE.search(ep.get("uri") or ""):
+                    url = ep["uri"]
+                    break
+        m = MEET_RE.search(url)
+        if not m:
+            continue
+        start = (it.get("start") or {}).get("dateTime")
+        if not start:
+            continue                      # all-day event — nothing to join
+        ts = _parse_rfc3339(start)
+        if ts is None:
+            continue
+        out.append({"uid": (it.get("id") or m.group(0))[:120],
+                    "start_ts": ts, "meet_url": m.group(0)})
+    return out
 
 
 def due_events(events: list[dict], now: float | None = None,

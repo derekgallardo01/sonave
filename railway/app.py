@@ -1112,30 +1112,75 @@ def api_settings(req: SettingsReq, p: auth.Principal = Depends(require_principal
     return {"ok": True, "alert_webhook": req.alert_webhook, "ical_url": req.ical_url}
 
 
+def _cal_oauth_enabled() -> bool:
+    """Feature flag: OAuth Calendar auto-join stays dark until the sensitive
+    calendar.readonly scope passes Google verification (post-listing-approval)."""
+    return os.environ.get("SONAVE_CALENDAR_OAUTH") == "1"
+
+
+_CAL_AT: dict[str, tuple[str, float]] = {}   # uid -> (access token, expiry)
+
+
+def _cal_access_token(uid: str, refresh_token: str) -> str:
+    tok, exp = _CAL_AT.get(uid, ("", 0.0))
+    if tok and time.time() < exp:
+        return tok
+    at = auth.refresh_access_token(refresh_token)
+    _CAL_AT[uid] = (at, time.time() + 3000)
+    return at
+
+
+def _autojoin_launch(user_id: str, role: str, ev: dict, key: str) -> bool:
+    """One join attempt per event occurrence, shared by both calendar sources.
+    Always marks the occurrence: retrying a denied/limited launch every minute
+    would spam the meeting's waiting room and the billing gate."""
+    if db.autojoin_seen(user_id, key):
+        return False
+    res = _launch_bot(user_id, role, ev["meet_url"], source="autojoin")
+    ok = isinstance(res, dict) and res.get("ok")
+    db.autojoin_mark(user_id, key, str((res.get("bot_id") if ok else "") or ""))
+    if ok and not res.get("already"):
+        logger.info("autojoin: bot -> %s (user=%s)", ev["meet_url"], user_id)
+        return True
+    if not ok:
+        logger.warning("autojoin: launch declined for %s: %s", user_id, str(res)[:120])
+    return False
+
+
 def _autojoin_tick(now: float | None = None) -> int:
-    """One calendar auto-join pass. Returns the number of bots launched."""
+    """One auto-join pass over both sources (secret iCal URLs + OAuth Calendar
+    grants). Returns the number of bots launched."""
     launched = 0
     for u in db.ical_users():
         try:
             events = autojoin.parse_ics(autojoin.fetch_ics(u["ical_url"]), now=now)
         except Exception as e:
-            logger.warning("autojoin: fetch/parse failed for %s: %s", u["id"], repr(e)[:80])
+            logger.warning("autojoin: ics fetch/parse failed for %s: %s", u["id"], repr(e)[:80])
             continue
         for e in autojoin.due_events(events, now=now):
-            key = f"{e['uid']}:{int(e['start_ts'])}"
-            if db.autojoin_seen(u["id"], key):
+            launched += _autojoin_launch(u["id"], u.get("role") or "member", e,
+                                         f"{e['uid']}:{int(e['start_ts'])}")
+    if _cal_oauth_enabled():
+        for u in db.calendar_users():
+            try:
+                at = _cal_access_token(u["id"], u["refresh_token"])
+                events = autojoin.google_calendar_events(at, now=now)
+            except ValueError as e:
+                if "invalid_grant" in str(e):     # user revoked access at Google
+                    db.delete_oauth_token(u["id"], "google_calendar")
+                    _CAL_AT.pop(u["id"], None)
+                    _track(u["id"], "calendar_disconnected", reason="revoked")
+                else:
+                    logger.warning("autojoin: calendar refresh failed for %s: %s",
+                                   u["id"], repr(e)[:80])
                 continue
-            res = _launch_bot(u["id"], u.get("role") or "member", e["meet_url"],
-                              source="autojoin")
-            ok = isinstance(res, dict) and res.get("ok")
-            # always mark the occurrence: retrying a denied/limited launch every
-            # minute would spam the meeting's waiting room and the billing gate
-            db.autojoin_mark(u["id"], key, str((res.get("bot_id") if ok else "") or ""))
-            if ok and not res.get("already"):
-                launched += 1
-                logger.info("autojoin: bot -> %s (user=%s)", e["meet_url"], u["id"])
-            elif not ok:
-                logger.warning("autojoin: launch declined for %s: %s", u["id"], str(res)[:120])
+            except Exception as e:
+                logger.warning("autojoin: calendar fetch failed for %s: %s",
+                               u["id"], repr(e)[:80])
+                continue
+            for e in autojoin.due_events(events, now=now):
+                launched += _autojoin_launch(u["id"], u.get("role") or "member", e,
+                                             f"cal:{e['uid']}:{int(e['start_ts'])}")
     return launched
 
 
@@ -1269,12 +1314,60 @@ def auth_login(ctx: str = ""):
     return resp
 
 
+@app.get("/auth/calendar/connect")
+def auth_calendar_connect(request: Request):
+    """Incremental calendar.readonly grant for OAuth auto-join — explicit
+    opt-in from the console, only for signed-in users, flag-gated until the
+    scope passes Google verification."""
+    if not _cal_oauth_enabled() or not auth.google_configured():
+        raise HTTPException(status_code=404, detail="not enabled")
+    p = auth.get_principal(request)
+    if p is None or p.kind != "user":
+        return RedirectResponse("/console", status_code=302)
+    state = auth.make_state("cal")
+    resp = RedirectResponse(auth.calendar_login_url(state), status_code=302)
+    resp.set_cookie(auth.STATE_COOKIE, state, max_age=auth.STATE_TTL,
+                    httponly=True, samesite="lax", secure=True, path="/auth")
+    return resp
+
+
+@app.post("/auth/calendar/disconnect")
+def auth_calendar_disconnect(p: auth.Principal = Depends(require_principal)):
+    row = db.get_oauth_token(p.user_id, "google_calendar")
+    if row:
+        auth.revoke_google_token(row["refresh_token"])    # best-effort at Google
+        db.delete_oauth_token(p.user_id, "google_calendar")
+        _CAL_AT.pop(p.user_id, None)
+        _track(p.user_id, "calendar_disconnected", reason="user")
+    return {"ok": True}
+
+
 @app.get("/auth/callback")
 def auth_callback(request: Request, code: str = "", state: str = ""):
     if not auth.verify_state(request.cookies.get(auth.STATE_COOKIE), state):
         raise HTTPException(status_code=403, detail="bad oauth state")
     if not code:
         raise HTTPException(status_code=400, detail="missing code")
+    if auth.state_ctx(state) == "cal":
+        # incremental Calendar grant for an already-signed-in user: store the
+        # refresh token, never touch the session (scope has no userinfo)
+        p = auth.get_principal(request)
+        resp = RedirectResponse("/console", status_code=302)
+        resp.delete_cookie(auth.STATE_COOKIE, path="/auth")
+        if p is None or p.kind != "user" or not _cal_oauth_enabled():
+            return resp
+        try:
+            tokens = auth._exchange_code(code)
+        except Exception as e:  # noqa: BLE001 — Google/network failures
+            logger.warning("calendar connect failed: %s", repr(e)[:120])
+            return resp
+        if tokens.get("refresh_token"):
+            db.save_oauth_token(p.user_id, "google_calendar",
+                                auth.CALENDAR_SCOPE, tokens["refresh_token"])
+            _CAL_AT.pop(p.user_id, None)
+            _track(p.user_id, "calendar_connected")
+            logger.info("calendar connected for %s", p.user_id)
+        return resp
     try:
         user = auth.complete_login(code)
     except ValueError as e:
@@ -1366,7 +1459,10 @@ def api_me(p: auth.Principal = Depends(require_principal)):
            "google": auth.google_configured(), "billing": billing.configured(),
            "alert_webhook": db.get_alert_webhook(p.user_id),
            "ical_url": db.get_ical_url(p.user_id),
-           "autojoin_loop": _AUTOJOIN_ALIVE > 0 and time.time() - _AUTOJOIN_ALIVE < 180}
+           "autojoin_loop": _AUTOJOIN_ALIVE > 0 and time.time() - _AUTOJOIN_ALIVE < 180,
+           "calendar_oauth": _cal_oauth_enabled(),
+           "calendar_connected": bool(p.kind == "user"
+                                      and db.get_oauth_token(p.user_id, "google_calendar"))}
     out.update(billing.entitlement(p.user_id, p.role))
     return out
 

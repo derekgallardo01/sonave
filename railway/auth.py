@@ -14,6 +14,7 @@ import json
 import os
 import secrets as pysecrets
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
@@ -190,6 +191,62 @@ def complete_login(code: str) -> dict:
     tokens = _exchange_code(code)
     info = _fetch_userinfo(tokens["access_token"])
     return _policy_upsert(info)
+
+
+# --- incremental Google Calendar authorization (sensitive scope; the console
+# offers it as an explicit opt-in AFTER sign-in, never during login) ----------
+CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.readonly"
+GOOGLE_REVOKE_URL = "https://oauth2.googleapis.com/revoke"
+
+
+def calendar_login_url(state: str) -> str:
+    q = urllib.parse.urlencode({
+        "client_id": _env("SONAVE_GOOGLE_CLIENT_ID"),
+        "redirect_uri": redirect_uri(),
+        "response_type": "code",
+        "scope": CALENDAR_SCOPE,
+        "state": state,
+        "access_type": "offline",       # we need a refresh token for the join loop
+        "prompt": "consent",            # ensures the refresh token is issued
+        "include_granted_scopes": "true",
+    })
+    return f"{GOOGLE_AUTH_URL}?{q}"
+
+
+def refresh_access_token(refresh_token: str) -> str:
+    """Refresh-token -> short-lived access token. Raises ValueError('invalid_grant')
+    when the user revoked access (caller should drop the stored token)."""
+    body = urllib.parse.urlencode({
+        "client_id": _env("SONAVE_GOOGLE_CLIENT_ID"),
+        "client_secret": _env("SONAVE_GOOGLE_CLIENT_SECRET"),
+        "refresh_token": refresh_token,
+        "grant_type": "refresh_token",
+    }).encode()
+    req = urllib.request.Request(GOOGLE_TOKEN_URL, data=body,
+                                 headers={"Content-Type": "application/x-www-form-urlencoded"})
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:
+            data = json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        try:
+            err = json.loads(e.read()).get("error", "")
+        except Exception:
+            err = ""
+        raise ValueError(err or f"refresh failed ({e.code})")
+    if "access_token" not in data:
+        raise ValueError(data.get("error", "refresh failed"))
+    return data["access_token"]
+
+
+def revoke_google_token(token: str) -> None:
+    """Best-effort revocation at Google (disconnect semantics)."""
+    try:
+        body = urllib.parse.urlencode({"token": token}).encode()
+        req = urllib.request.Request(GOOGLE_REVOKE_URL, data=body,
+                                     headers={"Content-Type": "application/x-www-form-urlencoded"})
+        urllib.request.urlopen(req, timeout=10).read()
+    except Exception:
+        pass
 
 
 GOOGLE_TOKENINFO_URL = "https://oauth2.googleapis.com/tokeninfo"

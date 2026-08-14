@@ -406,6 +406,51 @@ def set_alert_webhook(user_id: str, url: str) -> None:
             c.close()
 
 
+# --- oauth tokens (incremental grants, e.g. Calendar auto-join) ---------------
+def save_oauth_token(user_id: str, provider: str, scopes: str, refresh_token: str) -> None:
+    with _LOCK:
+        c = _conn()
+        try:
+            c.execute("INSERT OR REPLACE INTO oauth_tokens VALUES (?,?,?,?,?)",
+                      (user_id, provider, scopes, refresh_token, time.time()))
+            c.commit()
+        finally:
+            c.close()
+
+
+def get_oauth_token(user_id: str, provider: str) -> dict | None:
+    c = _conn()
+    try:
+        r = c.execute("SELECT * FROM oauth_tokens WHERE user_id=? AND provider=?",
+                      (user_id, provider)).fetchone()
+        return dict(r) if r else None
+    finally:
+        c.close()
+
+
+def delete_oauth_token(user_id: str, provider: str) -> None:
+    with _LOCK:
+        c = _conn()
+        try:
+            c.execute("DELETE FROM oauth_tokens WHERE user_id=? AND provider=?",
+                      (user_id, provider))
+            c.commit()
+        finally:
+            c.close()
+
+
+def calendar_users() -> list[dict]:
+    """Users with a Google Calendar grant for auto-join."""
+    c = _conn()
+    try:
+        rows = c.execute(
+            "SELECT u.id, u.role, t.refresh_token FROM oauth_tokens t "
+            "JOIN users u ON u.id = t.user_id WHERE t.provider='google_calendar'").fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        c.close()
+
+
 def bump_session_ver(user_id: str) -> None:
     """Revoke every outstanding session token for this user (logout semantics:
     tokens embed the version and verify_session compares against this row)."""

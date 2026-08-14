@@ -143,6 +143,27 @@ added/canceled) are optional and env-gated; unset = silently off:
 | `SONAVE_SMTP_HOST` / `SONAVE_SMTP_PORT` | SMTP relay; port default 587 (STARTTLS) |
 | `SONAVE_SMTP_USER` / `SONAVE_SMTP_PASS` | SMTP login. Gmail: enable 2FA, then create an **App password** (Google Account → Security → App passwords) and use it as the password with `smtp.gmail.com` |
 
+### 4.2b-2 OAuth Calendar auto-join (built, DARK until scope verification)
+
+The OAuth variant of auto-protect ("Connect Google Calendar" — no URL pasting)
+is fully implemented behind `SONAVE_CALENDAR_OAUTH` (default off). It uses the
+**sensitive** `calendar.readonly` scope as an incremental, opt-in grant from
+the console — never during sign-in. Enable ONLY after the Marketplace listing
+is approved, in this order:
+
+1. GCP → OAuth consent screen → **Data access** → add
+   `https://www.googleapis.com/auth/calendar.readonly` and submit the scope
+   verification (justification: "reads upcoming Google Meet events so the
+   user's meetings can be protected automatically; read-only; opt-in").
+2. Wait for scope approval (days; no CASA needed for sensitive-only).
+3. Railway → set `SONAVE_CALENDAR_OAUTH=1` and redeploy. The "Connect Google
+   Calendar" button appears in the console's Auto-protect card.
+
+Disconnect (console button or revocation at myaccount.google.com) revokes the
+refresh token at Google and deletes it from `oauth_tokens`; a revoked grant is
+also detected by the join loop and cleaned up automatically. The zero-scope
+iCal path keeps working independently either way.
+
 ### 4.2c Billing: Stripe metered (free 5 h/month, then $8/monitored-hour)
 
 In the Stripe dashboard (test mode first): **Billing → Meters → Create meter**

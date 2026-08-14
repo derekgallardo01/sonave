@@ -357,6 +357,10 @@ a:hover{color:var(--green-hover)}
       <button class="btn-soft" onclick="saveAlerts()">Save</button>
      </div>
      <div class="hint">Sonave watches this calendar and deploys the bot into your Google Meet meetings as they start &#8212; no calendar permissions needed. Google Calendar &#8594; Settings &#8594; your calendar &#8594; &#8220;Secret address in iCal format&#8221;. Clear the field to turn off.</div>
+     <div id="calRow" style="display:none;align-items:center;gap:10px;margin-top:12px">
+      <button class="btn-soft" id="calBtn"></button>
+      <span class="hint" id="calHint" style="margin:0"></span>
+     </div>
     </div>
 
     <div class="card-pad">
@@ -524,6 +528,7 @@ async function me(){
   var ah=document.getElementById('alertHook');if(ah&&d.alert_webhook)ah.value=d.alert_webhook;
   var ic=document.getElementById('icalUrl');if(ic&&d.ical_url)ic.value=d.ical_url;
   if(d.role==='admin'){document.getElementById('nav-admin').style.display='flex';adminStart()}
+  calRender(d);
   window._me=d;renderPlan(d);return true}catch(e){return false}
 }
 function renderPlan(d){
@@ -548,6 +553,21 @@ async function saveAlerts(){
  var r=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({alert_webhook:v,ical_url:ic})});
  if(r.ok)toast('✓ Settings saved.'+(ic?' Auto-protect is watching your calendar.':''),'ok');
  else{var d=await r.json().catch(function(){return{}});toast('✕ '+((d.detail&&d.detail[0]&&d.detail[0].msg)||'must be an https:// URL'),'err')}
+}
+function calRender(d){
+ var row=document.getElementById('calRow');if(!row)return;
+ if(!d.calendar_oauth){row.style.display='none';return}
+ row.style.display='flex';
+ var b=document.getElementById('calBtn'),h=document.getElementById('calHint');
+ if(d.calendar_connected){
+  b.textContent='Disconnect Google Calendar';
+  b.onclick=async function(){await fetch('/auth/calendar/disconnect',{method:'POST'});toast('✓ Calendar disconnected.','ok');me()};
+  h.textContent='Connected — upcoming Meet events are protected automatically.';
+ }else{
+  b.textContent='Connect Google Calendar';
+  b.onclick=function(){location='/auth/calendar/connect'};
+  h.textContent='One-time read-only calendar consent — no URL pasting needed.';
+ }
 }
 async function portal(){var r=await fetch('/api/billing/portal',{method:'POST'});var d=await r.json();if(d.ok&&d.url)location=d.url;else toast('✕ '+(d.detail||'portal unavailable'),'err')}
 function signout(){fetch('/auth/logout',{method:'POST'}).finally(function(){document.cookie='sonave_token=;path=/;Max-Age=0';location.reload()})}
