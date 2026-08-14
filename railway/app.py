@@ -996,9 +996,14 @@ def _autojoin_tick(now: float | None = None) -> int:
     return launched
 
 
+_AUTOJOIN_ALIVE = 0.0    # last loop heartbeat (0 = loop not running)
+
+
 def _autojoin_loop():  # pragma: no cover — thin sleep wrapper around the tick
+    global _AUTOJOIN_ALIVE
     logger.info("calendar auto-join loop running (60 s)")
     while True:
+        _AUTOJOIN_ALIVE = time.time()
         try:
             _autojoin_tick()
         except Exception as e:  # noqa: BLE001 — the loop must survive anything
@@ -1178,7 +1183,8 @@ def api_me(p: auth.Principal = Depends(require_principal)):
            "picture": p.picture, "role": p.role,
            "google": auth.google_configured(), "billing": billing.configured(),
            "alert_webhook": db.get_alert_webhook(p.user_id),
-           "ical_url": db.get_ical_url(p.user_id)}
+           "ical_url": db.get_ical_url(p.user_id),
+           "autojoin_loop": _AUTOJOIN_ALIVE > 0 and time.time() - _AUTOJOIN_ALIVE < 180}
     out.update(billing.entitlement(p.user_id, p.role))
     return out
 
