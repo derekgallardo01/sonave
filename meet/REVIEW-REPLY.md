@@ -1,5 +1,44 @@
 # GWM review response kit
 
+## Rejection round 2 (2026-08-14 3:22 PM) — fixes + YOUR SDK steps
+
+Reviewer findings: (1) pricing model not set; (2) "add-on must provide meeting
+functionality — after login the user sees this screen only with no visible
+changes." Admin-feed forensics: the reviewer signed in successfully twice
+(14:35 / 14:42 ET — round-1 auth fix confirmed working) but never deployed a
+bot; the static protect screen didn't demonstrate function to them.
+
+**Code (shipped):**
+- The protect screen now offers "▶ Watch a 15-second simulated detection" —
+  clearly-labeled sample data showing the full live monitoring UI (speaker
+  cards, verdict flipping to FAKE, red wire-hold styling, session stats) with
+  zero setup: no second participant, no bot admission. A reviewer sees the
+  meeting functionality in one click.
+- If the Meet SDK can't supply the meeting code, the panel reveals a
+  paste-the-meeting-link input instead of dead-ending — Protect always works.
+
+**Your steps in the Marketplace SDK before republishing:**
+1. **App Listing → Pricing**: select **"Paid with free features"**
+   (free 5 monitored hours/month, then $8/monitored-hour).
+2. **Screenshots**: upload the refreshed set from `designs/marketplace/` and
+   order them to match the real first-run experience:
+   `shot-protect.png` FIRST, then `shot-meet-panel.png`, then
+   `shot-wire-hold.png` (+ console/landing shots as desired).
+3. Republish.
+
+Optional reply in the rejection thread:
+
+> Hi — both points are addressed: (1) the pricing model is now set to "Paid
+> with free features" and shows on the listing; (2) the side panel now
+> demonstrates its meeting functionality immediately — the first screen offers
+> a clearly-labeled 15-second simulated detection preview (speaker cards and a
+> live deepfake verdict) requiring no setup, and one-click "Protect this
+> meeting" deploys the scoring bot into the call (with a paste-the-link
+> fallback). Listing screenshots were re-shot to match the actual first-run
+> screens in order. Republished and live.
+
+
+
 ## Rejection round 1 (2026-08-14) — FIXED, ready to republish
 
 Reviewer findings and what changed (shipped in the `gis` auth rebuild):

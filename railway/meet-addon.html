@@ -135,6 +135,14 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
    <div><b>2</b><span>Each speaker is scored in <strong>~4 seconds</strong>, refreshed every 4 s</span></div>
    <div><b>3</b><span>Synthetic voice → <strong>red alert</strong> + exportable forensic report</span></div>
   </div>
+  <div id="codeRow" style="display:none;margin-top:10px">
+   <input id="codeInp" placeholder="Paste the meeting link (meet.google.com/…)"
+          style="width:100%;padding:9px 11px;border-radius:9px;border:1px solid var(--line2);background:var(--bg);color:var(--ink);font:12px var(--font);box-sizing:border-box">
+   <button class="btn" style="width:100%;margin-top:8px" onclick="protectManual()">Deploy to this link</button>
+  </div>
+  <div style="text-align:center;margin-top:11px">
+   <a href="#" onclick="simStart();return false" style="color:var(--green);font-size:11px;font-weight:600;text-decoration:none">&#9654; Watch a 15-second simulated detection</a>
+  </div>
   <div id="protectStatus" class="ps">Announce recording to participants before you deploy.</div>
   <div id="admitWait" class="wait" style="display:none">
    <div class="wait-row"><span class="spin"></span><b>Bot joining this meeting…</b></div>
@@ -163,6 +171,10 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
    if(!project||!window.meet||!meet.addon)return;
    var session=await meet.addon.createAddonSession({cloudProjectNumber:project});
    window._sideClient=await session.createSidePanelClient();
+   try{ // cache the meeting code early so Protect can't miss it later
+    var mi=await window._sideClient.getMeetingInfo();
+    window._meetCode=(mi&&(mi.meetingCode||mi.meetingId))||'';
+   }catch(e){}
   }catch(e){/* standalone or Meet API change — panel still works via polling */}
  };
  s.onerror=function(){};
@@ -255,23 +267,41 @@ async function protectMeeting(){
  var btn=document.getElementById('protectBtn');
  btn.disabled=true;
  st.textContent='Deploying the bot…';
- try{
-  var code='';
+ var code=window._meetCode||'';
+ if(!code){
   try{
    if(window._sideClient&&window._sideClient.getMeetingInfo){
     var mi=await window._sideClient.getMeetingInfo();
     code=(mi&&(mi.meetingCode||mi.meetingId))||'';
    }
   }catch(e){}
-  if(!code){st.textContent='Could not read the meeting code — deploy from the console instead.';btn.disabled=false;return}
+ }
+ if(!code){
+  // never dead-end: fall back to pasting the meeting link right here
+  st.textContent='Could not read the meeting code automatically — paste the meeting link below.';
+  document.getElementById('codeRow').style.display='block';
+  btn.disabled=false;return
+ }
+ deployTo('https://meet.google.com/'+code,btn,st);
+}
+async function deployTo(url,btn,st){
+ try{
   var r=await fetch('/bot',{method:'POST',headers:authHeaders({'Content-Type':'application/json'}),
-                            body:JSON.stringify({meeting_url:'https://meet.google.com/'+code})});
+                            body:JSON.stringify({meeting_url:url})});
   var d=await r.json();
   if(r.status===402){st.textContent=d.detail||'Free hours used — add a card in the console.';btn.disabled=false;return}
   if(d.ok){deployWait();return}
   st.textContent=d.detail||d.error||'Deploy failed — try from the console.';
   btn.disabled=false;
  }catch(e){st.textContent='Deploy failed — try from the console.';btn.disabled=false}
+}
+function protectManual(){
+ var v=(document.getElementById('codeInp').value||'');
+ var m=v.match(/[a-z]{3}-[a-z]{4}-[a-z]{3}/);
+ var st=document.getElementById('protectStatus');
+ if(!m){st.textContent='That doesn’t look like a Meet link (abc-defg-hij).';return}
+ st.textContent='Deploying the bot…';
+ deployTo('https://meet.google.com/'+m[0],document.getElementById('protectBtn'),st);
 }
 var WAITING=false;
 function isVet(){try{return !!localStorage.getItem('sonave_vet')}catch(x){return false}}
@@ -332,6 +362,7 @@ try{
 }catch(x){}
 
 async function poll(){
+ if(SIM)return;                 // the simulated preview owns the screen
  try{
   var r=await fetch('/api/quality',{headers:authHeaders()});
   if(r.status===401){
@@ -406,6 +437,49 @@ function patchRow(el,k,s){
  var vw=s.auth_verdict?'<span class="vword" style="color:'+vcolor(p)+'">'+esc(s.auth_verdict.toUpperCase())+'</span>'
                       :'<span class="vword" style="color:var(--muted)">PENDING</span>';
  el.querySelector('.smeta').innerHTML='<span>'+esc(s.speech_pct||0)+'% speech</span><span>'+hmsP(s.total_sec)+'</span>'+vw;
+}
+/* Simulated detection preview: pure client-side sample data, clearly labeled,
+   never touches the backend. Shows the live-monitoring UI (cards, verdict
+   flip, wire-hold red) without needing a second participant or bot admission. */
+var SIM=null;
+function simStart(){
+ if(SIM)return;
+ deployDone();
+ document.getElementById('protect').style.display='none';
+ var banner=document.getElementById('banner');
+ banner.style.display='block';
+ banner.onclick=simEnd;
+ var list=document.getElementById('speakers');
+ list.style.display='flex';
+ list.innerHTML=rowHTML('You')+rowHTML('Unknown_caller');
+ list._keys='sim';
+ document.getElementById('sstats').style.display='grid';
+ var t0=Date.now();
+ SIM=setInterval(function(){
+  var sec=(Date.now()-t0)/1000;
+  var p2=Math.min(.94,.12+sec*.06);
+  patchRow(list.children[0],'You',{auth_p:.05,auth_verdict:'real',state:(sec%6<3)?'speaking':'quiet',quiet_sec:1,speech_pct:44,total_sec:60+sec,level:.1});
+  patchRow(list.children[1],'Unknown_caller',{auth_p:p2,auth_verdict:p2>=.7?'fake':p2>=.4?'suspect':'real',state:'speaking',speech_pct:52,total_sec:60+sec,level:.2});
+  var room=document.getElementById('room');
+  room.textContent=p2>=.7?'FAKE':p2>=.4?'SUSPECT':'REAL';
+  room.style.color=vcolor(p2);room.className='verdict';
+  document.getElementById('roomNote').textContent='SIMULATION · sample data, not this call — tap to end.';
+  document.getElementById('stWin').textContent=Math.round(20+sec*2);
+  document.getElementById('stSess').textContent=hmsP(60+sec);
+  var pk=document.getElementById('stPeak');pk.textContent=Math.round(p2*100)+'%';pk.style.color=vcolor(p2);
+  if(sec>18)simEnd();
+ },500);
+}
+function simEnd(){
+ if(!SIM)return;
+ clearInterval(SIM);SIM=null;
+ _pt={};_pd={};
+ var banner=document.getElementById('banner');
+ banner.style.display='none';banner.onclick=null;
+ var list=document.getElementById('speakers');
+ list.innerHTML='';list._keys='';
+ document.getElementById('sstats').style.display='none';
+ document.getElementById('protect').style.display='block';
 }
 function panelAnim(){
  /* 60 fps: ease each row's bar toward its latest polled risk */
