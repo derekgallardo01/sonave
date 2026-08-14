@@ -170,6 +170,14 @@ a:hover{color:var(--green-hover)}
 .pill{padding:7px 15px;border-radius:999px;border:1px solid var(--line2);background:transparent;color:var(--ink2);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)}
 .pill:hover{border-color:var(--green)}
 .pill.on{border-color:rgba(46,229,132,.35);background:rgba(46,229,132,.1);color:var(--green)}
+.adm-grid{display:grid;grid-template-columns:1.6fr 100px 70px 55px 100px 150px 100px;gap:0 12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.adm-grid:last-child{border-bottom:0}
+.evt{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:11.5px}
+.evt:last-child{border-bottom:0}
+.evt-kind{padding:2px 8px;border-radius:6px;font-size:9px;font-weight:700;letter-spacing:.05em;flex-shrink:0;background:rgba(255,255,255,.04);border:1px solid var(--line2)}
+.evt-time{color:var(--muted);font-family:var(--mono);font-size:10.5px;flex-shrink:0;width:62px}
+.evt-mail{color:var(--ink2);flex-shrink:0;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.evt-det{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hist-grid{display:grid;grid-template-columns:1fr 150px 150px 100px 120px;gap:12px;align-items:center;padding:14px 20px;border-bottom:1px solid #10161c}
 .hist-grid:last-child{border-bottom:0}
 .hist-head{padding:12px 20px;border-bottom:1px solid var(--line);font-size:10px;color:var(--muted);letter-spacing:.08em;font-weight:700}
@@ -239,6 +247,7 @@ a:hover{color:var(--green-hover)}
  <div class="nav-item" id="nav-captures" onclick="setView('captures')"><span class="nav-ic">&#8803;</span>Captures</div>
  <div class="nav-item" id="nav-history" onclick="setView('history')"><span class="nav-ic">&#9719;</span>History</div>
  <div class="nav-item" id="nav-lab" onclick="setView('lab')"><span class="nav-ic">&#11041;</span>Model Lab</div>
+ <div class="nav-item" id="nav-admin" style="display:none" onclick="setView('admin')"><span class="nav-ic">&#9670;</span>Admin</div>
  <div class="side-spacer"></div>
  <div class="model-card">
   <div class="model-lbl">ACTIVE MODEL</div>
@@ -456,6 +465,34 @@ a:hover{color:var(--green-hover)}
    </div>
   </div>
  </section>
+
+ <section class="view" id="view-admin">
+  <div class="tiles">
+   <div class="tile"><div class="tile-lbl">USERS</div><div class="tile-val" id="admUsers">&#8212;</div><div class="tile-sub" id="admUsersNew">&#8212;</div></div>
+   <div class="tile"><div class="tile-lbl">ACTIVE SUBS</div><div class="tile-val" id="admSubs">&#8212;</div><div class="tile-sub">metered plans</div></div>
+   <div class="tile"><div class="tile-lbl">BOTS &#183; 24H</div><div class="tile-val" id="admBots">&#8212;</div><div class="tile-sub">deployed</div></div>
+   <div class="tile"><div class="tile-lbl">MINUTES &#183; MONTH</div><div class="tile-val" id="admMin">&#8212;</div><div class="tile-sub">monitored</div></div>
+   <div class="tile"><div class="tile-lbl">OPEN INCIDENTS</div><div class="tile-val" id="admInc">&#8212;</div><div class="tile-sub">all workspaces</div></div>
+  </div>
+  <div class="card">
+   <div class="card-hd"><span class="card-lbl">USERS</span></div>
+   <div id="admUserRows" style="padding:6px 20px 14px"></div>
+  </div>
+  <div class="card">
+   <div class="card-hd"><span class="card-lbl">ACTIVITY</span>
+    <div class="pills" id="admPills">
+     <span class="pill on" onclick="setAdmKind('',this)">All</span>
+     <span class="pill" onclick="setAdmKind('signup',this)">Signups</span>
+     <span class="pill" onclick="setAdmKind('signin',this)">Sign-ins</span>
+     <span class="pill" onclick="setAdmKind('bot_created',this)">Bots</span>
+     <span class="pill" onclick="setAdmKind('meeting_ended',this)">Meetings</span>
+     <span class="pill" onclick="setAdmKind('subscription_checkout',this)">Billing</span>
+     <span class="pill" onclick="setAdmKind('incident_open',this)">Incidents</span>
+    </div>
+   </div>
+   <div id="admFeed" style="padding:6px 20px 14px;max-height:440px;overflow:auto"></div>
+  </div>
+ </section>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -486,6 +523,7 @@ async function me(){
   var el=document.getElementById('userChip');if(el&&d.email)el.textContent=d.email;
   var ah=document.getElementById('alertHook');if(ah&&d.alert_webhook)ah.value=d.alert_webhook;
   var ic=document.getElementById('icalUrl');if(ic&&d.ical_url)ic.value=d.ical_url;
+  if(d.role==='admin'){document.getElementById('nav-admin').style.display='flex';adminStart()}
   window._me=d;renderPlan(d);return true}catch(e){return false}
 }
 function renderPlan(d){
@@ -516,6 +554,70 @@ function signout(){fetch('/auth/logout',{method:'POST'}).finally(function(){docu
 async function jget(u){var r=await fetch(u);if(r.status===401){needlogin();throw'auth'}return r.json()}
 function dologin(){var t=document.getElementById('tok').value.trim();if(!t)return;document.cookie='sonave_token='+t+';path=/;SameSite=Strict;Max-Age=2592000';document.getElementById('login').style.display='none';start();me()}
 function toast(msg,type){var el=document.getElementById('toast');clearTimeout(el._t1);clearTimeout(el._t2);el.textContent=msg;el.className='toast '+(type||'');el._t1=setTimeout(function(){el.classList.add('show')},10);el._t2=setTimeout(function(){el.classList.remove('show')},3500)}
+
+/* ---- admin observability (role=admin only; nav item hidden otherwise) ---- */
+var _admStarted=0,_admKind='';
+function rel(ts){var s=Math.max(0,Date.now()/1000-ts);return s<60?Math.round(s)+'s':s<3600?Math.round(s/60)+'m':s<86400?Math.round(s/3600)+'h':Math.round(s/86400)+'d'}
+function setAdmKind(k,el){_admKind=k;document.querySelectorAll('#admPills .pill').forEach(function(p){p.classList.remove('on')});el.classList.add('on');admEvents()}
+function kcol(k){
+ if(k=='signup'||k=='subscription_checkout'||k=='enroll_added')return'var(--green)';
+ if(k=='incident_open'||k=='bot_denied'||k=='subscription_canceled')return'var(--red)';
+ if(k=='signin'||k=='signout'||k=='settings_changed'||k=='enroll_deleted')return'var(--ink2)';
+ return'#5aa7e8';
+}
+function admSummary(k,d){
+ try{d=d?JSON.parse(d):{}}catch(e){d={}}
+ if(k=='bot_created')return(d.source||'')+' · '+(d.meeting_url||'');
+ if(k=='meeting_ended')return Math.round((d.duration_sec||0)/60)+' min · '+(d.metered_min||0)+' metered';
+ if(k=='bot_denied')return(d.code||'')+' · '+(d.source||'');
+ if(k=='settings_changed')return Object.keys(d).map(function(f){return f+' '+d[f]}).join(' · ');
+ if(k=='incident_open'||k=='enroll_added'||k=='enroll_deleted')return d.speaker||'';
+ if(k=='subscription_updated'||k=='subscription_canceled')return d.status||'';
+ return d.email||'';
+}
+async function admOverview(){
+ try{var d=await jget('/api/admin/overview');
+  document.getElementById('admUsers').textContent=d.users_total;
+  document.getElementById('admUsersNew').textContent='+'+d.users_new_7d+' this week';
+  document.getElementById('admSubs').textContent=d.subs_active;
+  document.getElementById('admBots').textContent=d.bots_24h;
+  document.getElementById('admMin').textContent=Math.round(d.minutes_month);
+  var i=document.getElementById('admInc');i.textContent=d.incidents_open;
+  i.style.color=d.incidents_open>0?'var(--red)':'var(--green)';
+ }catch(e){}
+}
+async function admUsersFn(){
+ try{var d=await jget('/api/admin/users');
+  var h='<div class="adm-grid hist-head"><span>USER</span><span>PLAN</span><span>ROLE</span><span class="hide-sm">BOTS</span><span>MIN &#183; MO</span><span class="hide-sm">LAST LOGIN</span><span>LAST EVENT</span></div>';
+  (d.users||[]).forEach(function(u){
+   h+='<div class="adm-grid"><span class="hist-spk" style="overflow:hidden;text-overflow:ellipsis">'+esc(u.email||u.id)+'</span>'+
+    '<span class="hist-cell">'+esc(u.plan)+(u.autojoin?' &#183; auto':'')+'</span>'+
+    '<span class="hist-cell">'+esc(u.role)+'</span>'+
+    '<span class="hist-cell hide-sm">'+(u.bots_total||0)+'</span>'+
+    '<span class="hist-cell">'+Math.round(u.minutes_month||0)+'</span>'+
+    '<span class="hist-cell hide-sm">'+(u.last_login_ts?dtd(u.last_login_ts)+' '+tod(u.last_login_ts):'—')+'</span>'+
+    '<span class="hist-cell">'+(u.last_event_ts?rel(u.last_event_ts)+' ago':'—')+'</span></div>';
+  });
+  document.getElementById('admUserRows').innerHTML=h;
+ }catch(e){}
+}
+async function admEvents(){
+ try{var d=await jget('/api/admin/events?limit=100'+(_admKind?'&kind='+encodeURIComponent(_admKind):''));
+  var h='';
+  (d.events||[]).forEach(function(ev){
+   h+='<div class="evt"><span class="evt-kind" style="color:'+kcol(ev.kind)+'">'+esc(String(ev.kind).replace(/_/g,' ').toUpperCase())+'</span>'+
+    '<span class="evt-time">'+rel(ev.ts)+' ago</span>'+
+    '<span class="evt-mail">'+esc(ev.email||'operator')+'</span>'+
+    '<span class="evt-det">'+esc(admSummary(ev.kind,ev.detail))+'</span></div>';
+  });
+  document.getElementById('admFeed').innerHTML=h||'<div class="hint">No activity yet.</div>';
+ }catch(e){}
+}
+function adminStart(){
+ if(_admStarted)return;_admStarted=1;
+ admOverview();admUsersFn();admEvents();
+ setInterval(admOverview,30000);setInterval(admUsersFn,30000);setInterval(admEvents,5000);
+}
 
 var _started=0;
 function start(){if(_started)return;_started=1;list();quality();incidents();enrolled();modelInfo();dataProgress();setInterval(list,5000);setInterval(quality,500);setInterval(incidents,3000);setInterval(enrolled,10000);setInterval(dataProgress,60000)}
@@ -549,9 +651,9 @@ function tod(ms){var d=new Date(ms);var h=d.getHours(),m=d.getMinutes();var ap=h
 function dtd(ms){var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],d=new Date(ms);return M[d.getMonth()]+' '+d.getDate()+', '+tod(ms)}
 
 /* ---- view switching ---- */
-var TITLES={monitor:'Live Monitor',captures:'Captures & Forensic Log',history:'Meeting History',lab:'Model Lab'};
+var TITLES={monitor:'Live Monitor',captures:'Captures & Forensic Log',history:'Meeting History',lab:'Model Lab',admin:'Admin'};
 function setView(name){
- ['monitor','captures','history','lab'].forEach(function(v){
+ ['monitor','captures','history','lab','admin'].forEach(function(v){
   document.getElementById('view-'+v).classList.toggle('on',v===name);
   document.getElementById('nav-'+v).classList.toggle('active',v===name);
  });

@@ -129,6 +129,20 @@ On the first admin sign-in, pre-existing single-tenant data (flat captures,
 voiceprints, incidents) migrates into that admin's workspace automatically
 (idempotent; marker file `/.tenancy_migrated` on the volume).
 
+### 4.2b Admin observability (optional pushes)
+
+The console's **Admin** view (visible to admin accounts and the operator token)
+shows overview tiles, a per-user rollup, and a live activity feed backed by the
+`events` table — no setup needed. Growth pushes (new signup, subscription
+added/canceled) are optional and env-gated; unset = silently off:
+
+| Variable | Value |
+|----------|-------|
+| `SONAVE_ADMIN_WEBHOOK` | Slack incoming-webhook URL; growth events post here |
+| `SONAVE_ADMIN_EMAIL` | Where growth emails go (e.g. the founder's Gmail) |
+| `SONAVE_SMTP_HOST` / `SONAVE_SMTP_PORT` | SMTP relay; port default 587 (STARTTLS) |
+| `SONAVE_SMTP_USER` / `SONAVE_SMTP_PASS` | SMTP login. Gmail: enable 2FA, then create an **App password** (Google Account → Security → App passwords) and use it as the password with `smtp.gmail.com` |
+
 ### 4.2c Billing: Stripe metered (free 5 h/month, then $8/monitored-hour)
 
 In the Stripe dashboard (test mode first): **Billing → Meters → Create meter**

@@ -106,6 +106,57 @@ def require_principal(request: Request) -> auth.Principal:
         raise HTTPException(status_code=401, detail="unauthorized")
     return p
 
+
+def require_admin(request: Request) -> auth.Principal:
+    p = require_principal(request)
+    if p.role != "admin":
+        raise HTTPException(status_code=403, detail="admin only")
+    return p
+
+
+def _track(user_id: str, kind: str, **detail) -> None:
+    """Best-effort activity event — must never affect the request path."""
+    try:
+        db.add_event(user_id, kind, json.dumps(detail) if detail else "")
+    except Exception:
+        pass
+
+
+def _notify_admin(summary: str) -> None:
+    """Growth pushes (signup / subscription changes) to the founder, off-thread.
+    Each channel is env-gated and silently off until configured."""
+    def _send():
+        hook = os.environ.get("SONAVE_ADMIN_WEBHOOK", "")
+        if hook:
+            try:
+                req = urllib.request.Request(
+                    hook, data=json.dumps({"text": summary}).encode(),
+                    headers={"Content-Type": "application/json"})
+                urllib.request.urlopen(req, timeout=10).read()
+            except Exception as e:
+                logger.warning("admin webhook failed: %s", repr(e)[:80])
+        host = os.environ.get("SONAVE_SMTP_HOST", "")
+        to = os.environ.get("SONAVE_ADMIN_EMAIL", "")
+        if host and to:
+            try:
+                import smtplib
+                from email.message import EmailMessage
+                msg = EmailMessage()
+                msg["Subject"] = f"Sonave: {summary[:120]}"
+                msg["From"] = os.environ.get("SONAVE_SMTP_USER", "")
+                msg["To"] = to
+                msg.set_content(summary)
+                with smtplib.SMTP(host, int(os.environ.get("SONAVE_SMTP_PORT", "587")),
+                                  timeout=15) as s:
+                    s.starttls()
+                    s.login(os.environ.get("SONAVE_SMTP_USER", ""),
+                            os.environ.get("SONAVE_SMTP_PASS", ""))
+                    s.send_message(msg)
+            except Exception as e:
+                logger.warning("admin email failed: %s", repr(e)[:80])
+    threading.Thread(target=_send, daemon=True).start()
+
+
 app = FastAPI(title="Sonave Capture")
 
 # Inline favicon: the Sonave scope-pulse mark — green radar scope with a voice
@@ -155,7 +206,8 @@ def send_bot(req: BotReq, request: Request, p: "auth.Principal" = Depends(requir
 
 
 def _launch_bot(user_id: str, role: str, meeting_url: str,
-                request: Request | None = None, bot_name: str = "Sonave"):
+                request: Request | None = None, bot_name: str = "Sonave",
+                source: str = "manual"):
     """Deploy a bot into a meeting. Shared by POST /bot and the calendar
     auto-join loop (which has no request; _ws_url falls back to env domain)."""
     if not RECALL_API_KEY:
@@ -181,6 +233,8 @@ def _launch_bot(user_id: str, role: str, meeting_url: str,
                     "detail": "A Sonave bot is already in this meeting."}
     gate = _bot_gate(user_id, role)
     if gate is not None:
+        code = gate.get("code") if isinstance(gate, dict) else "quota"
+        _track(user_id, "bot_denied", code=code or "denied", source=source)
         return gate
     ws = _ws_url(request)
     # Per-bot single-purpose WS token: bot-scoped, hashed at rest, 24 h expiry —
@@ -210,6 +264,7 @@ def _launch_bot(user_id: str, role: str, meeting_url: str,
         db.insert_bot(bot_id or "unknown", user_id,
                       hashlib.sha256(bot_tok.encode()).hexdigest(), murl)
         logger.info("bot created id=%s for %s (user=%s)", bot_id, murl, user_id)
+        _track(user_id, "bot_created", source=source, meeting_url=murl, bot_id=bot_id or "")
         if SCORER_URL:                      # pre-warm the scale-to-zero scorer so the
             threading.Thread(target=_warm_scorer, daemon=True).start()  # first verdict skips the cold start
         return {"ok": True, "bot_id": bot_id}
@@ -387,6 +442,8 @@ async def ws_audio(ws: WebSocket):
             return
         uid = db.first_admin_id() or auth.MACHINE_WORKSPACE   # fully-open dev mode
     await ws.accept()
+    if bot_row is not None:
+        _track(uid, "meeting_started", bot_id=bot_row["bot_id"])
     with _STATE_LOCK:
         fresh = ACTIVE_STREAMS.get(uid, 0) == 0
         ACTIVE_STREAMS[uid] = ACTIVE_STREAMS.get(uid, 0) + 1
@@ -489,6 +546,16 @@ async def ws_audio(ws: WebSocket):
         if bot_row is not None:
             _meter_tick(bot_row["bot_id"], uid, time.time() - last_tick)
             db.mark_bot(bot_row["bot_id"], ended_ts=time.time(), status="ended")
+            try:
+                c = db._conn()
+                metered = c.execute("SELECT metered_sec FROM bots WHERE bot_id=?",
+                                    (bot_row["bot_id"],)).fetchone()
+                c.close()
+                _track(uid, "meeting_ended", bot_id=bot_row["bot_id"],
+                       duration_sec=int(time.time() - conn_start),
+                       metered_min=round((metered["metered_sec"] if metered else 0) / 60, 1))
+            except Exception:
+                pass
         with _STATE_LOCK:
             ACTIVE_STREAMS[uid] = max(ACTIVE_STREAMS.get(uid, 1) - 1, 0)
             if ACTIVE_STREAMS[uid] == 0:
@@ -682,7 +749,8 @@ def _score_and_store(user_id: str, spk: str, wav_bytes: bytes, frac: float = 1.0
             pass
         if verdict == "fake" and streak >= INCIDENT_STREAK:   # sustained deepfake -> incident + alert
             inc = incidents.record(spk, roll, res.get("model_version", "?"), user_id=user_id)
-            if inc:
+            if inc:                       # record() returns a dict only for NEW incidents
+                _track(user_id, "incident_open", speaker=spk)
                 incidents.notify(inc, webhook=db.get_alert_webhook(user_id) or None)
     except Exception as e:  # noqa: BLE001 — scoring must never crash capture
         logger.warning("score skip %s: %s", spk, repr(e)[:80])
@@ -727,6 +795,7 @@ def api_enroll(req: EnrollReq, p: auth.Principal = Depends(require_principal)):
     udir = enroll.ENROLL_DIR / p.user_id
     try:
         vp = enroll.enroll(speaker, paths, base_dir=udir)
+        _track(p.user_id, "enroll_added", speaker=speaker)
         return {"ok": True, "speaker": speaker, "clips": len(paths),
                 "dim": len(vp), "voiceprint_path": str(udir / f"{speaker}.npy")}
     except Exception as exc:
@@ -756,6 +825,7 @@ def api_delete_enroll(speaker: str, p: auth.Principal = Depends(require_principa
     f = udir / f"{_SPK_RE.sub('_', speaker).strip('_') or 'unknown'}.npy"
     if f.exists():
         f.unlink()
+        _track(p.user_id, "enroll_deleted", speaker=speaker)
         return {"ok": True, "detail": "deleted"}
     return {"ok": False, "detail": "not found"}
 
@@ -896,6 +966,42 @@ def api_bots(p: auth.Principal = Depends(require_principal)):
     return {"bots": rows}
 
 
+# --- admin observability ------------------------------------------------------
+@app.get("/api/admin/overview")
+def api_admin_overview(p: auth.Principal = Depends(require_admin)):
+    now = time.time()
+    c = db._conn()
+    try:
+        users_total = c.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        users_new_7d = c.execute("SELECT COUNT(*) FROM users WHERE created_ts > ?",
+                                 (now - 7 * 86400,)).fetchone()[0]
+        subs_active = c.execute("SELECT COUNT(*) FROM subscriptions "
+                                "WHERE status IN ('active','trialing')").fetchone()[0]
+        bots_24h = c.execute("SELECT COUNT(*) FROM bots WHERE created_ts > ?",
+                             (now - 86400,)).fetchone()[0]
+        minutes_month = c.execute("SELECT COALESCE(SUM(minutes),0) FROM usage WHERE month=?",
+                                  (billing.month_key(),)).fetchone()[0]
+    finally:
+        c.close()
+    open_inc = sum(1 for i in incidents.list_incidents(limit=200, user_id=None)
+                   if i.get("status") == "open")
+    return {"users_total": users_total, "users_new_7d": users_new_7d,
+            "subs_active": subs_active, "bots_24h": bots_24h,
+            "minutes_month": round(minutes_month, 1), "incidents_open": open_inc}
+
+
+@app.get("/api/admin/users")
+def api_admin_users(p: auth.Principal = Depends(require_admin)):
+    return {"users": db.admin_user_rollup(billing.month_key())}
+
+
+@app.get("/api/admin/events")
+def api_admin_events(user_id: str = "", kind: str = "", limit: int = 100,
+                     before: int = 0, p: auth.Principal = Depends(require_admin)):
+    return {"events": db.list_events(user_id=user_id or None, kind=kind or None,
+                                     limit=limit, before_id=before or None)}
+
+
 @app.get("/api/model", dependencies=[Depends(require_auth)])
 def api_model():
     """Metrics of the deployed checkpoint (written by tools/write_metrics.py)."""
@@ -947,7 +1053,10 @@ class AckReq(BaseModel):
 @app.post("/api/incidents/ack")
 def api_ack(a: AckReq, p: auth.Principal = Depends(require_principal)):
     uid = None if p.role == "admin" else p.user_id
-    return {"ok": incidents.acknowledge(a.id, user_id=uid)}
+    ok = incidents.acknowledge(a.id, user_id=uid)
+    if ok:
+        _track(p.user_id, "incident_ack", incident_id=a.id)
+    return {"ok": ok}
 
 
 class SettingsReq(BaseModel):
@@ -965,8 +1074,15 @@ class SettingsReq(BaseModel):
 
 @app.post("/api/settings")
 def api_settings(req: SettingsReq, p: auth.Principal = Depends(require_principal)):
+    changed = {}                       # field -> "set"/"cleared"; never the URL values
+    if db.get_alert_webhook(p.user_id) != req.alert_webhook:
+        changed["alert_webhook"] = "set" if req.alert_webhook else "cleared"
+    if db.get_ical_url(p.user_id) != req.ical_url:
+        changed["ical_url"] = "set" if req.ical_url else "cleared"
     db.set_alert_webhook(p.user_id, req.alert_webhook)
     db.set_ical_url(p.user_id, req.ical_url)
+    if changed:
+        _track(p.user_id, "settings_changed", **changed)
     return {"ok": True, "alert_webhook": req.alert_webhook, "ical_url": req.ical_url}
 
 
@@ -983,7 +1099,8 @@ def _autojoin_tick(now: float | None = None) -> int:
             key = f"{e['uid']}:{int(e['start_ts'])}"
             if db.autojoin_seen(u["id"], key):
                 continue
-            res = _launch_bot(u["id"], u.get("role") or "member", e["meet_url"])
+            res = _launch_bot(u["id"], u.get("role") or "member", e["meet_url"],
+                              source="autojoin")
             ok = isinstance(res, dict) and res.get("ok")
             # always mark the occurrence: retrying a denied/limited launch every
             # minute would spam the meeting's waiting room and the billing gate
@@ -1162,13 +1279,22 @@ def auth_callback(request: Request, code: str = "", state: str = ""):
                         f"Path=/; Secure; HttpOnly; SameSite=None; Partitioned")
     resp.delete_cookie(auth.STATE_COOKIE, path="/auth")
     logger.info("login: %s (%s)", user.get("email"), user.get("role"))
+    # exact-equal floats only on the INSERT path (db.upsert_google_user uses one `now`)
+    if user.get("created_ts") == user.get("last_login_ts"):
+        _track(user["id"], "signup", email=user.get("email") or "")
+        _notify_admin(f"New signup: {user.get('email')}")
+    else:
+        _track(user["id"], "signin", email=user.get("email") or "")
     if user.get("role") == "admin":
         db.migrate_legacy(DATA_DIR, enroll.ENROLL_DIR, user["id"])
     return resp
 
 
 @app.post("/auth/logout")
-def auth_logout():
+def auth_logout(request: Request):
+    p = auth.get_principal(request)
+    if p is not None and p.kind == "user":     # expired cookie / operator: nothing to track
+        _track(p.user_id, "signout")
     resp = RedirectResponse("/console", status_code=302)
     resp.delete_cookie(auth.SESSION_COOKIE, path="/")
     resp.headers.append("set-cookie",
@@ -1229,6 +1355,11 @@ async def api_billing_webhook(request: Request):
     if db.webhook_seen(event.get("id", ""), event.get("type", "")):
         return {"ok": True, "duplicate": True}
     billing.handle_webhook(event)
+    etype = event.get("type", "")
+    if etype == "checkout.session.completed":
+        _notify_admin("New subscription: a customer added a card (metered plan).")
+    elif etype == "customer.subscription.deleted":
+        _notify_admin("Subscription canceled by a customer.")
     return {"ok": True}
 
 

@@ -75,6 +75,15 @@ CREATE TABLE IF NOT EXISTS scores (
     verdict TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_scores_user_spk_ts ON scores(user_id, speaker, ts);
+CREATE TABLE IF NOT EXISTS events (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts      REAL,
+    user_id TEXT,
+    kind    TEXT,
+    detail  TEXT DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_events_user_ts ON events(user_id, ts);
+CREATE INDEX IF NOT EXISTS idx_events_kind_ts ON events(kind, ts);
 """
 
 
@@ -98,6 +107,76 @@ def _conn() -> sqlite3.Connection:
               "user_id TEXT, event_key TEXT, bot_id TEXT, ts REAL, "
               "PRIMARY KEY (user_id, event_key))")
     return c
+
+
+# --- activity events ---------------------------------------------------------
+# Founder-scale audit stream (~50 rows/day without per-minute ticks): kept
+# forever on purpose — pruning would cost more code than the disk it saves.
+def add_event(user_id: str, kind: str, detail: str = "") -> None:
+    """Best-effort at THIS layer so any caller (app, billing) is safe by default."""
+    try:
+        with _LOCK:
+            c = _conn()
+            try:
+                c.execute("INSERT INTO events (ts, user_id, kind, detail) VALUES (?,?,?,?)",
+                          (time.time(), user_id, kind, detail))
+                c.commit()
+            finally:
+                c.close()
+    except Exception:
+        pass
+
+
+def list_events(user_id: str | None = None, kind: str | None = None,
+                limit: int = 100, before_id: int | None = None) -> list[dict]:
+    q = ("SELECT e.id, e.ts, e.user_id, e.kind, e.detail, u.email "
+         "FROM events e LEFT JOIN users u ON u.id = e.user_id")
+    where, args = [], []
+    if user_id:
+        where.append("e.user_id=?")
+        args.append(user_id)
+    if kind:
+        where.append("e.kind=?")
+        args.append(kind)
+    if before_id:
+        where.append("e.id<?")
+        args.append(before_id)
+    if where:
+        q += " WHERE " + " AND ".join(where)
+    q += " ORDER BY e.id DESC LIMIT ?"
+    args.append(max(1, min(int(limit), 500)))
+    c = _conn()
+    try:
+        return [dict(r) for r in c.execute(q, args).fetchall()]
+    finally:
+        c.close()
+
+
+def admin_user_rollup(month: str) -> list[dict]:
+    """Per-user admin overview row: identity, subscription, usage, activity."""
+    c = _conn()
+    try:
+        rows = c.execute(
+            "SELECT u.id, u.email, u.name, u.role, u.created_ts, u.last_login_ts, "
+            "       u.ical_url, s.status AS sub_status, "
+            "       (SELECT COUNT(*) FROM bots b WHERE b.user_id = u.id) AS bots_total, "
+            "       COALESCE(g.minutes, 0) AS minutes_month, "
+            "       (SELECT MAX(ts) FROM events e WHERE e.user_id = u.id) AS last_event_ts "
+            "FROM users u "
+            "LEFT JOIN subscriptions s ON s.user_id = u.id "
+            "LEFT JOIN usage g ON g.user_id = u.id AND g.month = ? "
+            "ORDER BY u.last_login_ts DESC", (month,)).fetchall()
+        out = []
+        for r in rows:
+            d = dict(r)
+            d["plan"] = ("admin" if d["role"] == "admin"
+                         else "metered" if (d.get("sub_status") or "") in ("active", "trialing")
+                         else "free")
+            d["autojoin"] = bool(d.pop("ical_url", None))
+            out.append(d)
+        return out
+    finally:
+        c.close()
 
 
 # --- users -------------------------------------------------------------------

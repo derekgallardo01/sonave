@@ -176,6 +176,8 @@ def handle_webhook(event: dict) -> None:
         uid = obj.get("client_reference_id")
         if uid:
             db.upsert_subscription(uid, obj.get("customer"), obj.get("subscription"), "active")
+            db.add_event(uid, "subscription_checkout",
+                         json.dumps({"customer": obj.get("customer") or ""}))
             logger.info("billing: %s activated metered plan", uid)
     elif etype in ("customer.subscription.updated", "customer.subscription.deleted"):
         cust = obj.get("customer")
@@ -189,4 +191,6 @@ def handle_webhook(event: dict) -> None:
             c.close()
         if r:
             db.upsert_subscription(r["user_id"], cust, obj.get("id"), status)
+            kind = "subscription_canceled" if status == "canceled" else "subscription_updated"
+            db.add_event(r["user_id"], kind, json.dumps({"status": status}))
             logger.info("billing: %s subscription -> %s", r["user_id"], status)
