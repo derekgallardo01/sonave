@@ -186,6 +186,7 @@ def test_bot_deploy_dedupes_same_meeting(mod, monkeypatch):
         return _R(json.dumps({"id": f"recall-bot-{calls['n']}"}).encode())
 
     monkeypatch.setattr(mod.urllib.request, "urlopen", _open)
+    monkeypatch.setattr(mod, "_recall_bot_status", lambda bid: "in_call_recording")
     c = _client_as(mod, ua["id"])
     r1 = c.post("/bot", json={"meeting_url": "https://meet.google.com/dup"})
     r2 = c.post("/bot", json={"meeting_url": "https://meet.google.com/dup"})
@@ -241,6 +242,37 @@ def test_new_stream_resets_previous_session(mod):
     _stream(mod, "tok-n2", "Bob", 3)
     q = _client_as(mod, ua["id"]).get("/api/quality").json()
     assert "Bob" in q and "Alice" not in q
+
+
+def test_protect_again_after_kick_dispatches_fresh_bot(mod, monkeypatch):
+    """Re-inviting must work at click time: if Recall says the 'existing' bot
+    ended (kicked/denied), the dedupe steps aside and a fresh bot deploys."""
+    ua = _mk_user(mod, "s-kick", "kick@x.com")
+    calls = {"n": 0}
+
+    class _R(io.BytesIO):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            self.close()
+
+    def _open(req, timeout=None):
+        calls["n"] += 1
+        return _R(json.dumps({"id": f"recall-bot-{calls['n']}"}).encode())
+
+    monkeypatch.setattr(mod.urllib.request, "urlopen", _open)
+    c = _client_as(mod, ua["id"])
+    r1 = c.post("/bot", json={"meeting_url": "https://meet.google.com/kick"})
+    assert r1.json()["bot_id"] == "recall-bot-1"
+    monkeypatch.setattr(mod, "_recall_bot_status", lambda bid: "call_ended")   # host kicked it
+    r2 = c.post("/bot", json={"meeting_url": "https://meet.google.com/kick"})
+    assert r2.json()["ok"] and not r2.json().get("already")
+    assert r2.json()["bot_id"] == "recall-bot-2" and calls["n"] == 2
+    con = mod.db._conn()
+    row = con.execute("SELECT ended_ts FROM bots WHERE bot_id='recall-bot-1'").fetchone()
+    con.close()
+    assert row["ended_ts"] is not None                        # kicked bot's row closed
 
 
 def test_reaper_ends_kicked_bot_and_clears_stuck_view(mod, monkeypatch):

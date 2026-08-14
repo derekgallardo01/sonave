@@ -158,8 +158,18 @@ def send_bot(req: BotReq, request: Request, p: "auth.Principal" = Depends(requir
         return {"ok": False, "detail": "meeting_url must be a Google Meet / Zoom / Teams link"}
     existing = db.find_active_bot(p.user_id, req.meeting_url.strip())
     if existing:
-        return {"ok": True, "bot_id": existing["bot_id"], "already": True,
-                "detail": "A Sonave bot is already in this meeting."}
+        # verify against Recall at click time: a kicked/denied bot must never
+        # block re-inviting (its zombie socket can keep our row looking live)
+        code = None
+        try:
+            code = _recall_bot_status(existing["bot_id"])
+        except Exception:
+            pass                          # Recall unreachable — keep the dedupe
+        if code in _ENDED_CODES:
+            db.mark_bot(existing["bot_id"], ended_ts=time.time(), status="ended")
+        else:
+            return {"ok": True, "bot_id": existing["bot_id"], "already": True,
+                    "detail": "A Sonave bot is already in this meeting."}
     gate = _bot_gate(p)
     if gate is not None:
         return gate
