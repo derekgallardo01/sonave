@@ -850,6 +850,27 @@ def api_quality(p: auth.Principal = Depends(require_principal)):
     return out
 
 
+@app.get("/api/bots")
+def api_bots(p: auth.Principal = Depends(require_principal)):
+    """Recent bots for this workspace with live Recall status (support/debug,
+    and the future 'bot status' hook for the panel). Token hashes never leave."""
+    c = db._conn()
+    try:
+        rows = [dict(r) for r in c.execute(
+            "SELECT bot_id, meeting_url, created_ts, started_ts, ended_ts, status, metered_sec "
+            "FROM bots WHERE user_id=? ORDER BY created_ts DESC LIMIT 5",
+            (p.user_id,)).fetchall()]
+    finally:
+        c.close()
+    for r in rows:
+        if not r["ended_ts"] and RECALL_API_KEY:
+            try:
+                r["recall_status"] = _recall_bot_status(r["bot_id"])
+            except Exception:
+                r["recall_status"] = "lookup_failed"
+    return {"bots": rows}
+
+
 @app.get("/api/model", dependencies=[Depends(require_auth)])
 def api_model():
     """Metrics of the deployed checkpoint (written by tools/write_metrics.py)."""
