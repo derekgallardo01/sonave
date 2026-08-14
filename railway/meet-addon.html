@@ -184,13 +184,20 @@ function saveTok(t){TOK=t;try{localStorage.setItem('sonave_tok',t)}catch(x){}try
 function clearTok(){TOK='';try{localStorage.removeItem('sonave_tok');sessionStorage.removeItem('sonave_tok')}catch(x){}}
 
 var _gisReady=false,_gisPrompted=false;
+function wasSignedOut(){try{return localStorage.getItem('sonave_signed_out')==='1'}catch(x){return false}}
+function _gisInit(){
+ // after a manual sign-out, auto_select would silently sign the user right
+ // back in (the GIS suppression cookie is unreliable in a partitioned
+ // iframe) — so post-signout sessions get the one-click chip instead
+ google.accounts.id.initialize({client_id:CID,callback:onCredential,
+  auto_select:!wasSignedOut(),use_fedcm_for_prompt:true,itp_support:true,context:'signin'});
+}
 (function(){
  var s=document.createElement('script');
  s.src='https://accounts.google.com/gsi/client';
  s.onload=function(){
   if(!CID||!window.google||!google.accounts)return;
-  google.accounts.id.initialize({client_id:CID,callback:onCredential,auto_select:true,
-                                 use_fedcm_for_prompt:true,itp_support:true,context:'signin'});
+  _gisInit();
   _gisReady=true;
   var el=document.getElementById('gsiBtn');
   if(el)google.accounts.id.renderButton(el,{theme:'filled_black',size:'large',shape:'pill',text:'signin_with',width:250});
@@ -211,16 +218,22 @@ async function onCredential(resp){
   var r=await fetch('/auth/google-credential',{method:'POST',headers:{'Content-Type':'application/json'},
                                                body:JSON.stringify({credential:resp.credential})});
   var d=await r.json();
-  if(d.ok&&d.token){saveTok(d.token);poll()}
+  if(d.ok&&d.token){
+   try{localStorage.removeItem('sonave_signed_out')}catch(x){}
+   saveTok(d.token);poll()
+  }
  }catch(e){}
 }
 function signOut(){
- // full logout: revoke every Sonave session server-side, drop One Tap
- // auto-select, land back on the sign-in screen
+ // full logout: revoke every Sonave session server-side, remember the
+ // signed-out choice (kills auto_select re-login), back to the sign-in screen
  var h=authHeaders();
  clearTok();
+ try{localStorage.setItem('sonave_signed_out','1')}catch(x){}
+ try{google.accounts.id.cancel()}catch(e){}
  try{google.accounts.id.disableAutoSelect()}catch(e){}
  fetch('/auth/logout',{method:'POST',headers:h}).finally(function(){
+  if(_gisReady)_gisInit();               // re-arm WITHOUT auto_select
   _gisPrompted=false;ME=null;show('signin');maybePrompt();
  });
 }
