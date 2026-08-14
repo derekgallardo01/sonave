@@ -262,10 +262,21 @@ function deployWait(){
  setTimeout(function(){
   if(WAITING)document.getElementById('waitHint').innerHTML='<span class="up">▲</span> Still waiting — the host must admit the guest named <b>“Sonave”</b> at the top of Meet. Everyone in the call can see it join.';
  },45000);
+ setTimeout(function(){if(WAITING)deployReset()},180000);
 }
 function deployDone(){
  WAITING=false;
  try{sessionStorage.removeItem('sonave_deploy_t')}catch(x){}
+}
+function deployReset(){
+ // bot was denied / removed before admission: give the button back with the truth
+ deployDone();
+ document.getElementById('admitWait').style.display='none';
+ document.getElementById('protectHero').style.display='';
+ document.getElementById('protectSteps').style.display='';
+ var b=document.getElementById('protectBtn');b.style.display='';b.disabled=false;
+ var st=document.getElementById('protectStatus');st.style.display='';
+ st.textContent='The bot wasn’t admitted. Deploy again when ready — a brand-new bot will knock. (A denied deploy frees up after ~5 minutes.)';
 }
 try{
  var _dt=+sessionStorage.getItem('sonave_deploy_t');
