@@ -270,7 +270,11 @@ ACTIVE_STREAMS: dict[str, int] = {}          # open audio websockets per workspa
 LAST_CLOSE: dict[str, float] = {}            # when the count last hit zero
 STREAM_GRACE_SEC = int(os.environ.get("SONAVE_STREAM_GRACE_SEC", "45"))
 _REAP_LAST: dict[str, float] = {}            # per-workspace throttle for the bot reaper
-REAP_INTERVAL_SEC = int(os.environ.get("SONAVE_REAP_INTERVAL_SEC", "8"))
+LAST_FRAME: dict[str, float] = {}            # last audio frame per workspace
+# Adaptive sweep: while audio flows the bot is obviously alive (check lazily);
+# the moment the stream goes quiet is exactly when a kick is possible (check fast).
+REAP_FAST_SEC = int(os.environ.get("SONAVE_REAP_INTERVAL_SEC", "4"))
+REAP_SLOW_SEC = 15
 
 # Build stamp served on /api/quality — open consoles/panels reload themselves on
 # deploy instead of running week-old JS until someone remembers to hard-refresh.
@@ -425,6 +429,7 @@ async def ws_audio(ws: WebSocket):
                 # whitelist the speaker name -> safe for use in the capture filename
                 spk = _SPK_RE.sub("_", ((d.get("participant") or {}).get("name") or "unknown")).strip("_") or "unknown"
                 raw = base64.b64decode(buf)
+                LAST_FRAME[uid] = time.time()                # feeds the adaptive reaper
                 b = buffers.setdefault(spk, bytearray())     # CAPTURE FIRST (critical path)
                 b.extend(raw)
                 if len(b) >= _CHUNK_BYTES:               # periodic flush -> ~2 min training files
@@ -788,8 +793,10 @@ def api_quality(p: auth.Principal = Depends(require_principal)):
     uid = p.user_id
     udir = enroll.ENROLL_DIR / uid
     # reaper: a kicked bot's socket can linger open, so periodically verify
-    # live-looking bots against Recall's authoritative status (off-thread)
-    if RECALL_API_KEY and time.time() - _REAP_LAST.get(uid, 0) > REAP_INTERVAL_SEC \
+    # live-looking bots against Recall's authoritative status (off-thread).
+    # Quiet stream -> fast sweep (kick likely); flowing audio -> lazy sweep.
+    reap_after = REAP_FAST_SEC if time.time() - LAST_FRAME.get(uid, 0) > 5 else REAP_SLOW_SEC
+    if RECALL_API_KEY and time.time() - _REAP_LAST.get(uid, 0) > reap_after \
             and db.unended_bots(uid):
         _REAP_LAST[uid] = time.time()
         threading.Thread(target=_reap_dead_bots, args=(uid,), daemon=True).start()
