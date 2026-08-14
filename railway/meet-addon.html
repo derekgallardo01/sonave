@@ -70,6 +70,13 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
 .btn:hover{background:#4deda0}
 .btn:disabled{opacity:.55;cursor:default}
 .ph{text-align:center;padding:16px 6px 2px}
+/* returning users have read the pitch — compact protect screen after 1st deploy */
+#protect.compact .ph-s,#protect.compact .steps{display:none}
+#protect.compact .ph{padding:8px 6px 2px}
+#protect.compact .ph-t{font-size:13.5px;margin-bottom:12px}
+#protect.compact .radar{width:52px;height:52px;margin-bottom:8px}
+#protect.compact .radar svg{inset:10px;width:32px;height:32px}
+#protect.compact .ps{margin-top:8px}
 .radar{position:relative;width:76px;height:76px;margin:0 auto 12px}
 .radar svg{position:absolute;inset:16px;width:44px;height:44px}
 .radar i{position:absolute;inset:0;border:1.5px solid rgba(46,229,132,.5);border-radius:50%;animation:ping 2.4s ease-out infinite}
@@ -225,7 +232,9 @@ async function protectMeeting(){
  }catch(e){st.textContent='Deploy failed — try from the console.';btn.disabled=false}
 }
 var WAITING=false;
+function isVet(){try{return !!localStorage.getItem('sonave_vet')}catch(x){return false}}
 function deployWait(){
+ try{localStorage.setItem('sonave_vet','1')}catch(x){}
  // The gap between clicking and Meet's "Admit" chip needs a visible home:
  // spinner card until audio actually flows. Survives the panel reloading.
  WAITING=true;
@@ -307,8 +316,10 @@ async function poll(){
   });
   var hasAudio=ks.length>0;
   if(hasAudio)deployDone();
-  document.getElementById('protect').style.display=hasAudio?'none':'block';
-  list.style.display=hasAudio?'flex':'none';
+  var prot=document.getElementById('protect');
+  prot.style.display=hasAudio?'none':'block';
+  prot.className=isVet()?'compact':'';
+  list.style.display='flex';
   document.getElementById('banner').style.display=hasAudio?'block':'none';
   document.getElementById('sstats').style.display=hasAudio?'grid':'none';
   if(hasAudio){
