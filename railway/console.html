@@ -558,6 +558,10 @@ function toast(msg,type){var el=document.getElementById('toast');clearTimeout(el
 /* ---- admin observability (role=admin only; nav item hidden otherwise) ---- */
 var _admStarted=0,_admKind='';
 function rel(ts){var s=Math.max(0,Date.now()/1000-ts);return s<60?Math.round(s)+'s':s<3600?Math.round(s/60)+'m':s<86400?Math.round(s/3600)+'h':Math.round(s/86400)+'d'}
+function est(ts){/* seconds -> "Aug 14, 9:48 AM" pinned to US Eastern */
+ try{return new Date(ts*1000).toLocaleString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})+' ET'}
+ catch(e){return dtd(ts*1000)}
+}
 function setAdmKind(k,el){_admKind=k;document.querySelectorAll('#admPills .pill').forEach(function(p){p.classList.remove('on')});el.classList.add('on');admEvents()}
 function kcol(k){
  if(k=='signup'||k=='subscription_checkout'||k=='enroll_added')return'var(--green)';
@@ -573,7 +577,7 @@ function admSummary(k,d){
  if(k=='settings_changed')return Object.keys(d).map(function(f){return f+' '+d[f]}).join(' · ');
  if(k=='incident_open'||k=='enroll_added'||k=='enroll_deleted')return d.speaker||'';
  if(k=='subscription_updated'||k=='subscription_canceled')return d.status||'';
- return d.email||'';
+ return '';                       // signup/signin: the email column already says it
 }
 async function admOverview(){
  try{var d=await jget('/api/admin/overview');
@@ -595,7 +599,7 @@ async function admUsersFn(){
     '<span class="hist-cell">'+esc(u.role)+'</span>'+
     '<span class="hist-cell hide-sm">'+(u.bots_total||0)+'</span>'+
     '<span class="hist-cell">'+Math.round(u.minutes_month||0)+'</span>'+
-    '<span class="hist-cell hide-sm">'+(u.last_login_ts?dtd(u.last_login_ts)+' '+tod(u.last_login_ts):'—')+'</span>'+
+    '<span class="hist-cell hide-sm">'+(u.last_login_ts?est(u.last_login_ts):'—')+'</span>'+
     '<span class="hist-cell">'+(u.last_event_ts?rel(u.last_event_ts)+' ago':'—')+'</span></div>';
   });
   document.getElementById('admUserRows').innerHTML=h;
