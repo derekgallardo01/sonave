@@ -21,19 +21,6 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
 .verdict{font-size:19px;font-weight:800;letter-spacing:-.01em}
 .note{font-size:10.5px;color:var(--ink2);margin-top:2px}
 .list{padding:10px 12px;display:flex;flex-direction:column;gap:8px;flex:1}
-#ghost{padding:14px 12px;flex:1;flex-direction:column;gap:8px}
-.gcard{border:1px solid var(--line);border-radius:12px;padding:11px 13px;background:rgba(16,20,24,.55);position:relative;overflow:hidden}
-.gcard:nth-child(2){opacity:.55}
-.gcard::after{content:'';position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,rgba(46,229,132,.045) 50%,transparent 70%);animation:shim 2.4s linear infinite}
-@keyframes shim{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
-.gr{display:flex;align-items:center;gap:9px}
-.gav{width:28px;height:28px;border-radius:50%;background:#141a20;flex-shrink:0}
-.gcol{flex:1;display:flex;flex-direction:column;gap:6px}
-.gl{height:8px;border-radius:4px;background:#141a20;display:block}
-.gpct{width:36px;height:16px;border-radius:5px;background:#141a20;flex-shrink:0}
-.gtrack{height:4px;border-radius:2px;background:#11161b;margin-top:11px;overflow:hidden}
-.gtrack i{display:block;height:100%;border-radius:2px;background:#1b232b}
-.gnote{text-align:center;font-size:10.5px;color:var(--muted);margin-top:6px}
 #protect{background:radial-gradient(circle at 50% 15%,rgba(46,229,132,.07),transparent 62%)}
 .btn.cta{box-shadow:0 8px 28px rgba(46,229,132,.22)}
 .steps strong{color:var(--ink);font-weight:600}
@@ -151,17 +138,6 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
    <div class="wait-row"><span class="spin"></span><b>Bot joining this meeting…</b></div>
    <div class="wait-hint" id="waitHint"><span class="up">▲</span> Watch the top of Meet — admit <b>“Sonave”</b> when the prompt appears (a few seconds).</div>
   </div>
- </div>
- <div id="ghost" style="display:none">
-  <div class="gcard">
-   <div class="gr"><span class="gav"></span><span class="gcol"><i class="gl" style="width:58%"></i><i class="gl" style="width:34%;height:6px"></i></span><span class="gpct"></span></div>
-   <div class="gtrack"><i style="width:22%"></i></div>
-  </div>
-  <div class="gcard">
-   <div class="gr"><span class="gav"></span><span class="gcol"><i class="gl" style="width:44%"></i><i class="gl" style="width:28%;height:6px"></i></span><span class="gpct"></span></div>
-   <div class="gtrack"><i style="width:12%"></i></div>
-  </div>
-  <div class="gnote">Speaker cards appear here once the bot is admitted</div>
  </div>
  <div class="list" id="speakers"></div>
  <div id="sstats">
@@ -332,7 +308,6 @@ async function poll(){
   var hasAudio=ks.length>0;
   if(hasAudio)deployDone();
   document.getElementById('protect').style.display=hasAudio?'none':'block';
-  document.getElementById('ghost').style.display=hasAudio?'none':'flex';
   list.style.display=hasAudio?'flex':'none';
   document.getElementById('banner').style.display=hasAudio?'block':'none';
   document.getElementById('sstats').style.display=hasAudio?'grid':'none';
