@@ -250,6 +250,13 @@ _INFLIGHT: set[tuple[str, str]] = set()       # scorer requests in flight (guard
 # {"present": bool, "speaking": bool, "ts": last event time}
 PRESENCE: dict[tuple[str, str], dict] = {}
 
+# Live-session lifecycle: when a workspace's last audio stream closes (host
+# removed the bot / meeting ended), the live view empties after a short grace
+# (Recall reconnects within it) and the panel's Protect button returns.
+ACTIVE_STREAMS: dict[str, int] = {}          # open audio websockets per workspace
+LAST_CLOSE: dict[str, float] = {}            # when the count last hit zero
+STREAM_GRACE_SEC = int(os.environ.get("SONAVE_STREAM_GRACE_SEC", "45"))
+
 # Build stamp served on /api/quality — open consoles/panels reload themselves on
 # deploy instead of running week-old JS until someone remembers to hard-refresh.
 _BUILD = (os.environ.get("RAILWAY_GIT_COMMIT_SHA") or "")[:8] or str(int(time.time()))
@@ -325,6 +332,15 @@ async def ws_audio(ws: WebSocket):
             return
         uid = db.first_admin_id() or auth.MACHINE_WORKSPACE   # fully-open dev mode
     await ws.accept()
+    with _STATE_LOCK:
+        fresh = ACTIVE_STREAMS.get(uid, 0) == 0
+        ACTIVE_STREAMS[uid] = ACTIVE_STREAMS.get(uid, 0) + 1
+        if fresh:
+            # first stream of a new monitoring session: reset the workspace's
+            # live view so last meeting's speakers/EMAs never bleed into this one
+            for dd in (QUALITY, VERDICTS, ROLL, FAKE_STREAK, PRESENCE):
+                for k in [k for k in dd if k[0] == uid]:
+                    dd.pop(k, None)
     buffers: dict[str, bytearray] = {}
     tails: dict[str, bytearray] = {}  # trailing SCORE_WIN_SEC per speaker — scoring reads this,
                                       # never the capture buffer (which flushes+clears every 2 min)
@@ -412,6 +428,10 @@ async def ws_audio(ws: WebSocket):
         if bot_row is not None:
             _meter_tick(bot_row["bot_id"], uid, time.time() - last_tick)
             db.mark_bot(bot_row["bot_id"], ended_ts=time.time(), status="ended")
+        with _STATE_LOCK:
+            ACTIVE_STREAMS[uid] = max(ACTIVE_STREAMS.get(uid, 1) - 1, 0)
+            if ACTIVE_STREAMS[uid] == 0:
+                LAST_CLOSE[uid] = time.time()
 
 
 def _meter_tick(bot_id: str, user_id: str, sec: float):
@@ -682,6 +702,11 @@ def api_quality(p: auth.Principal = Depends(require_principal)):
     out = {}
     uid = p.user_id
     udir = enroll.ENROLL_DIR / uid
+    # session over (bot removed / meeting ended, grace elapsed): empty live view,
+    # so the panel's Protect button comes back and the console returns to standby
+    if (ACTIVE_STREAMS.get(uid, 0) == 0 and uid in LAST_CLOSE
+            and time.time() - LAST_CLOSE[uid] > STREAM_GRACE_SEC):
+        return {"_scorer": {"configured": bool(SCORER_URL)}, "_v": _BUILD}
     speakers = ({s for (u, s) in QUALITY if u == uid} | {s for (u, s) in VERDICTS if u == uid}
                 | {s for (u, s), pr in PRESENCE.items() if u == uid and pr["present"]})
     for spk in speakers:

@@ -220,6 +220,29 @@ def test_quality_reports_speaking_and_quiet_state(mod):
     assert "Derek" not in q                                       # ghost aged out
 
 
+def test_live_view_clears_after_stream_ends(mod):
+    """Host removes the bot -> stream closes -> after the grace window the live
+    view empties and the panel's Protect button can return."""
+    ua = _mk_user(mod, "s-end", "end@x.com")
+    _mint_bot(mod, "bot-e", ua["id"], "tok-e")
+    _stream(mod, "tok-e", "Alice", 3)
+    c = _client_as(mod, ua["id"])
+    assert "Alice" in c.get("/api/quality").json()         # inside the grace window
+    mod.LAST_CLOSE[ua["id"]] -= mod.STREAM_GRACE_SEC + 15  # grace elapsed
+    assert "Alice" not in c.get("/api/quality").json()
+
+
+def test_new_stream_resets_previous_session(mod):
+    """A fresh deploy starts a clean session — no speaker/EMA bleed-through."""
+    ua = _mk_user(mod, "s-ns", "ns@x.com")
+    _mint_bot(mod, "bot-n1", ua["id"], "tok-n1")
+    _stream(mod, "tok-n1", "Alice", 3)
+    _mint_bot(mod, "bot-n2", ua["id"], "tok-n2")
+    _stream(mod, "tok-n2", "Bob", 3)
+    q = _client_as(mod, ua["id"]).get("/api/quality").json()
+    assert "Bob" in q and "Alice" not in q
+
+
 def test_participant_events_drive_presence(mod):
     """speech_on/off + join/leave from Recall are authoritative for the live view."""
     admin = _mk_user(mod, "s-pres", "pres@x.com", role="admin")
