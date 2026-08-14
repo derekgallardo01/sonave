@@ -270,7 +270,7 @@ ACTIVE_STREAMS: dict[str, int] = {}          # open audio websockets per workspa
 LAST_CLOSE: dict[str, float] = {}            # when the count last hit zero
 STREAM_GRACE_SEC = int(os.environ.get("SONAVE_STREAM_GRACE_SEC", "45"))
 _REAP_LAST: dict[str, float] = {}            # per-workspace throttle for the bot reaper
-REAP_INTERVAL_SEC = int(os.environ.get("SONAVE_REAP_INTERVAL_SEC", "20"))
+REAP_INTERVAL_SEC = int(os.environ.get("SONAVE_REAP_INTERVAL_SEC", "8"))
 
 # Build stamp served on /api/quality — open consoles/panels reload themselves on
 # deploy instead of running week-old JS until someone remembers to hard-refresh.
