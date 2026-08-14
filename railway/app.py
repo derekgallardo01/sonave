@@ -244,9 +244,11 @@ SCORE_WIN_SEC = int(os.environ.get("SONAVE_SCORE_WIN_SEC", "8"))  # window lengt
 SCORE_EMA = float(os.environ.get("SONAVE_SCORE_EMA", "0.6"))     # weight on the newest score
 SCORE_PRIOR = float(os.environ.get("SONAVE_SCORE_PRIOR", "0.15"))  # EMA seed ("probably real"):
 # one hot first window lands in SUSPECT at worst; sustained fake confirms on window 2
-MIN_SPEECH_FRAC = float(os.environ.get("SONAVE_MIN_SPEECH_FRAC", "0.35"))
+MIN_SPEECH_FRAC = float(os.environ.get("SONAVE_MIN_SPEECH_FRAC", "0.5"))
 # windows below this voiced fraction are never scored — mostly-silence audio is
-# out-of-distribution for the detector and scores garbage (hot first windows)
+# out-of-distribution for the detector and scores garbage (hot first windows).
+# 0.5 of the 8 s window ≈ 4 s of voice, matching the model's training windows;
+# passing windows also weight the EMA by their voiced fraction (thin = gentle)
 _SCORE_HOP_BYTES = SCORE_SEC * SR * 2
 _SCORE_FIRST_BYTES = SCORE_FIRST_SEC * SR * 2   # 4 s matches the model's training windows,
                                                 # so the first verdict lands in ~4 s not ~10 s
@@ -447,7 +449,8 @@ async def ws_audio(ws: WebSocket):
                     scored[spk] = seen[spk]
                     # silence gate: a window without enough voiced audio is never
                     # scored (OOD for the detector); the next hop re-evaluates
-                    if _speech_fraction(bytes(t)) >= MIN_SPEECH_FRAC:
+                    frac = _speech_fraction(bytes(t))
+                    if frac >= MIN_SPEECH_FRAC:
                         # one request in flight per speaker — during a scorer outage
                         # the cadence just drops instead of piling up retry threads
                         with _STATE_LOCK:
@@ -456,7 +459,8 @@ async def ws_audio(ws: WebSocket):
                                 _INFLIGHT.add((uid, spk))
                         if not busy:
                             window = _pcm_to_wav(bytes(t))
-                            threading.Thread(target=_score_and_store, args=(uid, spk, window), daemon=True).start()
+                            threading.Thread(target=_score_and_store,
+                                             args=(uid, spk, window, frac), daemon=True).start()
                 try:
                     _quality(uid, spk, raw)              # quality is best-effort, never breaks capture
                 except Exception:
@@ -582,9 +586,10 @@ def _warm_scorer():
         logger.warning("scorer pre-warm failed: %s", repr(e)[:80])
 
 
-def _score_and_store(user_id: str, spk: str, wav_bytes: bytes):
+def _score_and_store(user_id: str, spk: str, wav_bytes: bytes, frac: float = 1.0):
     """Best-effort: POST a live window to the hosted scorer (Modal /score_clip) and store
-    the rolling verdict. Runs in a daemon thread with bounded retry — never the capture path."""
+    the rolling verdict. Runs in a daemon thread with bounded retry — never the capture path.
+    frac = the window's voiced fraction; thin windows move the rolling EMA gently."""
     if not SCORER_URL:
         return
     try:
@@ -644,14 +649,17 @@ def _score_and_store(user_id: str, spk: str, wav_bytes: bytes):
             prev = ROLL.get(key)
             if prev is None:
                 prev = SCORE_PRIOR   # a single first window must never set the verdict alone
-            roll = SCORE_EMA * p + (1 - SCORE_EMA) * prev
+            a = SCORE_EMA * max(0.4, min(1.0, frac))   # thin windows pull gently
+            roll = a * p + (1 - a) * prev
             ROLL[key] = roll
             verdict = _av(roll)
             streak = FAKE_STREAK[key] = FAKE_STREAK.get(key, 0) + 1 if verdict == "fake" else 0
+            checks = (VERDICTS.get(key) or {}).get("n", 0) + 1
             VERDICTS[key] = {
                 "p_fake": round(res.get("p_fake", p), 3),
                 "rolling": round(roll, 3),
                 "verdict": verdict,
+                "n": checks,
                 "latency_ms": res.get("latency_ms"),
                 "speaker_check": res.get("speaker_check"),
                 "match_conf": res.get("match_conf"),
@@ -843,6 +851,7 @@ def api_quality(p: auth.Principal = Depends(require_principal)):
         if av:
             row["auth_verdict"] = av["verdict"]
             row["auth_p"] = av["rolling"]
+            row["checks"] = av.get("n", 0)
             if av.get("latency_ms") is not None:
                 row["latency_ms"] = av["latency_ms"]
             if av.get("speaker_check"):

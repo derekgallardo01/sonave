@@ -165,7 +165,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
  </div>
  <div class="list" id="speakers"></div>
  <div id="sstats">
-  <div><b>WINDOWS</b><span id="stWin">0</span></div>
+  <div><b>CHECKS</b><span id="stWin">0</span></div>
   <div><b>SESSION</b><span id="stSess">0:00</span></div>
   <div><b>PEAK RISK</b><span id="stPeak">0%</span></div>
  </div>
@@ -319,13 +319,13 @@ async function poll(){
   var list=document.getElementById('speakers');
   var keys=ks.join('|');
   if(list._keys!==keys){list.innerHTML=ks.map(rowHTML).join('');list._keys=keys}
-  var maxP=0, anyTalk=false, anyVerdict=false, windows=0, sess=0;
+  var maxP=0, anyTalk=false, anyVerdict=false, checks=0, sess=0;
   ks.forEach(function(k,i){
    var s=d[k], p=s.auth_p!=null?s.auth_p:0;
    if(p>maxP)maxP=p;
    if(s.state==='speaking')anyTalk=true;
    if(s.auth_verdict)anyVerdict=true;
-   windows+=Math.floor((s.total_sec||0)/4);
+   checks+=s.checks||0;
    if((s.total_sec||0)>sess)sess=s.total_sec;
    patchRow(list.children[i],k,s);
   });
@@ -338,7 +338,7 @@ async function poll(){
   document.getElementById('sstats').style.display=hasAudio?'grid':'none';
   if(hasAudio){
    _peak=Math.max(_peak,maxP);
-   document.getElementById('stWin').textContent=windows;
+   document.getElementById('stWin').textContent=checks;
    document.getElementById('stSess').textContent=hmsP(sess);
    var pk=document.getElementById('stPeak');pk.textContent=Math.round(_peak*100)+'%';pk.style.color=vcolor(_peak);
   }else{_peak=0}
@@ -362,18 +362,18 @@ function rowHTML(k){
 function patchRow(el,k,s){
  var p=s.auth_p!=null?s.auth_p:0;
  _pt[k]=p;
- var quiet=s.state==='quiet'&&(s.quiet_sec||0)>5;
+ var quiet=s.state==='quiet'&&(s.quiet_sec||0)>3;
  var talk=s.state==='speaking'||(!quiet&&(s.level||0)>0.02);
  el.className='spk'+(p>=0.7?' fake':'');
  el.style.opacity=quiet?'.55':'1';
  el.setAttribute('data-v',s.auth_verdict?'1':'0');
  var you=isMe(k)?' <span class="dim">· you</span>':'';
- // Recall exposes no mute state, so "quiet" is the honest label here
+ // Recall exposes no mute flag, so the honest label covers both possibilities
  var st=talk?' <span class="eq on"><i></i><i></i><i></i></span>':'';
  el.querySelector('.sname').innerHTML=esc(k.replace(/_/g,' '))+you+st;
  el.querySelector('.ssub').textContent=
-  !s.auth_verdict?(quiet?'quiet · waiting for speech':'listening — first verdict in seconds'):
-  quiet?'quiet · '+(s.quiet_sec<60?s.quiet_sec+'s':Math.floor(s.quiet_sec/60)+'m'):
+  !s.auth_verdict?(quiet?'muted / quiet · waiting for speech':'listening — first verdict in seconds'):
+  quiet?'muted / quiet · '+(s.quiet_sec<60?s.quiet_sec+'s':Math.floor(s.quiet_sec/60)+'m'):
   talk?'speaking':'monitoring';
  var vw=s.auth_verdict?'<span class="vword" style="color:'+vcolor(p)+'">'+esc(s.auth_verdict.toUpperCase())+'</span>'
                       :'<span class="vword" style="color:var(--muted)">PENDING</span>';

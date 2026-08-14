@@ -556,8 +556,8 @@ setInterval(tickClock,1000);tickClock();
 
 /* ---- shared render pipeline (real + demo feed the same functions) ---- */
 function fmtIdle(s){return s<60?s+'s':Math.floor(s/60)+'m'}
-function spkQuiet(s){return s.state==='quiet'&&(s.quiet||0)>5}
-function spkSub(s){return spkQuiet(s)?'not speaking · '+fmtIdle(s.quiet):s.sub}
+function spkQuiet(s){return s.state==='quiet'&&(s.quiet||0)>3}
+function spkSub(s){return spkQuiet(s)?'muted or quiet · '+fmtIdle(s.quiet):s.sub}
 function spkTalking(s){return s.state==='speaking'||(!spkQuiet(s)&&(s.level||0)>0.02)}
 function sparkHTML(s){
  var bars=s.bars.slice(-22);while(bars.length<22)bars.unshift(null);
@@ -677,7 +677,7 @@ async function quality(){
   var s=d[k];
   if(s.state==='speaking')active++;
   if(s.enrolled)enrolledLive++;
-  windows+=Math.floor((s.total_sec||0)/4);
+  windows+=s.checks||0;
   if(s.latency_ms!=null)lats.push(s.latency_ms);
   var p=s.auth_p!=null?s.auth_p:(s.verdict=='fake'?0.85:s.verdict=='suspect'?0.55:0.2);
   if(p>maxP){maxP=p;maxV=s.auth_verdict||vname(p).toLowerCase()}

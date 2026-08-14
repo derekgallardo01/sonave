@@ -49,10 +49,16 @@ def test_score_and_store_updates_verdict(railway_mod, monkeypatch):
     v = railway_mod.VERDICTS[("admin", "Derek")]
     a, pr = railway_mod.SCORE_EMA, railway_mod.SCORE_PRIOR
     # neutral-prior seed: one hot window shows SUSPECT, never an instant FAKE flash
-    assert v["p_fake"] == 0.9 and v["verdict"] == "suspect"
+    assert v["p_fake"] == 0.9 and v["verdict"] == "suspect" and v["n"] == 1
     assert railway_mod.ROLL[("admin", "Derek")] == pytest.approx(a * 0.9 + (1 - a) * pr)
     railway_mod._score_and_store("admin", "Derek", WAV)      # sustained -> confirmed
-    assert railway_mod.VERDICTS[("admin", "Derek")]["verdict"] == "fake"
+    v2 = railway_mod.VERDICTS[("admin", "Derek")]
+    assert v2["verdict"] == "fake" and v2["n"] == 2          # real check counter
+    # a thin window (frac 0.5) moves the EMA at reduced weight
+    before = railway_mod.ROLL[("admin", "Derek")]
+    railway_mod._score_and_store("admin", "Derek", WAV, frac=0.5)
+    a_thin = a * 0.5
+    assert railway_mod.ROLL[("admin", "Derek")] == pytest.approx(a_thin * 0.9 + (1 - a_thin) * before)
 
 
 def test_score_and_store_rolling_ema(railway_mod, monkeypatch):
