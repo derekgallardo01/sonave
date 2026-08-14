@@ -1316,11 +1316,41 @@ def auth_callback(request: Request, code: str = "", state: str = ""):
     return resp
 
 
+class CredReq(BaseModel):
+    credential: str
+
+
+@app.post("/auth/google-credential")
+def auth_google_credential(req: CredReq):
+    """GIS One Tap / Sign-in-with-Google in the Meet panel: verify the ID token,
+    mint a Sonave session token (returned as JSON — no cookies, so the flow
+    works with third-party cookies disabled)."""
+    if not auth.google_configured():
+        raise HTTPException(status_code=400, detail="google sign-in not configured")
+    try:
+        user = auth.complete_credential_login(req.credential)
+    except ValueError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=403, detail="credential verification failed")
+    if user.get("created_ts") == user.get("last_login_ts"):
+        _track(user["id"], "signup", email=user.get("email") or "")
+        _notify_admin(f"New signup: {user.get('email')}")
+    else:
+        _track(user["id"], "signin", email=user.get("email") or "")
+    logger.info("credential login: %s (%s)", user.get("email"), user.get("role"))
+    if user.get("role") == "admin":
+        db.migrate_legacy(DATA_DIR, enroll.ENROLL_DIR, user["id"])
+    return {"ok": True, "token": auth.sign_session(user["id"], user.get("session_ver", 1)),
+            "email": user.get("email"), "name": user.get("name")}
+
+
 @app.post("/auth/logout")
 def auth_logout(request: Request):
     p = auth.get_principal(request)
     if p is not None and p.kind == "user":     # expired cookie / operator: nothing to track
         _track(p.user_id, "signout")
+        db.bump_session_ver(p.user_id)         # revoke ALL outstanding session tokens
     resp = RedirectResponse("/console", status_code=302)
     resp.delete_cookie(auth.SESSION_COOKIE, path="/")
     resp.headers.append("set-cookie",
@@ -1416,7 +1446,8 @@ def meet_addon():
     same /api/quality the console uses."""
     html = (_HERE / "meet-addon.html").read_text(encoding="utf-8")
     return (html.replace("__FAVICON__", _FAVICON_B64)
-                .replace("__MEET_PROJECT__", os.environ.get("SONAVE_MEET_PROJECT_NUMBER", "")))
+                .replace("__MEET_PROJECT__", os.environ.get("SONAVE_MEET_PROJECT_NUMBER", ""))
+                .replace("__GOOGLE_CID__", os.environ.get("SONAVE_GOOGLE_CLIENT_ID", "")))
 
 
 @app.get("/og.png")

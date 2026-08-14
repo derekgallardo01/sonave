@@ -1,4 +1,5 @@
 """Google OAuth + session + principal behavior (Stage A of multi-user)."""
+import time
 from urllib.parse import parse_qs, urlparse
 
 import pytest
@@ -165,6 +166,54 @@ def test_meet_addon_page_renders(mod):
     r = client(mod).get("/meet-addon")
     assert r.status_code == 200
     assert "createAddonSession" in r.text and "__FAVICON__" not in r.text
+
+
+# --- GIS credential login (Meet panel: One Tap / official button) -------------
+CLAIMS = {"aud": "cid", "iss": "accounts.google.com", "email_verified": "true",
+          "sub": "gsub-gis", "email": "gis@example.com", "name": "Gis User", "picture": ""}
+
+
+def _claims(**over):
+    d = dict(CLAIMS, exp=str(int(time.time()) + 3600))
+    d.update(over)
+    return d
+
+
+def test_google_credential_login_and_bearer(mod, monkeypatch):
+    monkeypatch.setattr(mod.auth, "_fetch_tokeninfo", lambda cred: _claims())
+    c = client(mod)
+    r = c.post("/auth/google-credential", json={"credential": "x.y.z"})
+    j = r.json()
+    assert r.status_code == 200 and j["ok"] and j["token"]
+    me = c.get("/api/me", headers={"Authorization": f"Bearer {j['token']}"})
+    assert me.status_code == 200 and me.json()["email"] == "gis@example.com"
+    assert mod.db.list_events(kind="signup")[0]["email"] == "gis@example.com"
+
+
+def test_google_credential_rejects_bad_claims(mod, monkeypatch):
+    c = client(mod)
+    for bad in (_claims(aud="evil"), _claims(iss="https://evil.example"),
+                _claims(email_verified="false"), _claims(exp=str(int(time.time()) - 10))):
+        monkeypatch.setattr(mod.auth, "_fetch_tokeninfo", lambda cred, b=bad: b)
+        assert c.post("/auth/google-credential", json={"credential": "x"}).status_code == 403
+
+
+def test_logout_revokes_all_session_tokens(mod, monkeypatch):
+    """Marketplace requirement: logout revokes tokens, not just cookies."""
+    monkeypatch.setattr(mod.auth, "_fetch_tokeninfo",
+                        lambda cred: _claims(sub="gsub-rv", email="rv@x.com"))
+    c = client(mod)
+    tok = c.post("/auth/google-credential", json={"credential": "x"}).json()["token"]
+    h = {"Authorization": f"Bearer {tok}"}
+    assert c.get("/api/me", headers=h).status_code == 200
+    c.post("/auth/logout", headers=h, follow_redirects=False)
+    assert c.get("/api/me", headers=h).status_code == 401
+
+
+def test_meet_addon_serves_gis_with_client_id(mod):
+    r = client(mod).get("/meet-addon")
+    assert "accounts.google.com/gsi/client" in r.text
+    assert "__GOOGLE_CID__" not in r.text and "'cid'" in r.text
 
 
 # --- machine token unchanged --------------------------------------------------

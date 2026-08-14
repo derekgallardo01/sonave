@@ -61,9 +61,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
 .feat>div{display:flex;justify-content:space-between;align-items:baseline;border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:9px 13px}
 .feat span{font-size:11px;color:var(--muted)}
 .feat b{font-size:12.5px;color:var(--green);font-family:var(--mono);font-weight:600}
-.gbtn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;max-width:250px;padding:11px 16px;border-radius:10px;background:#fff;color:#1f1f1f;font:600 13px var(--font);border:0;cursor:pointer}
-.gbtn:hover{background:#f1f3f4}
-.gbtn svg{width:17px;height:17px;flex-shrink:0}
+#gsiBtn{min-height:44px;display:flex;justify-content:center}
 .fine{margin-top:14px;font-size:9.5px;color:var(--muted);max-width:250px}
 .fine a{color:var(--muted)}
 .btn{padding:9px 18px;border-radius:9px;background:var(--green);color:var(--on-green);font:700 12px var(--font);border:0;cursor:pointer}
@@ -116,10 +114,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
   <div><span>Catch rate, 27 unseen voice tools</span><b>95%</b></div>
   <div><span>Free monitoring</span><b>5 h / mo</b></div>
  </div>
- <button class="gbtn" onclick="popupLogin()">
-  <svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-  Continue with Google
- </button>
+ <div id="gsiBtn"></div>
  <p class="fine">Free 5 monitored hours a month. By continuing you agree to the <a href="/terms" target="_blank" rel="noopener">Terms</a> &amp; <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.</p>
 </div>
 
@@ -152,7 +147,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
   <div><b>SESSION</b><span id="stSess">0:00</span></div>
   <div><b>PEAK RISK</b><span id="stPeak">0%</span></div>
  </div>
- <div class="ft"><span id="meta"><span class="dot"></span>detection engine online</span><a href="/console" target="_blank" rel="noopener">Open console ↗</a></div>
+ <div class="ft"><span id="meta"><span class="dot"></span>detection engine online</span><span><a href="#" onclick="signOut();return false" style="color:var(--muted);font-weight:500;font-size:10px;margin-right:10px">Sign out</a><a href="/console" target="_blank" rel="noopener">Open console ↗</a></span></div>
 </div>
 
 <script>
@@ -178,22 +173,56 @@ function vcolor(p){return p>=0.7?'var(--red)':p>=0.4?'var(--amber)':'var(--green
 function vname(p){return p>=0.7?'FAKE':p>=0.4?'SUSPECT':'REAL'}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 
-// Session token handoff: cookies can't cross the CHIPS partition into this
-// iframe, so the sign-in popup posts the signed session token back to us and
-// we authenticate with a Bearer header. sessionStorage here is partitioned to
-// this Meet context, which is exactly the scope we want.
-var TOK=sessionStorage.getItem('sonave_tok')||'';
-window.addEventListener('message',function(e){
- if(e.origin===location.origin&&e.data&&e.data.type==='sonave_auth'&&e.data.token){
-  TOK=e.data.token;
-  try{sessionStorage.setItem('sonave_tok',TOK)}catch(x){}
-  boot();
- }
-});
+// Cookie-less auth (works with third-party cookies disabled, per Marketplace
+// review requirements): Google Identity Services One Tap + the official
+// Sign in with Google button, FedCM-based. The GIS ID token is verified
+// server-side and swapped for a Sonave session token, held in partitioned
+// localStorage and sent as a Bearer header — sign in once per browser.
+var CID='__GOOGLE_CID__';
+var TOK=(function(){try{return localStorage.getItem('sonave_tok')||sessionStorage.getItem('sonave_tok')||''}catch(x){return ''}})();
+function saveTok(t){TOK=t;try{localStorage.setItem('sonave_tok',t)}catch(x){}try{sessionStorage.setItem('sonave_tok',t)}catch(x){}}
+function clearTok(){TOK='';try{localStorage.removeItem('sonave_tok');sessionStorage.removeItem('sonave_tok')}catch(x){}}
 
-function popupLogin(){
- var w=window.open('/auth/login?ctx=popup','sonave_login','width=480,height=640');
- var t=setInterval(function(){ if(w&&w.closed){clearInterval(t);poll()} },800);
+var _gisReady=false,_gisPrompted=false;
+(function(){
+ var s=document.createElement('script');
+ s.src='https://accounts.google.com/gsi/client';
+ s.onload=function(){
+  if(!CID||!window.google||!google.accounts)return;
+  google.accounts.id.initialize({client_id:CID,callback:onCredential,auto_select:true,
+                                 use_fedcm_for_prompt:true,itp_support:true,context:'signin'});
+  _gisReady=true;
+  var el=document.getElementById('gsiBtn');
+  if(el)google.accounts.id.renderButton(el,{theme:'filled_black',size:'large',shape:'pill',text:'signin_with',width:250});
+  maybePrompt();
+ };
+ s.onerror=function(){};
+ document.head.appendChild(s);
+})();
+function maybePrompt(){
+ // One Tap: zero/one-click for returning users; the rendered button is the fallback
+ if(_gisReady&&!_gisPrompted&&!TOK){
+  _gisPrompted=true;
+  try{google.accounts.id.prompt()}catch(e){}
+ }
+}
+async function onCredential(resp){
+ try{
+  var r=await fetch('/auth/google-credential',{method:'POST',headers:{'Content-Type':'application/json'},
+                                               body:JSON.stringify({credential:resp.credential})});
+  var d=await r.json();
+  if(d.ok&&d.token){saveTok(d.token);poll()}
+ }catch(e){}
+}
+function signOut(){
+ // full logout: revoke every Sonave session server-side, drop One Tap
+ // auto-select, land back on the sign-in screen
+ var h=authHeaders();
+ clearTok();
+ try{google.accounts.id.disableAutoSelect()}catch(e){}
+ fetch('/auth/logout',{method:'POST',headers:h}).finally(function(){
+  _gisPrompted=false;ME=null;show('signin');maybePrompt();
+ });
 }
 
 var ME=null;
@@ -293,8 +322,8 @@ async function poll(){
  try{
   var r=await fetch('/api/quality',{headers:authHeaders()});
   if(r.status===401){
-   if(TOK){TOK='';try{sessionStorage.removeItem('sonave_tok')}catch(x){}}
-   show('signin');return
+   if(TOK)clearTok();
+   show('signin');maybePrompt();return
   }
   var d=await r.json();
   if(d._v){if(window._vSeen&&window._vSeen!==d._v){location.reload();return}window._vSeen=d._v}

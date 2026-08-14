@@ -170,11 +170,9 @@ def _fetch_userinfo(access_token: str) -> dict:
         return json.loads(r.read())
 
 
-def complete_login(code: str) -> dict:
-    """Code -> tokens -> userinfo -> user row. Raises ValueError on policy failures."""
-    tokens = _exchange_code(code)
-    info = _fetch_userinfo(tokens["access_token"])
-    if not info.get("email_verified", False):
+def _policy_upsert(info: dict) -> dict:
+    """Shared identity policy: verified email, admin allowlist, signup mode."""
+    if str(info.get("email_verified", "")).lower() not in ("true", "1"):
         raise ValueError("email not verified")
     email = (info.get("email") or "").lower()
     admins = [e.strip().lower() for e in _env("SONAVE_ADMIN_EMAILS").split(",") if e.strip()]
@@ -185,6 +183,36 @@ def complete_login(code: str) -> dict:
             raise ValueError("signups closed")
     return db.upsert_google_user(info["sub"], email, info.get("name", ""),
                                  info.get("picture", ""), role)
+
+
+def complete_login(code: str) -> dict:
+    """Code -> tokens -> userinfo -> user row. Raises ValueError on policy failures."""
+    tokens = _exchange_code(code)
+    info = _fetch_userinfo(tokens["access_token"])
+    return _policy_upsert(info)
+
+
+GOOGLE_TOKENINFO_URL = "https://oauth2.googleapis.com/tokeninfo"
+
+
+def _fetch_tokeninfo(credential: str) -> dict:
+    q = urllib.parse.urlencode({"id_token": credential})
+    with urllib.request.urlopen(f"{GOOGLE_TOKENINFO_URL}?{q}", timeout=15) as r:
+        return json.loads(r.read())
+
+
+def complete_credential_login(credential: str) -> dict:
+    """GIS ID token (One Tap / official Sign in with Google button in the Meet
+    panel) -> user row. Signature validation is delegated to Google's tokeninfo
+    endpoint (stdlib-only house rule); we enforce audience, issuer and expiry."""
+    info = _fetch_tokeninfo(credential)
+    if info.get("aud") != _env("SONAVE_GOOGLE_CLIENT_ID"):
+        raise ValueError("wrong audience")
+    if info.get("iss") not in ("accounts.google.com", "https://accounts.google.com"):
+        raise ValueError("wrong issuer")
+    if float(info.get("exp") or 0) < time.time():
+        raise ValueError("credential expired")
+    return _policy_upsert(info)
 
 
 # --- principals ---------------------------------------------------------------

@@ -1,5 +1,38 @@
 # GWM review response kit
 
+## Rejection round 1 (2026-08-14) — FIXED, ready to republish
+
+Reviewer findings and what changed (shipped in the `gis` auth rebuild):
+
+1. **"After Signin nothing happens" / must work with 3rd-party cookies
+   disabled** → the popup + postMessage flow is GONE. The panel now uses
+   **Google Identity Services**: One Tap prompt (FedCM,
+   `use_fedcm_for_prompt`) with the **official rendered Sign in with Google
+   button** as fallback. The GIS ID token is verified server-side
+   (`/auth/google-credential`, audience/issuer/expiry checked) and swapped
+   for a Sonave session token held in partitioned localStorage — zero
+   cookies involved, works with third-party cookies fully disabled,
+   sign-in happens once per browser (auto_select re-signs silently).
+2. **Logout must revoke tokens** → the panel has a **Sign out** link;
+   logout now bumps the server-side session version, instantly revoking
+   every outstanding Sonave session token (covered by test:
+   `test_logout_revokes_all_session_tokens`), calls
+   `google.accounts.id.disableAutoSelect()`, and lands on the sign-in
+   screen with One Tap re-armed.
+
+**To resubmit**: Marketplace SDK → Publish (republish the same listing).
+Optionally reply in the rejection email thread:
+
+> Hi — both findings are addressed: the add-on now signs in via Google
+> Identity Services (One Tap with FedCM + the official Sign in with Google
+> button; no popup, functional with third-party cookies disabled), and
+> Sign out revokes all session tokens server-side and returns to the
+> sign-in screen. The updated version is republished and live at the same
+> deployment. Thank you for the specific repro video — it pointed straight
+> at the fix.
+
+
+
 Google started the Marketplace review (2026-08-14). They asked for: testing
 credentials (if any), allowlisting of `gsmtestuser@marketplacetest.net`, and a
 screen recording of the end-to-end workflow showing scope usage.

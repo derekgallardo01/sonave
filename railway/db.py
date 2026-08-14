@@ -406,6 +406,19 @@ def set_alert_webhook(user_id: str, url: str) -> None:
             c.close()
 
 
+def bump_session_ver(user_id: str) -> None:
+    """Revoke every outstanding session token for this user (logout semantics:
+    tokens embed the version and verify_session compares against this row)."""
+    with _LOCK:
+        c = _conn()
+        try:
+            c.execute("UPDATE users SET session_ver = COALESCE(session_ver, 1) + 1 WHERE id=?",
+                      (user_id,))
+            c.commit()
+        finally:
+            c.close()
+
+
 def get_ical_url(user_id: str) -> str:
     u = get_user(user_id)
     return (u or {}).get("ical_url") or ""
