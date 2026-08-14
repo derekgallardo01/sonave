@@ -342,6 +342,12 @@ a:hover{color:var(--green-hover)}
       <button class="btn-soft" onclick="saveAlerts()">Save</button>
      </div>
      <div class="hint">Wire-hold incidents in your workspace post here the moment they fire.</div>
+     <div class="card-lbl" style="margin:18px 0 12px">AUTO-PROTECT &#183; BETA</div>
+     <div style="display:flex;gap:8px">
+      <input id="icalUrl" class="inp" placeholder="Secret iCal address (https://calendar.google.com/calendar/ical/.../basic.ics)">
+      <button class="btn-soft" onclick="saveAlerts()">Save</button>
+     </div>
+     <div class="hint">Sonave watches this calendar and deploys the bot into your Google Meet meetings as they start &#8212; no calendar permissions needed. Google Calendar &#8594; Settings &#8594; your calendar &#8594; &#8220;Secret address in iCal format&#8221;. Clear the field to turn off.</div>
     </div>
 
     <div class="card-pad">
@@ -479,6 +485,7 @@ async function me(){
  try{var r=await fetch('/api/me');if(!r.ok)return false;var d=await r.json();
   var el=document.getElementById('userChip');if(el&&d.email)el.textContent=d.email;
   var ah=document.getElementById('alertHook');if(ah&&d.alert_webhook)ah.value=d.alert_webhook;
+  var ic=document.getElementById('icalUrl');if(ic&&d.ical_url)ic.value=d.ical_url;
   window._me=d;renderPlan(d);return true}catch(e){return false}
 }
 function renderPlan(d){
@@ -499,8 +506,9 @@ function renderPlan(d){
 async function checkout(){var r=await fetch('/api/billing/checkout',{method:'POST'});var d=await r.json();if(d.ok)location=d.url;else toast('✕ '+(d.detail||'checkout failed'),'err')}
 async function saveAlerts(){
  var v=document.getElementById('alertHook').value.trim();
- var r=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({alert_webhook:v})});
- if(r.ok)toast(v?'✓ Alert webhook saved.':'✓ Alert webhook cleared.','ok');
+ var ic=(document.getElementById('icalUrl')||{value:''}).value.trim();
+ var r=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({alert_webhook:v,ical_url:ic})});
+ if(r.ok)toast('✓ Settings saved.'+(ic?' Auto-protect is watching your calendar.':''),'ok');
  else{var d=await r.json().catch(function(){return{}});toast('✕ '+((d.detail&&d.detail[0]&&d.detail[0].msg)||'must be an https:// URL'),'err')}
 }
 async function portal(){var r=await fetch('/api/billing/portal',{method:'POST'});var d=await r.json();if(d.ok&&d.url)location=d.url;else toast('✕ '+(d.detail||'portal unavailable'),'err')}

@@ -60,6 +60,7 @@ import enroll      # local speaker enrollment (vendored from service/enroll.py)
 import auth        # Google OAuth + sessions + principals (stdlib-only)
 import db          # app database: users, bots, billing (/data/app.db)
 import billing     # Stripe metered billing (stdlib-only)
+import autojoin    # zero-scope calendar auto-join (secret iCal URL polling)
 os.environ.setdefault("SONAVE_ENROLL_DIR", "/data/enrollments")
 os.environ.setdefault("SONAVE_MODEL_CACHE", "/data/models/ecapa")
 
@@ -150,13 +151,21 @@ class BotReq(BaseModel):
 
 @app.post("/bot", dependencies=[Depends(require_auth)])
 def send_bot(req: BotReq, request: Request, p: "auth.Principal" = Depends(require_principal)):
+    return _launch_bot(p.user_id, p.role, req.meeting_url, request, req.bot_name)
+
+
+def _launch_bot(user_id: str, role: str, meeting_url: str,
+                request: Request | None = None, bot_name: str = "Sonave"):
+    """Deploy a bot into a meeting. Shared by POST /bot and the calendar
+    auto-join loop (which has no request; _ws_url falls back to env domain)."""
     if not RECALL_API_KEY:
         return {"error": "SONAVE_RECALL_API_KEY not set on the service"}
-    u = urlparse(req.meeting_url.strip())
+    murl = meeting_url.strip()
+    u = urlparse(murl)
     if u.scheme not in ("http", "https") or not any(
             u.netloc == h or u.netloc.endswith("." + h) for h in ALLOWED_MEET_HOSTS):
         return {"ok": False, "detail": "meeting_url must be a Google Meet / Zoom / Teams link"}
-    existing = db.find_active_bot(p.user_id, req.meeting_url.strip())
+    existing = db.find_active_bot(user_id, murl)
     if existing:
         # verify against Recall at click time: a kicked/denied bot must never
         # block re-inviting (its zombie socket can keep our row looking live)
@@ -170,7 +179,7 @@ def send_bot(req: BotReq, request: Request, p: "auth.Principal" = Depends(requir
         else:
             return {"ok": True, "bot_id": existing["bot_id"], "already": True,
                     "detail": "A Sonave bot is already in this meeting."}
-    gate = _bot_gate(p)
+    gate = _bot_gate(user_id, role)
     if gate is not None:
         return gate
     ws = _ws_url(request)
@@ -179,8 +188,8 @@ def send_bot(req: BotReq, request: Request, p: "auth.Principal" = Depends(requir
     bot_tok = secrets.token_urlsafe(32)
     ws = f"{ws}?token={bot_tok}"
     payload = {
-        "meeting_url": req.meeting_url,
-        "bot_name": req.bot_name,
+        "meeting_url": murl,
+        "bot_name": bot_name,
         "recording_config": {
             "audio_separate_raw": {},
             "realtime_endpoints": [
@@ -198,9 +207,9 @@ def send_bot(req: BotReq, request: Request, p: "auth.Principal" = Depends(requir
     try:
         resp = json.loads(urllib.request.urlopen(r, timeout=20).read())
         bot_id = resp.get("id")
-        db.insert_bot(bot_id or "unknown", p.user_id,
-                      hashlib.sha256(bot_tok.encode()).hexdigest(), req.meeting_url.strip())
-        logger.info("bot created id=%s for %s (user=%s)", bot_id, req.meeting_url, p.user_id)
+        db.insert_bot(bot_id or "unknown", user_id,
+                      hashlib.sha256(bot_tok.encode()).hexdigest(), murl)
+        logger.info("bot created id=%s for %s (user=%s)", bot_id, murl, user_id)
         if SCORER_URL:                      # pre-warm the scale-to-zero scorer so the
             threading.Thread(target=_warm_scorer, daemon=True).start()  # first verdict skips the cold start
         return {"ok": True, "bot_id": bot_id}
@@ -209,14 +218,14 @@ def send_bot(req: BotReq, request: Request, p: "auth.Principal" = Depends(requir
         return {"ok": False, "status": e.code, "detail": e.read().decode()[:300]}
 
 
-def _bot_gate(p: "auth.Principal"):
+def _bot_gate(user_id: str, role: str):
     """Entitlement / abuse guard for bot launches. Returns a response or None (allowed)."""
-    if p.role == "admin":
+    if role == "admin":
         return None
-    if db.count_active_bots(p.user_id) >= int(os.environ.get("SONAVE_MAX_CONCURRENT_BOTS", "2")):
+    if db.count_active_bots(user_id) >= int(os.environ.get("SONAVE_MAX_CONCURRENT_BOTS", "2")):
         return {"ok": False, "code": "too_many_bots",
                 "detail": "Concurrent bot limit reached — end a running meeting first."}
-    denied = billing.can_launch_bot(p.user_id, p.role)
+    denied = billing.can_launch_bot(user_id, role)
     if denied is not None:
         return JSONResponse(status_code=402, content=denied)
     return None
@@ -943,20 +952,62 @@ def api_ack(a: AckReq, p: auth.Principal = Depends(require_principal)):
 
 class SettingsReq(BaseModel):
     alert_webhook: str = ""
+    ical_url: str = ""
 
-    @field_validator("alert_webhook")
+    @field_validator("alert_webhook", "ical_url")
     @classmethod
     def _url(cls, v: str) -> str:
         v = (v or "").strip()
         if v and not v.startswith("https://"):
-            raise ValueError("webhook must be an https:// URL")
-        return v[:500]
+            raise ValueError("must be an https:// URL")
+        return v[:800]
 
 
 @app.post("/api/settings")
 def api_settings(req: SettingsReq, p: auth.Principal = Depends(require_principal)):
     db.set_alert_webhook(p.user_id, req.alert_webhook)
-    return {"ok": True, "alert_webhook": req.alert_webhook}
+    db.set_ical_url(p.user_id, req.ical_url)
+    return {"ok": True, "alert_webhook": req.alert_webhook, "ical_url": req.ical_url}
+
+
+def _autojoin_tick(now: float | None = None) -> int:
+    """One calendar auto-join pass. Returns the number of bots launched."""
+    launched = 0
+    for u in db.ical_users():
+        try:
+            events = autojoin.parse_ics(autojoin.fetch_ics(u["ical_url"]), now=now)
+        except Exception as e:
+            logger.warning("autojoin: fetch/parse failed for %s: %s", u["id"], repr(e)[:80])
+            continue
+        for e in autojoin.due_events(events, now=now):
+            key = f"{e['uid']}:{int(e['start_ts'])}"
+            if db.autojoin_seen(u["id"], key):
+                continue
+            res = _launch_bot(u["id"], u.get("role") or "member", e["meet_url"])
+            ok = isinstance(res, dict) and res.get("ok")
+            # always mark the occurrence: retrying a denied/limited launch every
+            # minute would spam the meeting's waiting room and the billing gate
+            db.autojoin_mark(u["id"], key, str((res.get("bot_id") if ok else "") or ""))
+            if ok and not res.get("already"):
+                launched += 1
+                logger.info("autojoin: bot -> %s (user=%s)", e["meet_url"], u["id"])
+            elif not ok:
+                logger.warning("autojoin: launch declined for %s: %s", u["id"], str(res)[:120])
+    return launched
+
+
+def _autojoin_loop():  # pragma: no cover — thin sleep wrapper around the tick
+    logger.info("calendar auto-join loop running (60 s)")
+    while True:
+        try:
+            _autojoin_tick()
+        except Exception as e:  # noqa: BLE001 — the loop must survive anything
+            logger.warning("autojoin tick error: %s", repr(e)[:100])
+        time.sleep(60)
+
+
+if os.environ.get("SONAVE_AUTOJOIN_LOOP") == "1":
+    threading.Thread(target=_autojoin_loop, daemon=True).start()
 
 
 @app.get("/report/{incident_id}", response_class=HTMLResponse)
@@ -1126,7 +1177,8 @@ def api_me(p: auth.Principal = Depends(require_principal)):
     out = {"kind": p.kind, "email": p.email or "operator", "name": p.name,
            "picture": p.picture, "role": p.role,
            "google": auth.google_configured(), "billing": billing.configured(),
-           "alert_webhook": db.get_alert_webhook(p.user_id)}
+           "alert_webhook": db.get_alert_webhook(p.user_id),
+           "ical_url": db.get_ical_url(p.user_id)}
     out.update(billing.entitlement(p.user_id, p.role))
     return out
 

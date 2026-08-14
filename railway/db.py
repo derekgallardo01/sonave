@@ -92,6 +92,11 @@ def _conn() -> sqlite3.Connection:
     cols = [r[1] for r in c.execute("PRAGMA table_info(users)").fetchall()]
     if "alert_webhook" not in cols:                  # additive migration, idempotent
         c.execute("ALTER TABLE users ADD COLUMN alert_webhook TEXT")
+    if "ical_url" not in cols:                       # calendar auto-join (zero-scope)
+        c.execute("ALTER TABLE users ADD COLUMN ical_url TEXT")
+    c.execute("CREATE TABLE IF NOT EXISTS autojoin_log ("
+              "user_id TEXT, event_key TEXT, bot_id TEXT, ts REAL, "
+              "PRIMARY KEY (user_id, event_key))")
     return c
 
 
@@ -317,6 +322,52 @@ def set_alert_webhook(user_id: str, url: str) -> None:
         c = _conn()
         try:
             c.execute("UPDATE users SET alert_webhook=? WHERE id=?", (url, user_id))
+            c.commit()
+        finally:
+            c.close()
+
+
+def get_ical_url(user_id: str) -> str:
+    u = get_user(user_id)
+    return (u or {}).get("ical_url") or ""
+
+
+def set_ical_url(user_id: str, url: str) -> None:
+    with _LOCK:
+        c = _conn()
+        try:
+            c.execute("UPDATE users SET ical_url=? WHERE id=?", (url, user_id))
+            c.commit()
+        finally:
+            c.close()
+
+
+def ical_users() -> list[dict]:
+    """Users with calendar auto-join configured."""
+    c = _conn()
+    try:
+        rows = c.execute("SELECT id, role, ical_url FROM users "
+                         "WHERE ical_url IS NOT NULL AND ical_url != ''").fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        c.close()
+
+
+def autojoin_seen(user_id: str, event_key: str) -> bool:
+    c = _conn()
+    try:
+        return c.execute("SELECT 1 FROM autojoin_log WHERE user_id=? AND event_key=?",
+                         (user_id, event_key)).fetchone() is not None
+    finally:
+        c.close()
+
+
+def autojoin_mark(user_id: str, event_key: str, bot_id: str) -> None:
+    with _LOCK:
+        c = _conn()
+        try:
+            c.execute("INSERT OR REPLACE INTO autojoin_log VALUES (?,?,?,?)",
+                      (user_id, event_key, bot_id, time.time()))
             c.commit()
         finally:
             c.close()
