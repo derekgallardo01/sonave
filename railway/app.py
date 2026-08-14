@@ -259,6 +259,8 @@ PRESENCE: dict[tuple[str, str], dict] = {}
 ACTIVE_STREAMS: dict[str, int] = {}          # open audio websockets per workspace
 LAST_CLOSE: dict[str, float] = {}            # when the count last hit zero
 STREAM_GRACE_SEC = int(os.environ.get("SONAVE_STREAM_GRACE_SEC", "45"))
+_REAP_LAST: dict[str, float] = {}            # per-workspace throttle for the bot reaper
+REAP_INTERVAL_SEC = int(os.environ.get("SONAVE_REAP_INTERVAL_SEC", "20"))
 
 # Build stamp served on /api/quality — open consoles/panels reload themselves on
 # deploy instead of running week-old JS until someone remembers to hard-refresh.
@@ -478,6 +480,48 @@ def _meter_tick(bot_id: str, user_id: str, sec: float):
                             idempotency_key=f"{bot_id}:{int(time.time() // 60)}")
     except Exception as e:  # noqa: BLE001 — accounting must never break capture
         logger.warning("meter tick failed: %s", repr(e)[:80])
+
+
+def _recall_bot_status(bot_id: str) -> str | None:
+    """Latest status code of a Recall bot (authoritative — the realtime socket
+    of a kicked bot can linger open and silent)."""
+    req = urllib.request.Request(f"{RECALL_BASE}/bot/{bot_id}",
+                                 headers={"Authorization": f"Token {RECALL_API_KEY}"})
+    with urllib.request.urlopen(req, timeout=8) as r:
+        data = json.loads(r.read())
+    sc = data.get("status_changes") or []
+    return (sc[-1] or {}).get("code") if sc else None
+
+
+_ENDED_CODES = ("call_ended", "done", "fatal")
+
+
+def _reap_dead_bots(uid: str):
+    """Ask Recall about this workspace's live-looking bots. Kicked/denied bots
+    get their rows closed (frees the dedupe immediately) and, when none remain,
+    the live view is force-emptied even if a zombie websocket is still open."""
+    try:
+        rows = db.unended_bots(uid)
+        if not rows:
+            return
+        still_live = 0
+        for b in rows:
+            try:
+                code = _recall_bot_status(b["bot_id"])
+            except Exception:
+                still_live += 1          # can't reach Recall — assume alive
+                continue
+            if code in _ENDED_CODES:
+                db.mark_bot(b["bot_id"], ended_ts=time.time(), status="ended")
+                logger.info("reaped bot %s (recall status=%s)", b["bot_id"], code)
+            else:
+                still_live += 1
+        if still_live == 0:
+            with _STATE_LOCK:            # session over: empty the view NOW
+                ACTIVE_STREAMS[uid] = 0
+                LAST_CLOSE[uid] = time.time() - STREAM_GRACE_SEC - 1
+    except Exception as e:  # noqa: BLE001 — reaping must never break the API
+        logger.warning("bot reap failed: %s", repr(e)[:80])
 
 
 def _write(user_id: str, spk: str, pcm: bytes, session: int, idx: int):
@@ -733,6 +777,12 @@ def api_quality(p: auth.Principal = Depends(require_principal)):
     out = {}
     uid = p.user_id
     udir = enroll.ENROLL_DIR / uid
+    # reaper: a kicked bot's socket can linger open, so periodically verify
+    # live-looking bots against Recall's authoritative status (off-thread)
+    if RECALL_API_KEY and time.time() - _REAP_LAST.get(uid, 0) > REAP_INTERVAL_SEC \
+            and db.unended_bots(uid):
+        _REAP_LAST[uid] = time.time()
+        threading.Thread(target=_reap_dead_bots, args=(uid,), daemon=True).start()
     # session over (bot removed / meeting ended, grace elapsed): empty live view,
     # so the panel's Protect button comes back and the console returns to standby
     if (ACTIVE_STREAMS.get(uid, 0) == 0 and uid in LAST_CLOSE

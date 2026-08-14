@@ -191,6 +191,20 @@ def add_bot_seconds(bot_id: str, sec: float) -> None:
             c.close()
 
 
+def unended_bots(user_id: str, window_sec: float = 4 * 3600) -> list[dict]:
+    """Bots that look live on our books (no ended_ts) — candidates for the
+    Recall status reaper, which detects kicked/denied bots whose websocket
+    never closed cleanly."""
+    c = _conn()
+    try:
+        rows = c.execute(
+            "SELECT * FROM bots WHERE user_id=? AND ended_ts IS NULL AND created_ts > ?",
+            (user_id, time.time() - window_sec)).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        c.close()
+
+
 def find_active_bot(user_id: str, meeting_url: str) -> dict | None:
     """An existing live-looking bot for this user+meeting, to dedupe re-deploys:
     streaming (started, not ended, <4 h old) always counts; a just-launched bot

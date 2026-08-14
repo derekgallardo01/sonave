@@ -243,6 +243,33 @@ def test_new_stream_resets_previous_session(mod):
     assert "Bob" in q and "Alice" not in q
 
 
+def test_reaper_ends_kicked_bot_and_clears_stuck_view(mod, monkeypatch):
+    """Host kicks the bot but Recall leaves the socket open (zombie stream):
+    the reaper ends the bot from Recall's status, frees the dedupe and
+    force-empties the live view."""
+    ua = _mk_user(mod, "s-rp", "rp@x.com")
+    _mint_bot(mod, "bot-rp", ua["id"], "tok-rp")
+    mod._quality(ua["id"], "Derek", b"\x00\x40" * mod.SR)      # live card exists
+    mod.ACTIVE_STREAMS[ua["id"]] = 1                           # zombie socket
+    mod._REAP_LAST[ua["id"]] = 9e12                            # no background spawn
+    monkeypatch.setattr(mod, "_recall_bot_status", lambda bid: "call_ended")
+    mod._reap_dead_bots(ua["id"])
+    assert mod.db.find_active_bot(ua["id"], "https://meet.google.com/x") is None
+    assert "Derek" not in _client_as(mod, ua["id"]).get("/api/quality").json()
+
+
+def test_reaper_keeps_view_while_bot_still_in_call(mod, monkeypatch):
+    ua = _mk_user(mod, "s-rp2", "rp2@x.com")
+    _mint_bot(mod, "bot-rp2", ua["id"], "tok-rp2")
+    mod._quality(ua["id"], "Derek", b"\x00\x40" * mod.SR)
+    mod.ACTIVE_STREAMS[ua["id"]] = 1
+    mod._REAP_LAST[ua["id"]] = 9e12
+    monkeypatch.setattr(mod, "_recall_bot_status", lambda bid: "in_call_recording")
+    mod._reap_dead_bots(ua["id"])
+    assert mod.db.find_active_bot(ua["id"], "https://meet.google.com/x") is not None
+    assert "Derek" in _client_as(mod, ua["id"]).get("/api/quality").json()
+
+
 def test_participant_events_drive_presence(mod):
     """speech_on/off + join/leave from Recall are authoritative for the live view."""
     admin = _mk_user(mod, "s-pres", "pres@x.com", role="admin")
