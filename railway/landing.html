@@ -154,11 +154,34 @@ a:hover{color:var(--green-hover)}
       <div class="stat-sub">real-voice accuracy through the Opus meeting codec</div>
     </div>
     <div>
-      <div class="stat-num">10s</div>
-      <div class="stat-sub">rolling re-score cadence per speaker — verdicts in seconds, not after the call</div>
+      <div class="stat-num">4s</div>
+      <div class="stat-sub">to a first verdict per speaker, re-scored every 4 s — in the call, not after it</div>
     </div>
   </section>
-  <div style="font-size:11px;color:var(--dim);margin-top:10px;font-family:var(--mono)">Benchmarked Aug 2026 on the deployed production checkpoint. On the hardest public real-world deepfakes (In-the-Wild), the current model catches ~59% at 93%+ real-voice accuracy — a second factor alongside callbacks, not a replacement for them.</div>
+  <div style="font-size:11px;color:var(--dim);margin-top:10px;font-family:var(--mono)">Benchmarked Aug 2026 on the deployed production checkpoint. On the hardest public real-world deepfakes (In-the-Wild), the current model catches ~59% at 93%+ real-voice accuracy — a second factor alongside callbacks, not a replacement for them. <a href="/benchmarks" style="color:var(--green)">Full benchmarks &rarr;</a></div>
+
+  <section class="how" id="why-us">
+    <div class="eyebrow">WHY NOT A GENERIC DETECTOR?</div>
+    <h2>Lab accuracy is not meeting accuracy.</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">99% &ne; 95%</div>
+        <h3>Same tools, same audio, different story</h3>
+        <p>Generic detectors advertise 99%+ lab numbers — yet on the same 27 unseen commercial voice-clone tools, played through real meeting audio, a commodity detector catches <b>2%</b>. Sonave catches <b>95%</b>. The difference is what the model was trained to hear.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">LIVE</div>
+        <h3>In the call, per speaker — not file uploads</h3>
+        <p>Sonave is built for the compressed, processed audio meetings actually produce, and scores every speaker continuously while they talk. A verdict after the call ends is a post-mortem; ours arrives while the wire can still be stopped.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">ACT</div>
+        <h3>A verdict wired to action</h3>
+        <p>Detection that ends at a dashboard score protects nothing. Sonave's red band raises a wire-hold webhook into your approval flow and produces a one-click forensic report — the verdict does something.</p>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-top:14px">We publish our numbers — including the hard ones. <a href="/benchmarks" style="color:var(--green)">See the full benchmark table &rarr;</a></div>
+  </section>
 
   <section class="how" id="how">
     <div class="eyebrow">HOW IT WORKS</div>
@@ -251,7 +274,7 @@ a:hover{color:var(--green-hover)}
     <div class="footer-ctas">
       <a class="btn-primary" href="/console">Open the console</a>
     </div>
-    <div class="footer-line">Sonave · Voice Authenticity Engine · <a href="/privacy" style="color:var(--dim)">Privacy</a> · <a href="/terms" style="color:var(--dim)">Terms</a></div>
+    <div class="footer-line">Sonave · Voice Authenticity Engine · <a href="/benchmarks" style="color:var(--dim)">Benchmarks</a> · <a href="/privacy" style="color:var(--dim)">Privacy</a> · <a href="/terms" style="color:var(--dim)">Terms</a></div>
   </section>
 
 </div>

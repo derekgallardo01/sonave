@@ -1276,7 +1276,7 @@ th{{background:#f2f5f8}}
 </table>
 <h2>Rolling risk over the incident window</h2>
 {chart or '<p>No chart — no scored windows retained.</p>'}
-<p class="meta">Red band ≥ 0.70 = FAKE · amber band 0.40–0.70 = SUSPECT · 4-second model windows on an 8-second rolling buffer scored every 10 seconds</p>
+<p class="meta">Red band ≥ 0.70 = FAKE · amber band 0.40–0.70 = SUSPECT · 8-second rolling windows scored every 4 seconds once enough speech accumulates</p>
 <h2>Scored windows</h2>
 <table><tr><th>Time</th><th>Window P(fake)</th><th>Rolling risk</th><th>Verdict</th></tr>{rows}</table>
 <h2>Capture files (audio evidence)</h2>
@@ -1570,6 +1570,12 @@ def console_shot():
 def robots():
     from fastapi.responses import PlainTextResponse
     return PlainTextResponse("User-agent: *\nAllow: /\nDisallow: /console\nDisallow: /report/\n")
+
+
+@app.get("/benchmarks", response_class=HTMLResponse)
+def benchmarks():
+    html = (_HERE / "benchmarks.html").read_text(encoding="utf-8")
+    return html.replace("__FAVICON__", _FAVICON_B64)
 
 
 @app.get("/privacy", response_class=HTMLResponse)

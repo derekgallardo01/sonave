@@ -40,7 +40,7 @@ it on Railway: `SONAVE_MEET_PROJECT_NUMBER=<number>` — the panel passes it to
    icon) → Sonave → the side panel loads `usesonave.com/meet-addon`.
 3. Sign in via the popup button (the panel stores a partitioned session cookie
    that works in Meet's iframe), deploy a bot into the same meeting from the
-   console, talk — verdicts should appear in the panel within ~20 s.
+   console, talk — the first verdict appears after ~4-5 s of actual speech.
 
 ## 5. Store listing (Marketplace SDK → Store listing tab) — ready to paste
 

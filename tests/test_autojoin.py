@@ -106,6 +106,43 @@ END:VEVENT""")
     assert aj.parse_ics(text, now=NOW) == []                 # series already over
 
 
+def test_zoom_and_teams_links_extracted(mod):
+    aj = _aj(mod)
+    text = _ics("""BEGIN:VEVENT
+UID:z1
+DTSTART:20260814T150500Z
+LOCATION:https://us05web.zoom.us/j/85512345678?pwd=abC12.9
+END:VEVENT
+BEGIN:VEVENT
+UID:t1
+DTSTART:20260814T151000Z
+DESCRIPTION:join: https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0?context=%7b%22Tid%22%3a%22x%22%7d
+END:VEVENT""")
+    ev = {e["uid"]: e["meet_url"] for e in aj.parse_ics(text, now=NOW)}
+    assert ev["z1"] == "https://us05web.zoom.us/j/85512345678?pwd=abC12.9"
+    assert ev["t1"].startswith("https://teams.microsoft.com/l/meetup-join/")
+
+
+def test_calendar_api_zoom_in_location(mod, monkeypatch):
+    import io as _io
+    import json as _json
+
+    class _R(_io.BytesIO):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            self.close()
+
+    items = {"items": [{"id": "z-ev", "status": "confirmed",
+                        "location": "Zoom: https://zoom.us/j/99911122233",
+                        "start": {"dateTime": "2026-08-14T15:00:30+00:00"}}]}
+    monkeypatch.setattr(mod.autojoin.urllib.request, "urlopen",
+                        lambda req, timeout=None: _R(_json.dumps(items).encode()))
+    ev = mod.autojoin.google_calendar_events("at", now=NOW)
+    assert len(ev) == 1 and ev[0]["meet_url"] == "https://zoom.us/j/99911122233"
+
+
 def test_due_events_window(mod):
     aj = _aj(mod)
     evs = [{"uid": "a", "start_ts": NOW + 30, "meet_url": "m"},

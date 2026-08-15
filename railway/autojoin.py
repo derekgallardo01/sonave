@@ -25,7 +25,18 @@ except ImportError:  # pragma: no cover
     ZoneInfo = None
 
 MEET_RE = re.compile(r"https://meet\.google\.com/[a-z0-9\-]+")
+ZOOM_RE = re.compile(r"https://(?:[a-z0-9\-]+\.)?zoom\.us/(?:j|wc/join)/\d{8,12}(?:\?pwd=[\w.\-]+)?")
+TEAMS_RE = re.compile(r"https://teams\.(?:microsoft\.com/l/meetup-join/[^\s\"'<>\\]+|live\.com/meet/[^\s\"'<>\\]+)")
 _DAYS = {"MO": 0, "TU": 1, "WE": 2, "TH": 3, "FR": 4, "SA": 5, "SU": 6}
+
+
+def find_meeting_url(text: str) -> str | None:
+    """First joinable meeting URL in free text — Meet, Zoom or Teams."""
+    for rx in (MEET_RE, ZOOM_RE, TEAMS_RE):
+        m = rx.search(text or "")
+        if m:
+            return m.group(0)
+    return None
 
 
 def fetch_ics(url: str, timeout: float = 12) -> str:
@@ -101,11 +112,11 @@ def parse_ics(text: str, now: float | None = None,
     for block in re.findall(r"BEGIN:VEVENT(.*?)END:VEVENT", _unfold(text), re.S):
         if "STATUS:CANCELLED" in block:
             continue
-        murl = MEET_RE.search(block)
+        murl = find_meeting_url(block.replace("\\,", ",").replace("\\;", ";"))
         if not murl:
             continue
         uid_m = re.search(r"^UID:(.+)$", block, re.M)
-        uid = (uid_m.group(1).strip() if uid_m else murl.group(0))[:120]
+        uid = (uid_m.group(1).strip() if uid_m else murl)[:120]
         ds = re.search(r"^DTSTART(?:;TZID=([^:;]+))?:([^\n]+)$", block, re.M)
         if not ds:
             continue
@@ -123,7 +134,7 @@ def parse_ics(text: str, now: float | None = None,
                   if rr else [start.timestamp()])
         for ts in starts:
             if now - 600 <= ts <= now + horizon_sec and (int(ts) // 60) not in exdates:
-                events.append({"uid": uid, "start_ts": ts, "meet_url": murl.group(0)})
+                events.append({"uid": uid, "start_ts": ts, "meet_url": murl})
     return events
 
 
@@ -160,14 +171,15 @@ def google_calendar_events(access_token: str, now: float | None = None,
     for it in data.get("items", []):
         if it.get("status") == "cancelled":
             continue
-        url = it.get("hangoutLink") or ""
-        if not url:
+        murl = find_meeting_url(it.get("hangoutLink") or "")
+        if not murl:
             for ep in ((it.get("conferenceData") or {}).get("entryPoints") or []):
-                if MEET_RE.search(ep.get("uri") or ""):
-                    url = ep["uri"]
+                murl = find_meeting_url(ep.get("uri") or "")
+                if murl:
                     break
-        m = MEET_RE.search(url)
-        if not m:
+        if not murl:      # Zoom/Teams meetings usually carry the link here instead
+            murl = find_meeting_url((it.get("location") or "") + " " + (it.get("description") or ""))
+        if not murl:
             continue
         start = (it.get("start") or {}).get("dateTime")
         if not start:
@@ -175,8 +187,8 @@ def google_calendar_events(access_token: str, now: float | None = None,
         ts = _parse_rfc3339(start)
         if ts is None:
             continue
-        out.append({"uid": (it.get("id") or m.group(0))[:120],
-                    "start_ts": ts, "meet_url": m.group(0)})
+        out.append({"uid": (it.get("id") or murl)[:120],
+                    "start_ts": ts, "meet_url": murl})
     return out
 
 

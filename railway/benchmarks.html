@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sonave — Benchmarks. Including the hard ones.</title>
+<meta name="description" content="Sonave publishes its deepfake-detection benchmarks with full methodology — the strong numbers and the honest ceiling. Measured on real meeting audio, not lab files.">
+<link rel="icon" href="data:image/svg+xml;base64,__FAVICON__">
+<link rel="canonical" href="https://usesonave.com/benchmarks">
+<style>
+:root{--bg:#0a0e12;--panel:#101418;--line:#1b2128;--line2:#242c35;--ink:#e8eef2;--ink2:#9aa9b5;
+--muted:#718695;--dim:#4a5a66;--green:#2ee584;--amber:#ffb224;--red:#ff4d5e;
+--font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;--mono:ui-monospace,Consolas,monospace}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.6;font-size:15px}
+.wrap{max-width:880px;margin:0 auto;padding:0 24px 80px}
+header{display:flex;align-items:center;justify-content:space-between;padding:22px 0;border-bottom:1px solid var(--line);margin-bottom:40px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);font-weight:800;font-size:17px}
+.brand svg{width:28px;height:28px}
+header a.back{color:var(--green);text-decoration:none;font-size:13px;font-weight:600}
+h1{font-size:34px;letter-spacing:-.02em;line-height:1.2;margin-bottom:10px}
+.lede{color:var(--ink2);font-size:16px;max-width:640px;margin-bottom:8px}
+.stamp{font-family:var(--mono);font-size:12px;color:var(--muted);margin-bottom:36px}
+h2{font-size:20px;letter-spacing:-.01em;margin:44px 0 14px}
+p{color:var(--ink2);margin-bottom:12px}
+table{width:100%;border-collapse:collapse;margin:18px 0;font-size:14px}
+th{text-align:left;font-size:11px;letter-spacing:.08em;color:var(--muted);font-weight:600;padding:10px 12px;border-bottom:1px solid var(--line2)}
+td{padding:12px;border-bottom:1px solid var(--line);vertical-align:top}
+td.num{font-family:var(--mono);font-weight:700;font-size:16px;white-space:nowrap}
+.g{color:var(--green)}.a{color:var(--amber)}.r{color:var(--red)}.m{color:var(--muted)}
+.note{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:22px 0}
+.note b{color:var(--ink)}
+ul{color:var(--ink2);padding-left:22px;margin-bottom:12px}
+li{margin-bottom:6px}
+code{font-family:var(--mono);font-size:13px;color:var(--green);background:var(--panel);padding:1px 6px;border-radius:5px}
+.cta{display:inline-block;margin-top:26px;background:var(--green);color:#06130b;font-weight:700;padding:12px 22px;border-radius:10px;text-decoration:none}
+footer{border-top:1px solid var(--line);margin-top:60px;padding-top:20px;font-size:12px;color:var(--muted)}
+footer a{color:var(--muted)}
+@media(max-width:640px){h1{font-size:26px}td,th{padding:8px 6px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+ <a class="brand" href="/"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.6" stroke="#2ee584" stroke-width="2.2"></circle><path d="M6.9 12h.9l.6-1.4.7 2.9.8-4.1.9 5.4.9-7.2.9 8.3.8-6.9.7 4.8.7-2.9.6 1.6.5-.5h1.2" stroke="#2ee584" stroke-width="1.15" stroke-linejoin="round" stroke-linecap="round"></path><circle cx="18.1" cy="5.9" r="2.6" fill="#0a0e12"></circle><circle cx="18.1" cy="5.9" r="1.8" fill="#2ee584"></circle></svg>Sonave</a>
+ <a class="back" href="/">&larr; usesonave.com</a>
+</header>
+
+<h1>Benchmarks. Including the hard ones.</h1>
+<p class="lede">Most detection vendors publish one big lab number. We publish what our deployed production model actually measures — on real meeting audio, on tools it has never seen, with the weak spots stated in the same table.</p>
+<p class="stamp">Deployed checkpoint <span class="g">sonave-xlsr-meet</span> &middot; benchmarked 2026-08-12 &middot; evaluation code: <code>src/eval_xlsr.py</code></p>
+
+<h2>Headline results</h2>
+<table>
+ <tr><th>Test</th><th>Sonave</th><th>Commodity detector*</th><th>What it measures</th></tr>
+ <tr>
+  <td><b>27 unseen commercial voice-clone tools</b><br><span class="m" style="font-size:12px">MLAAD subset, all tools absent from training, played through meeting audio</span></td>
+  <td class="num g">95.2%</td>
+  <td class="num m">1.9%</td>
+  <td>Catch rate on the clone tools an attacker would actually use today, in call-quality audio. Same clips for both models.</td>
+ </tr>
+ <tr>
+  <td><b>Real voices through the Opus meeting codec</b><br><span class="m" style="font-size:12px">Unseen real-speech corpus, Opus-24k pipeline</span></td>
+  <td class="num g">94.0%</td>
+  <td class="num m">&mdash;</td>
+  <td>Accuracy on genuine speakers — how rarely we cry wolf on the audio meetings actually produce.</td>
+ </tr>
+ <tr>
+  <td><b>In-the-Wild (hard public deepfakes)</b><br><span class="m" style="font-size:12px">The hardest public real-world benchmark</span></td>
+  <td class="num a">58.7%</td>
+  <td class="num m">4.0%</td>
+  <td>Catch rate at 93.3% real-voice accuracy. <b class="a">This is our honest ceiling</b> — see below.</td>
+ </tr>
+ <tr>
+  <td><b>In-the-Wild through Opus-24k</b><br><span class="m" style="font-size:12px">Same benchmark, through the meeting pipeline</span></td>
+  <td class="num a">59.3%</td>
+  <td class="num m">&mdash;</td>
+  <td>Catch rate at 94.0% real-voice accuracy — the model holds through the codec it was built for.</td>
+ </tr>
+</table>
+<p class="m" style="font-size:12px">*A widely-used open-source deepfake detector, evaluated on the identical clips. It advertises strong lab numbers; on unseen commercial tools through meeting audio it collapses — which is why "99% accurate" marketing tells you nothing about your next call.</p>
+
+<div class="note">
+<b>The honest ceiling.</b> On In-the-Wild — deliberately hard, adversarial, real-world deepfakes — we catch roughly 6 in 10 at a false-alarm rate under 7%. That is far ahead of commodity detection (which catches almost none) and far short of perfect. It's why Sonave is designed as a <b>second factor</b>: the verdict feeds a wire-hold and a re-authentication callback, it doesn't replace them. Any vendor claiming 99%+ on adversarial real-world audio is quoting a lab.
+</div>
+
+<h2>Methodology</h2>
+<ul>
+ <li><b>Model under test:</b> the exact checkpoint serving production (<code>sonave-xlsr-meet</code>, XLS-R + SLS head, fine-tuned on meeting-codec audio) — not a lab build.</li>
+ <li><b>Unseen means unseen:</b> the 27 commercial tools and all In-the-Wild content are absent from training data.</li>
+ <li><b>Meeting-audio pipeline:</b> test clips are passed through Opus compression at meeting bitrates before scoring, mirroring what our bot receives from a live call.</li>
+ <li><b>Operating point:</b> the same thresholds production uses — 0.40 (SUSPECT) / 0.70 (FAKE), with a wire-hold requiring three consecutive red windows.</li>
+ <li><b>Live scoring:</b> 8-second rolling windows per speaker, first verdict after ~4 s of speech, re-scored every 4 s; windows without sufficient voiced audio are never scored.</li>
+ <li><b>Regression gate:</b> every retrain must beat this table within tolerance before deployment; these numbers update only when the deployed model does.</li>
+</ul>
+
+<h2>What these numbers do not mean</h2>
+<ul>
+ <li>They are not a guarantee about any individual verdict — detection is probabilistic, in both directions.</li>
+ <li>They do not cover video or image deepfakes. Sonave is voice, in meetings, on purpose.</li>
+ <li>They will change — attacks improve, and so do our models. The date stamp above is part of the claim.</li>
+</ul>
+
+<h2>Why we publish</h2>
+<p>Fraud teams have been burned by accuracy marketing. If a vendor won't tell you their catch rate on tools outside their training set, through a meeting codec, at a stated false-alarm rate — they're telling you a lab story. We'd rather you know exactly what you're buying, because the teams that compare honestly are the teams we win.</p>
+
+<a class="cta" href="/console">Try it on your next call — free</a>
+
+<footer>Sonave &middot; Voice Authenticity Engine &middot; <a href="/">Home</a> &middot; <a href="/privacy">Privacy</a> &middot; <a href="/terms">Terms</a></footer>
+</div>
+</body>
+</html>
