@@ -143,6 +143,26 @@ added/canceled) are optional and env-gated; unset = silently off:
 | `SONAVE_SMTP_HOST` / `SONAVE_SMTP_PORT` | SMTP relay; port default 587 (STARTTLS) |
 | `SONAVE_SMTP_USER` / `SONAVE_SMTP_PASS` | SMTP login. Gmail: enable 2FA, then create an **App password** (Google Account → Security → App passwords) and use it as the password with `smtp.gmail.com` |
 
+### 4.2a-2 Zoom / Teams smoke test (10 minutes, pending)
+
+The backend accepts Zoom and Teams links (`ALLOWED_MEET_HOSTS`) and calendar
+auto-join recognizes their URLs; the landing badge claims all three platforms.
+Run this once per platform to make the claim fully verified end-to-end:
+
+1. Create a meeting (zoom.us free account / Teams personal). Join it.
+2. Console → Live Monitor → paste the join link → **Deploy**. Admit "Sonave"
+   (Zoom: host admits from waiting room; Teams: lobby admit — the org/tenant
+   must allow anonymous/guest join).
+3. Talk ~30 s: speaker card should appear with a verdict (speaker-name
+   formats differ per platform — check the card title looks sane).
+4. Kick the bot: live view should clear within ~30 s (Recall-status reaper).
+5. Check the Admin feed shows bot_created / meeting_started / meeting_ended
+   with metered minutes.
+
+If the bot never gets past joining, the likely cause is Recall platform
+config (e.g. Zoom OAuth app credentials in the Recall dashboard) — see
+Recall's docs for "Zoom setup", complete it, retest. Record the outcome here.
+
 ### 4.2b-2 OAuth Calendar auto-join (built, DARK until scope verification)
 
 The OAuth variant of auto-protect ("Connect Google Calendar" — no URL pasting)

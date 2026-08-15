@@ -12,7 +12,9 @@ scores each speaker → a live **REAL / SUSPECT / FAKE** verdict.
 ## Status: working detector + live capture/scoring pipeline
 
 Full history and every honest caveat live in
-[`results/detector_v2_progress.md`](results/detector_v2_progress.md). Highlights:
+[`results/detector_v2_progress.md`](results/detector_v2_progress.md); the public
+benchmark table with methodology is at
+[usesonave.com/benchmarks](https://usesonave.com/benchmarks). Highlights:
 
 - **Modern-fake detection (clean audio):** 95% catch on 27 *unseen* commercial tools
   vs commodity 2% on the same set; unseen-generator EER 7.0%. (Deployed checkpoint,
