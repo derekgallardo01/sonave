@@ -1579,9 +1579,10 @@ def sitemap(request: Request):
     from fastapi.responses import Response
     base = _base_url(request)
     today = time.strftime("%Y-%m-%d")
+    paths = ["/", "/benchmarks", "/guides", "/privacy", "/terms"]
+    paths += [f"/guides/{s}" for s in GUIDE_SLUGS]
     urls = "".join(
-        f"<url><loc>{base}{path}</loc><lastmod>{today}</lastmod></url>"
-        for path in ("/", "/benchmarks", "/privacy", "/terms"))
+        f"<url><loc>{base}{path}</loc><lastmod>{today}</lastmod></url>" for path in paths)
     xml = ('<?xml version="1.0" encoding="UTF-8"?>'
            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
            f"{urls}</urlset>")
@@ -1609,7 +1610,27 @@ def llms_txt():
         "## Pages\n"
         "- [Home](https://usesonave.com/): product, how it works, pricing, FAQ\n"
         "- [Benchmarks](https://usesonave.com/benchmarks): full results + methodology\n"
+        "- [Guides](https://usesonave.com/guides): detecting deepfake voices on live "
+        "calls, CEO voice-fraud anatomy, what detector accuracy numbers mean\n"
         "- [Privacy](https://usesonave.com/privacy) · [Terms](https://usesonave.com/terms)\n")
+
+
+GUIDE_SLUGS = ("detect-deepfake-voice-live-call", "ceo-voice-fraud-wire-transfers",
+               "deepfake-detector-accuracy")
+
+
+@app.get("/guides", response_class=HTMLResponse)
+def guides_index():
+    html = (_HERE / "guides" / "index.html").read_text(encoding="utf-8")
+    return html.replace("__FAVICON__", _FAVICON_B64)
+
+
+@app.get("/guides/{slug}", response_class=HTMLResponse)
+def guide(slug: str):
+    if slug not in GUIDE_SLUGS:            # whitelist — never touch the filesystem with user input
+        raise HTTPException(status_code=404, detail="no such guide")
+    html = (_HERE / "guides" / f"{slug}.html").read_text(encoding="utf-8")
+    return html.replace("__FAVICON__", _FAVICON_B64)
 
 
 @app.get("/benchmarks", response_class=HTMLResponse)

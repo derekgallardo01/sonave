@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How Accurate Are Deepfake Voice Detectors? What the Numbers Really Mean — Sonave</title>
+<meta name="description" content="Why 99% lab accuracy collapses on real meeting audio, the four questions to ask any deepfake-detection vendor, and what honest real-world numbers look like.">
+<link rel="icon" href="data:image/svg+xml;base64,__FAVICON__">
+<link rel="canonical" href="https://usesonave.com/guides/deepfake-detector-accuracy">
+<style>
+:root{--bg:#0a0e12;--panel:#101418;--line:#1b2128;--line2:#242c35;--ink:#e8eef2;--ink2:#9aa9b5;
+--muted:#718695;--dim:#4a5a66;--green:#2ee584;--amber:#ffb224;--red:#ff4d5e;
+--font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;--mono:ui-monospace,Consolas,monospace}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.65;font-size:15.5px}
+.wrap{max-width:760px;margin:0 auto;padding:0 24px 80px}
+header{display:flex;align-items:center;justify-content:space-between;padding:22px 0;border-bottom:1px solid var(--line);margin-bottom:40px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);font-weight:800;font-size:17px}
+.brand svg{width:28px;height:28px}
+header a.back{color:var(--green);text-decoration:none;font-size:13px;font-weight:600}
+h1{font-size:31px;letter-spacing:-.02em;line-height:1.25;margin-bottom:12px}
+.lede{color:var(--ink2);font-size:16.5px;margin-bottom:34px}
+h2{font-size:21px;letter-spacing:-.01em;margin:38px 0 12px}
+p{color:var(--ink2);margin-bottom:14px}
+b,strong{color:var(--ink)}
+ul,ol{color:var(--ink2);padding-left:22px;margin-bottom:14px}
+li{margin-bottom:7px}
+a{color:var(--green)}
+.note{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin:22px 0;color:var(--ink2)}
+.cta{display:inline-block;margin-top:20px;background:var(--green);color:#06130b;font-weight:700;padding:12px 22px;border-radius:10px;text-decoration:none}
+footer{border-top:1px solid var(--line);margin-top:56px;padding-top:20px;font-size:12px;color:var(--muted)}
+footer a{color:var(--muted)}
+@media(max-width:640px){h1{font-size:25px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+ <a class="brand" href="/"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.6" stroke="#2ee584" stroke-width="2.2"></circle><path d="M6.9 12h.9l.6-1.4.7 2.9.8-4.1.9 5.4.9-7.2.9 8.3.8-6.9.7 4.8.7-2.9.6 1.6.5-.5h1.2" stroke="#2ee584" stroke-width="1.15" stroke-linejoin="round" stroke-linecap="round"></path><circle cx="18.1" cy="5.9" r="2.6" fill="#0a0e12"></circle><circle cx="18.1" cy="5.9" r="1.8" fill="#2ee584"></circle></svg>Sonave</a>
+ <a class="back" href="/guides">All guides</a>
+</header>
+
+<h1>How accurate are deepfake voice detectors, really?</h1>
+<p class="lede">Every vendor page says 98% or 99%. Meanwhile, deepfake fraud keeps working. Both things are true, because "accuracy" without three qualifiers — <i>on what audio, against which tools, at what false-alarm rate</i> — is a marketing number, not an engineering one.</p>
+
+<h2>Why lab numbers collapse in the real world</h2>
+<p>Three gaps separate a benchmark table from your Tuesday finance call:</p>
+<ol>
+ <li><b>The codec gap.</b> Academic benchmarks use clean studio-quality files. Meetings compress voice with the Opus codec, noise suppression and echo cancellation — processing that erases many of the subtle artifacts detectors learn to key on. A model that has never heard meeting audio is scoring a signal it wasn't trained for.</li>
+ <li><b>The generator gap.</b> Detectors ace the synthesis tools in their training set. Fraudsters use this year's commercial tools, which weren't. The only number that predicts field performance is catch rate on tools <i>excluded</i> from training.</li>
+ <li><b>The threshold gap.</b> Any detector can "catch everything" if it also flags real speakers constantly — and a system that cries wolf gets muted within a week. Catch rate is meaningless without the real-voice accuracy it was measured at.</li>
+</ol>
+<p>The size of these gaps is not subtle. In our published testing, a widely-used open-source detector with strong advertised lab numbers catches <b>1.9%</b> of clips from 27 unseen commercial voice-clone tools played through meeting audio. A model trained specifically for that environment catches <b>95.2%</b> of the identical clips. Ninety-seven points of difference, on the same audio, from training choices alone.</p>
+
+<h2>Four questions that expose any vendor (including us)</h2>
+<ol>
+ <li><b>"What's your catch rate on synthesis tools outside your training set?"</b> If the answer is the same 99% as the homepage, the tools weren't really unseen.</li>
+ <li><b>"Measured through a meeting codec, or on clean files?"</b> If your use case is calls, clean-file numbers are irrelevant.</li>
+ <li><b>"At what false-alarm rate on real voices?"</b> Ask for both numbers from the same run.</li>
+ <li><b>"Will you publish that, with methodology and a date?"</b> This one ends most conversations.</li>
+</ol>
+
+<h2>What honest numbers look like</h2>
+<p>Here are ours, from the exact model checkpoint serving production, with <a href="/benchmarks">methodology published</a>: <b>95.2%</b> catch on 27 unseen commercial tools through meeting audio (commodity detector: 1.9% on the same clips); <b>94.0%</b> real-voice accuracy through the Opus codec; and on In-the-Wild — the hardest public real-world deepfake benchmark — <b>58.7%</b> catch at 93.3% real-voice accuracy.</p>
+<p>That last number is the one a marketing department would hide, and it's the most important one on the page. Adversarial, real-world deepfakes are genuinely hard; roughly 6-in-10 at a sub-7% false-alarm rate is the current honest state of a specialized detector, and near-zero is the honest state of a generic one. Anyone quoting 99%+ against <i>that</i> class of audio is describing their lab, not your risk.</p>
+
+<div class="note"><b>The design consequence:</b> because no detector is certain, detection should never be the last line of defense. It belongs where a probabilistic signal is valuable — watching every speaker on every call, and converting sustained suspicion into automatic action: an on-screen verdict, a wire-hold webhook that pauses the payment, a forensic report for the follow-up. Verification (callbacks, dual approval) stays in the loop; detection decides when the loop must run.</div>
+
+<h2>The bottom line</h2>
+<p>"How accurate is deepfake detection?" has a real answer, but it's conditional: <b>very accurate against current commercial clone tools when the model is trained for your audio environment; partially effective against the adversarial frontier; and near-useless when a lab model meets meeting audio.</b> Buy accordingly — and ask every vendor the four questions above. We answer them at <a href="/benchmarks">usesonave.com/benchmarks</a>.</p>
+
+<a class="cta" href="/console">See it on your own voice — free for 5 hours/month</a>
+
+<footer>Sonave &middot; <a href="/guides">Guides</a> &middot; <a href="/benchmarks">Benchmarks</a> &middot; <a href="/">Home</a> &middot; <a href="/privacy">Privacy</a> &middot; <a href="/terms">Terms</a></footer>
+</div>
+</body>
+</html>

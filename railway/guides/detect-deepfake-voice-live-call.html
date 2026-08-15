@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How to Detect a Deepfake Voice on a Live Call (Meet, Zoom, Teams) — Sonave</title>
+<meta name="description" content="Practical guide to catching cloned voices during a live video call: why human ears miss them, the process tells that matter, and how real-time detection works on meeting audio.">
+<link rel="icon" href="data:image/svg+xml;base64,__FAVICON__">
+<link rel="canonical" href="https://usesonave.com/guides/detect-deepfake-voice-live-call">
+<style>
+:root{--bg:#0a0e12;--panel:#101418;--line:#1b2128;--line2:#242c35;--ink:#e8eef2;--ink2:#9aa9b5;
+--muted:#718695;--dim:#4a5a66;--green:#2ee584;--amber:#ffb224;--red:#ff4d5e;
+--font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;--mono:ui-monospace,Consolas,monospace}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.65;font-size:15.5px}
+.wrap{max-width:760px;margin:0 auto;padding:0 24px 80px}
+header{display:flex;align-items:center;justify-content:space-between;padding:22px 0;border-bottom:1px solid var(--line);margin-bottom:40px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);font-weight:800;font-size:17px}
+.brand svg{width:28px;height:28px}
+header a.back{color:var(--green);text-decoration:none;font-size:13px;font-weight:600}
+h1{font-size:31px;letter-spacing:-.02em;line-height:1.25;margin-bottom:12px}
+.lede{color:var(--ink2);font-size:16.5px;margin-bottom:34px}
+h2{font-size:21px;letter-spacing:-.01em;margin:38px 0 12px}
+p{color:var(--ink2);margin-bottom:14px}
+b,strong{color:var(--ink)}
+ul,ol{color:var(--ink2);padding-left:22px;margin-bottom:14px}
+li{margin-bottom:7px}
+a{color:var(--green)}
+.note{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin:22px 0;color:var(--ink2)}
+.cta{display:inline-block;margin-top:20px;background:var(--green);color:#06130b;font-weight:700;padding:12px 22px;border-radius:10px;text-decoration:none}
+footer{border-top:1px solid var(--line);margin-top:56px;padding-top:20px;font-size:12px;color:var(--muted)}
+footer a{color:var(--muted)}
+@media(max-width:640px){h1{font-size:25px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+ <a class="brand" href="/"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.6" stroke="#2ee584" stroke-width="2.2"></circle><path d="M6.9 12h.9l.6-1.4.7 2.9.8-4.1.9 5.4.9-7.2.9 8.3.8-6.9.7 4.8.7-2.9.6 1.6.5-.5h1.2" stroke="#2ee584" stroke-width="1.15" stroke-linejoin="round" stroke-linecap="round"></path><circle cx="18.1" cy="5.9" r="2.6" fill="#0a0e12"></circle><circle cx="18.1" cy="5.9" r="1.8" fill="#2ee584"></circle></svg>Sonave</a>
+ <a class="back" href="/guides">All guides</a>
+</header>
+
+<h1>How to detect a deepfake voice on a live call</h1>
+<p class="lede">A cloned voice on a Google Meet, Zoom or Teams call is the hardest version of the problem: there's no file to upload, no time to send anything to a lab, and the person being imitated is often your own boss. Here's what actually works — and what doesn't.</p>
+
+<h2>Why your ears are the wrong tool</h2>
+<p>Modern voice cloning needs seconds of reference audio and reproduces timbre, accent and cadence well enough that listeners perform close to chance on good clones — especially over a meeting codec that compresses away many of the artifacts people are told to listen for. The classic advice ("listen for robotic tone") describes 2019-era clones, not current ones.</p>
+<p>That said, there are still <b>human-detectable tells worth knowing</b>, as long as you treat them as weak signals, not verdicts:</p>
+<ul>
+ <li><b>Turn-taking latency.</b> Live clone pipelines add processing delay. If every reply starts a beat late — consistently, not just from a bad connection — pay attention.</li>
+ <li><b>Interruption behavior.</b> Interrupt mid-sentence. Real speakers stop, adjust, talk over you. Some cloning setups plow onward or pause unnaturally before recovering.</li>
+ <li><b>Emotional range under pressure.</b> Ask something unexpected and personal ("what did we argue about in last week's 1:1?"). Cloned voices handle scripts well and improvisation less well — though a well-prepared attacker survives this.</li>
+</ul>
+
+<h2>The tells that actually matter are in the process, not the audio</h2>
+<p>Nearly every reported voice-fraud incident shares the same shape, and it's visible before any acoustic analysis:</p>
+<ul>
+ <li><b>Urgency</b> — the transfer must happen today, the deal collapses otherwise.</li>
+ <li><b>Secrecy</b> — "keep this between us," an acquisition, a regulator, a surprise.</li>
+ <li><b>Channel or account change</b> — new beneficiary account, new payment channel, a call instead of the usual ticketed process.</li>
+</ul>
+<p>Any two of those together should trigger verification <i>regardless of how convincing the voice is</i>. The voice is the least trustworthy part of the interaction; the request pattern is the reliable signal.</p>
+
+<h2>Verification that survives a perfect clone</h2>
+<ol>
+ <li><b>Out-of-band callback.</b> Hang up and call the person back on a number you already had — not one from the meeting invite or email thread. This single habit defeats the majority of voice-fraud attempts.</li>
+ <li><b>Pre-agreed code phrases</b> for payment approvals, rotated like passwords.</li>
+ <li><b>Dual authorization</b> with the second approver outside the meeting.</li>
+ <li><b>A hold window</b> on first-time or changed-beneficiary wires — even 30 minutes changes outcomes, because deepfake fraud depends on same-call urgency.</li>
+</ol>
+
+<h2>What real-time detection adds</h2>
+<p>Automated detection does what ears can't: it scores the spectral and temporal fingerprints of synthesis continuously, on every speaker, without fatigue. Two things determine whether it actually works on a live call:</p>
+<ul>
+ <li><b>It has to be trained on meeting audio.</b> Meeting platforms compress voice with the Opus codec and processing that destroys many lab-visible artifacts. In our published testing, a widely-used open-source detector that advertises strong lab numbers catches <b>1.9%</b> of clips from 27 unseen commercial voice-clone tools played through meeting audio; a model trained for that environment catches <b>95.2%</b> of the same clips. Same audio, opposite outcome — <a href="/benchmarks">full table and methodology here</a>.</li>
+ <li><b>It has to be live.</b> A verdict after the call is a post-mortem. A verdict ~4 seconds after a speaker starts talking, refreshed continuously, arrives while the wire can still be held.</li>
+</ul>
+
+<div class="note"><b>Honesty checkpoint:</b> no detector is perfect. On the hardest public real-world deepfakes, our own deployed model catches about 59% at a 93%+ real-voice accuracy — far ahead of commodity tools, far short of certainty. Detection is a second factor that triggers verification; it does not replace callbacks. Any vendor telling you otherwise is selling a lab number.</div>
+
+<h2>Putting it together</h2>
+<p>The layered answer: <b>process rules</b> catch the request pattern, <b>callbacks</b> defeat even perfect clones, and <b>live detection</b> watches every voice on every call so the humans only have to be paranoid when the screen turns red. Sonave does the third layer: a visible bot joins your meeting, every speaker gets a live REAL / SUSPECT / FAKE verdict, and a sustained red verdict fires a wire-hold webhook into your approval flow with an exportable forensic report.</p>
+
+<a class="cta" href="/console">Protect your next call — free for 5 hours/month</a>
+
+<footer>Sonave &middot; <a href="/guides">Guides</a> &middot; <a href="/benchmarks">Benchmarks</a> &middot; <a href="/">Home</a> &middot; <a href="/privacy">Privacy</a> &middot; <a href="/terms">Terms</a></footer>
+</div>
+</body>
+</html>

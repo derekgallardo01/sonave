@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CEO Voice Fraud: How Deepfake Wire Transfers Happen — and the Process That Stops Them — Sonave</title>
+<meta name="description" content="The anatomy of executive-impersonation wire fraud: how deepfake voice and video calls are used to move money, the real cases, and the control stack finance teams need.">
+<link rel="icon" href="data:image/svg+xml;base64,__FAVICON__">
+<link rel="canonical" href="https://usesonave.com/guides/ceo-voice-fraud-wire-transfers">
+<style>
+:root{--bg:#0a0e12;--panel:#101418;--line:#1b2128;--line2:#242c35;--ink:#e8eef2;--ink2:#9aa9b5;
+--muted:#718695;--dim:#4a5a66;--green:#2ee584;--amber:#ffb224;--red:#ff4d5e;
+--font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;--mono:ui-monospace,Consolas,monospace}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.65;font-size:15.5px}
+.wrap{max-width:760px;margin:0 auto;padding:0 24px 80px}
+header{display:flex;align-items:center;justify-content:space-between;padding:22px 0;border-bottom:1px solid var(--line);margin-bottom:40px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);font-weight:800;font-size:17px}
+.brand svg{width:28px;height:28px}
+header a.back{color:var(--green);text-decoration:none;font-size:13px;font-weight:600}
+h1{font-size:31px;letter-spacing:-.02em;line-height:1.25;margin-bottom:12px}
+.lede{color:var(--ink2);font-size:16.5px;margin-bottom:34px}
+h2{font-size:21px;letter-spacing:-.01em;margin:38px 0 12px}
+p{color:var(--ink2);margin-bottom:14px}
+b,strong{color:var(--ink)}
+ul,ol{color:var(--ink2);padding-left:22px;margin-bottom:14px}
+li{margin-bottom:7px}
+a{color:var(--green)}
+.note{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin:22px 0;color:var(--ink2)}
+.check{background:var(--panel);border:1px solid var(--line2);border-radius:12px;padding:18px 22px;margin:22px 0}
+.check li{margin-bottom:9px}
+.cta{display:inline-block;margin-top:20px;background:var(--green);color:#06130b;font-weight:700;padding:12px 22px;border-radius:10px;text-decoration:none}
+footer{border-top:1px solid var(--line);margin-top:56px;padding-top:20px;font-size:12px;color:var(--muted)}
+footer a{color:var(--muted)}
+@media(max-width:640px){h1{font-size:25px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+ <a class="brand" href="/"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.6" stroke="#2ee584" stroke-width="2.2"></circle><path d="M6.9 12h.9l.6-1.4.7 2.9.8-4.1.9 5.4.9-7.2.9 8.3.8-6.9.7 4.8.7-2.9.6 1.6.5-.5h1.2" stroke="#2ee584" stroke-width="1.15" stroke-linejoin="round" stroke-linecap="round"></path><circle cx="18.1" cy="5.9" r="2.6" fill="#0a0e12"></circle><circle cx="18.1" cy="5.9" r="1.8" fill="#2ee584"></circle></svg>Sonave</a>
+ <a class="back" href="/guides">All guides</a>
+</header>
+
+<h1>CEO voice fraud: how deepfake wire transfers happen — and the process that stops them</h1>
+<p class="lede">Executive-impersonation fraud predates AI — but voice and video cloning removed its biggest weakness. The email from "the CEO" could be doubted; the CEO's actual voice, on a live call, asking you by name, is engineered to end doubt. Here's the anatomy, the real cases, and the control stack that works.</p>
+
+<h2>The anatomy of the attack</h2>
+<ol>
+ <li><b>Reconnaissance.</b> Executive voice samples are everywhere — earnings calls, podcasts, conference talks, sales videos. Seconds of audio suffice for a usable clone. Org charts and approval workflows come from LinkedIn and phishing.</li>
+ <li><b>The pretext.</b> A confidential situation that explains both urgency and secrecy: an acquisition closing, a supplier emergency, a regulator deadline. The pretext is chosen so that checking with colleagues feels like betraying the executive's trust.</li>
+ <li><b>The live call.</b> Increasingly not just a phone call — a video meeting, sometimes with multiple cloned "colleagues" present. Live conversation defeats the old advice ("call them back" gets reframed as "I'm calling <i>you</i>, we're talking right now").</li>
+ <li><b>The transfer.</b> A wire to a new beneficiary, often broken into several payments, timed near end-of-day or end-of-week so recovery windows close before anyone reconciles.</li>
+</ol>
+
+<h2>This is not hypothetical</h2>
+<ul>
+ <li>In the widely reported <b>Arup case (Hong Kong, 2024)</b>, a finance employee joined a video call where the CFO and several colleagues appeared and spoke — all of them deepfaked — and subsequently authorized transfers totaling about US$25 million.</li>
+ <li>As far back as <b>2019</b>, public reporting described a UK energy-company executive wiring roughly €220,000 after a phone call cloning his parent-company CEO's voice — accent and cadence included.</li>
+ <li>Law-enforcement and industry advisories since have repeatedly warned that generative voice is now standard tooling in business-email-compromise playbooks, which already account for billions in annual reported losses.</li>
+</ul>
+<p>The pattern to internalize: in every case, the human on the call was <b>convinced</b>. The control failure wasn't gullibility — it was that the process allowed a live conversation to authorize money movement.</p>
+
+<h2>The control stack</h2>
+<p>No single control survives contact with a good attacker. The stack below assumes the voice will be convincing:</p>
+<div class="check">
+<ol>
+ <li><b>Out-of-band callback, always.</b> Any payment instruction that arrives by call or meeting gets verified by calling the requester back on a directory number. No exceptions for seniority — especially not for seniority.</li>
+ <li><b>Dual authorization</b> for wires above a threshold, with the second approver reached outside the original meeting.</li>
+ <li><b>Beneficiary-change quarantine.</b> First payment to any new account gets a mandatory hold window and independent confirmation.</li>
+ <li><b>Urgency-plus-secrecy rule.</b> Train the specific pattern: urgent + confidential + payment = stop, verify, document. Give staff explicit social cover: "our process requires a callback, even for the CEO."</li>
+ <li><b>Live voice verification on the call itself.</b> Real-time detection scores every speaker continuously and turns "I had a feeling" into an on-screen verdict — and, on sustained red, a machine-readable event.</li>
+</ol>
+</div>
+
+<h2>Where detection fits (and where it doesn't)</h2>
+<p>Detection's job in this stack is specific: it watches every meeting so humans don't have to be suspicious of every meeting. When Sonave's model scores a voice in the red band for three consecutive windows, it raises a <b>wire-hold webhook</b> your approval system can consume — pausing the payment pending re-authentication — and produces an exportable forensic report (scores, timestamps, audio evidence) for the investigation that follows.</p>
+<p>It is a second factor, not an oracle. Our deployed model catches 95% of clips from 27 unseen commercial clone tools through meeting audio, and about 59% on the hardest public real-world deepfakes — numbers we publish, with methodology, at <a href="/benchmarks">usesonave.com/benchmarks</a>. The callback still matters. The point is that the callback now gets triggered by an alarm instead of depending on a junior employee's willingness to challenge a CFO.</p>
+
+<a class="cta" href="/console">Put a verdict on every voice — free for 5 hours/month</a>
+
+<footer>Sonave &middot; <a href="/guides">Guides</a> &middot; <a href="/benchmarks">Benchmarks</a> &middot; <a href="/">Home</a> &middot; <a href="/privacy">Privacy</a> &middot; <a href="/terms">Terms</a></footer>
+</div>
+</body>
+</html>
