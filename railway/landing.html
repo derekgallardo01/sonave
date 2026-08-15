@@ -268,6 +268,48 @@ a:hover{color:var(--green-hover)}
     </div>
   </section>
 
+  <section class="how" id="faq">
+    <div class="eyebrow">QUESTIONS</div>
+    <h2>Straight answers.</h2>
+    <div style="max-width:760px;display:flex;flex-direction:column;gap:18px;margin-top:8px">
+      <div style="border:1px solid var(--line);border-radius:12px;padding:18px 20px">
+        <h3 style="font-size:15px;margin-bottom:6px">Can a deepfake voice be detected on a live Google Meet, Zoom or Teams call?</h3>
+        <p style="color:var(--ink2);font-size:14px;margin:0">Yes. Sonave sends a visible bot into the meeting that streams each speaker's audio to a detection model trained on meeting-codec audio. Every speaker gets a REAL / SUSPECT / FAKE verdict about 4 seconds after they start talking, re-scored every 4 seconds for the rest of the call.</p>
+      </div>
+      <div style="border:1px solid var(--line);border-radius:12px;padding:18px 20px">
+        <h3 style="font-size:15px;margin-bottom:6px">How accurate is deepfake voice detection, really?</h3>
+        <p style="color:var(--ink2);font-size:14px;margin:0">On 27 unseen commercial voice-clone tools played through meeting audio, Sonave catches 95% where a commodity detector catches 2%. On the hardest public real-world deepfakes (In-the-Wild), it catches about 59% at a 93%+ real-voice accuracy — which is why verdicts are designed as a second factor next to callbacks, not a replacement. Full methodology at <a href="/benchmarks">usesonave.com/benchmarks</a>.</p>
+      </div>
+      <div style="border:1px solid var(--line);border-radius:12px;padding:18px 20px">
+        <h3 style="font-size:15px;margin-bottom:6px">Does everyone on the call need to install something?</h3>
+        <p style="color:var(--ink2);font-size:14px;margin:0">No. Only the person protecting the meeting signs in; the bot joins as a normal, visible participant. Nobody else installs, clicks or configures anything.</p>
+      </div>
+      <div style="border:1px solid var(--line);border-radius:12px;padding:18px 20px">
+        <h3 style="font-size:15px;margin-bottom:6px">What is a wire hold?</h3>
+        <p style="color:var(--ink2);font-size:14px;margin:0">When a voice scores in the red band for three consecutive windows, Sonave fires a webhook your payment-approval flow can use to pause a wire transfer pending re-authentication, and produces an exportable forensic report of the incident — scores, timestamps and audio evidence.</p>
+      </div>
+      <div style="border:1px solid var(--line);border-radius:12px;padding:18px 20px">
+        <h3 style="font-size:15px;margin-bottom:6px">What happens to my meeting audio?</h3>
+        <p style="color:var(--ink2);font-size:14px;margin:0">Audio is processed to produce verdicts and may be used to improve the detection models, with an opt-out available. Voiceprints are stored as embeddings you can delete in one click. We never sell data or share meeting audio between customers — details at <a href="/privacy">usesonave.com/privacy</a>.</p>
+      </div>
+      <div style="border:1px solid var(--line);border-radius:12px;padding:18px 20px">
+        <h3 style="font-size:15px;margin-bottom:6px">How much does Sonave cost?</h3>
+        <p style="color:var(--ink2);font-size:14px;margin:0">Free for 5 monitored hours every month — no card required. After that it's $8 per monitored hour, billed by the minute, only while the bot is actually in a call. No seats, no tiers.</p>
+      </div>
+    </div>
+  </section>
+
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
+   {"@type":"Question","name":"Can a deepfake voice be detected on a live Google Meet, Zoom or Teams call?","acceptedAnswer":{"@type":"Answer","text":"Yes. Sonave sends a visible bot into the meeting that streams each speaker's audio to a detection model trained on meeting-codec audio. Every speaker gets a REAL / SUSPECT / FAKE verdict about 4 seconds after they start talking, re-scored every 4 seconds for the rest of the call."}},
+   {"@type":"Question","name":"How accurate is deepfake voice detection, really?","acceptedAnswer":{"@type":"Answer","text":"On 27 unseen commercial voice-clone tools played through meeting audio, Sonave catches 95% where a commodity detector catches 2%. On the hardest public real-world deepfakes (In-the-Wild), it catches about 59% at a 93%+ real-voice accuracy — which is why verdicts are designed as a second factor next to callbacks, not a replacement. Full methodology at usesonave.com/benchmarks."}},
+   {"@type":"Question","name":"Does everyone on the call need to install something?","acceptedAnswer":{"@type":"Answer","text":"No. Only the person protecting the meeting signs in; the bot joins as a normal, visible participant. Nobody else installs, clicks or configures anything."}},
+   {"@type":"Question","name":"What is a wire hold?","acceptedAnswer":{"@type":"Answer","text":"When a voice scores in the red band for three consecutive windows, Sonave fires a webhook your payment-approval flow can use to pause a wire transfer pending re-authentication, and produces an exportable forensic report of the incident — scores, timestamps and audio evidence."}},
+   {"@type":"Question","name":"What happens to my meeting audio?","acceptedAnswer":{"@type":"Answer","text":"Audio is processed to produce verdicts and may be used to improve the detection models, with an opt-out available. Voiceprints are stored as embeddings you can delete in one click. We never sell data or share meeting audio between customers — details at usesonave.com/privacy."}},
+   {"@type":"Question","name":"How much does Sonave cost?","acceptedAnswer":{"@type":"Answer","text":"Free for 5 monitored hours every month — no card required. After that it's $8 per monitored hour, billed by the minute, only while the bot is actually in a call. No seats, no tiers."}}
+  ]}
+  </script>
+
   <section class="footer-cta">
     <h2>Put a verdict on every voice.</h2>
     <p class="footer-sub">Fully hosted — no laptop in the loop. Design-partner slots open for finance teams.</p>

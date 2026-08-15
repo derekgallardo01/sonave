@@ -1567,9 +1567,49 @@ def console_shot():
 
 
 @app.get("/robots.txt")
-def robots():
+def robots(request: Request):
     from fastapi.responses import PlainTextResponse
-    return PlainTextResponse("User-agent: *\nAllow: /\nDisallow: /console\nDisallow: /report/\n")
+    base = _base_url(request)
+    return PlainTextResponse("User-agent: *\nAllow: /\nDisallow: /console\nDisallow: /report/\n"
+                             f"\nSitemap: {base}/sitemap.xml\n")
+
+
+@app.get("/sitemap.xml")
+def sitemap(request: Request):
+    from fastapi.responses import Response
+    base = _base_url(request)
+    today = time.strftime("%Y-%m-%d")
+    urls = "".join(
+        f"<url><loc>{base}{path}</loc><lastmod>{today}</lastmod></url>"
+        for path in ("/", "/benchmarks", "/privacy", "/terms"))
+    xml = ('<?xml version="1.0" encoding="UTF-8"?>'
+           '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+           f"{urls}</urlset>")
+    return Response(content=xml, media_type="application/xml")
+
+
+@app.get("/llms.txt")
+def llms_txt():
+    from fastapi.responses import PlainTextResponse
+    return PlainTextResponse(
+        "# Sonave\n\n"
+        "> Real-time deepfake-voice detection for video meetings. A visible bot joins "
+        "Google Meet, Zoom or Teams, streams each speaker's audio to a detection model "
+        "trained on meeting-codec audio, and shows a live REAL / SUSPECT / FAKE verdict "
+        "per speaker (~4 s to first verdict, re-scored every 4 s). Sustained red verdicts "
+        "fire a wire-hold webhook that can pause a payment approval, plus an exportable "
+        "forensic report.\n\n"
+        "Key facts (deployed model, benchmarked 2026-08-12; methodology at /benchmarks):\n"
+        "- 95.2% catch on 27 unseen commercial voice-clone tools through meeting audio "
+        "(a commodity open-source detector catches 1.9% on the same clips)\n"
+        "- 94.0% real-voice accuracy through the Opus meeting codec\n"
+        "- 58.7% catch at 93.3% real-voice accuracy on In-the-Wild (the honest ceiling; "
+        "verdicts are a second factor alongside callbacks, not a replacement)\n"
+        "- Pricing: free 5 monitored hours/month, then $8 per monitored hour, self-serve\n\n"
+        "## Pages\n"
+        "- [Home](https://usesonave.com/): product, how it works, pricing, FAQ\n"
+        "- [Benchmarks](https://usesonave.com/benchmarks): full results + methodology\n"
+        "- [Privacy](https://usesonave.com/privacy) · [Terms](https://usesonave.com/terms)\n")
 
 
 @app.get("/benchmarks", response_class=HTMLResponse)
