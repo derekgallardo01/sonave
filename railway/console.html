@@ -311,8 +311,8 @@ a:hover{color:var(--green-hover)}
      <div class="spk-grid" id="speakersGrid" style="display:none"></div>
      <div class="idle" id="idleState">
       <div class="idle-bars"><i style="height:30%"></i><i style="height:55%"></i><i style="height:80%"></i><i style="height:45%"></i><i style="height:95%"></i><i style="height:60%"></i><i style="height:35%"></i><i style="height:70%"></i><i style="height:25%"></i></div>
-      <div class="idle-t1">No meeting monitored</div>
-      <div class="idle-t2">Deploy a bot into a Google Meet, Zoom or Teams call &#8212; every speaker gets a live authenticity verdict within seconds.</div>
+      <div class="idle-t1">No active meeting monitored</div>
+      <div class="idle-t2">Sonave operates 100% botless. Open Sonave in the Google Meet side panel during any meeting for instant voice authenticity verification.</div>
       <button class="btn-soft" onclick="demoToggle()">Run a simulated call</button>
      </div>
      <!-- Live Spectrogram Visualizer -->
@@ -332,12 +332,12 @@ a:hover{color:var(--green-hover)}
 
    <div class="side-col">
     <div class="card-pad">
-     <div class="card-lbl" style="margin-bottom:12px">DEPLOY BOT</div>
+     <div class="card-lbl" style="margin-bottom:12px">CONNECT MEETING STREAM</div>
      <div style="display:flex;gap:8px">
-      <input id="meetUrl" class="inp" placeholder="Meet / Zoom / Teams link">
-      <button class="btn-primary" id="deployBtn" onclick="deployBot()">Deploy</button>
+      <input id="meetUrl" class="inp" placeholder="Google Meet link (https://meet.google.com/...)">
+      <button class="btn-primary" id="deployBtn" onclick="deployBot()">Connect</button>
      </div>
-     <div class="hint">The bot joins as a participant, streams per-speaker audio and scores it in real time. Announce recording to participants — required.</div>
+     <div class="hint">Connects live meeting audio stream for real-time authenticity evaluation. Google Meet users can also open Sonave directly inside the native Meet side panel.</div>
     </div>
 
     <div class="card-pad" id="planCard" style="display:none">
@@ -379,7 +379,7 @@ a:hover{color:var(--green-hover)}
       <input id="icalUrl" class="inp" placeholder="Secret iCal address (https://calendar.google.com/calendar/ical/.../basic.ics)">
       <button class="btn-soft" onclick="saveAlerts()">Save</button>
      </div>
-     <div class="hint">Sonave watches this calendar and deploys the bot into your Google Meet meetings as they start &#8212; no calendar permissions needed. Google Calendar &#8594; Settings &#8594; your calendar &#8594; &#8220;Secret address in iCal format&#8221;. Clear the field to turn off.</div>
+     <div class="hint">Sonave watches this calendar and automatically activates protection for upcoming Google Meet meetings &#8212; no calendar permissions needed. Google Calendar &#8594; Settings &#8594; your calendar &#8594; &#8220;Secret address in iCal format&#8221;. Clear the field to turn off.</div>
      <div id="calRow" style="display:none;align-items:center;gap:10px;margin-top:12px">
       <button class="btn-soft" id="calBtn"></button>
       <span class="hint" id="calHint" style="margin:0"></span>
