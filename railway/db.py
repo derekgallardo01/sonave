@@ -84,6 +84,19 @@ CREATE TABLE IF NOT EXISTS events (
 );
 CREATE INDEX IF NOT EXISTS idx_events_user_ts ON events(user_id, ts);
 CREATE INDEX IF NOT EXISTS idx_events_kind_ts ON events(kind, ts);
+CREATE TABLE IF NOT EXISTS api_keys (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id       TEXT NOT NULL,
+    name          TEXT NOT NULL,
+    key_hash      TEXT NOT NULL UNIQUE,
+    prefix        TEXT NOT NULL,
+    scopes        TEXT NOT NULL,
+    created_ts    REAL NOT NULL,
+    last_used_ts  REAL,
+    is_active     INTEGER DEFAULT 1
+);
+CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash);
+CREATE INDEX IF NOT EXISTS idx_api_keys_user ON api_keys(user_id);
 """
 
 
@@ -103,6 +116,8 @@ def _conn() -> sqlite3.Connection:
         c.execute("ALTER TABLE users ADD COLUMN alert_webhook TEXT")
     if "ical_url" not in cols:                       # calendar auto-join (zero-scope)
         c.execute("ALTER TABLE users ADD COLUMN ical_url TEXT")
+    if "webhook_secret" not in cols:                 # HMAC webhook signing secret
+        c.execute("ALTER TABLE users ADD COLUMN webhook_secret TEXT")
     c.execute("CREATE TABLE IF NOT EXISTS autojoin_log ("
               "user_id TEXT, event_key TEXT, bot_id TEXT, ts REAL, "
               "PRIMARY KEY (user_id, event_key))")
@@ -574,3 +589,119 @@ def webhook_seen(event_id: str, event_type: str) -> bool:
             return False
         finally:
             c.close()
+
+
+# --- enterprise API keys -----------------------------------------------------
+def _hash_key(raw_key: str) -> str:
+    import hashlib
+    return hashlib.sha256(raw_key.strip().encode("utf-8")).hexdigest()
+
+
+def create_api_key(user_id: str, name: str, scopes: list[str]) -> tuple[dict, str]:
+    """Create a scoped API key. Returns (key_record_dict, raw_token_string)."""
+    raw_token = f"snv_live_{secrets.token_urlsafe(32)}"
+    key_hash = _hash_key(raw_token)
+    prefix = raw_token[:13] + "..." + raw_token[-4:]
+    scopes_str = ",".join(sorted(set(scopes))) if scopes else "read:verdicts"
+    now = time.time()
+    with _LOCK:
+        c = _conn()
+        try:
+            cur = c.execute(
+                "INSERT INTO api_keys (user_id, name, key_hash, prefix, scopes, created_ts, is_active) "
+                "VALUES (?,?,?,?,?,?,1)",
+                (user_id, name.strip() or "Default Key", key_hash, prefix, scopes_str, now)
+            )
+            c.commit()
+            row = c.execute("SELECT * FROM api_keys WHERE id=?", (cur.lastrowid,)).fetchone()
+            return dict(row), raw_token
+        finally:
+            c.close()
+
+
+def list_api_keys(user_id: str) -> list[dict]:
+    """List all API keys for a workspace (omits raw hash for security)."""
+    c = _conn()
+    try:
+        rows = c.execute(
+            "SELECT id, user_id, name, prefix, scopes, created_ts, last_used_ts, is_active "
+            "FROM api_keys WHERE user_id=? ORDER BY id DESC",
+            (user_id,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        c.close()
+
+
+def revoke_api_key(key_id: int, user_id: str) -> bool:
+    """Revoke an active API key."""
+    with _LOCK:
+        c = _conn()
+        try:
+            cur = c.execute("UPDATE api_keys SET is_active=0 WHERE id=? AND user_id=?", (key_id, user_id))
+            c.commit()
+            return cur.rowcount > 0
+        finally:
+            c.close()
+
+
+def verify_api_key(raw_key: str) -> tuple[dict | None, list[str]]:
+    """Validate API key token, update last_used_ts, and return (user_dict, scopes_list)."""
+    if not raw_key or not raw_key.startswith("snv_live_"):
+        return None, []
+    key_hash = _hash_key(raw_key)
+    with _LOCK:
+        c = _conn()
+        try:
+            row = c.execute(
+                "SELECT k.*, u.role, u.email, u.name as user_name, u.picture "
+                "FROM api_keys k JOIN users u ON u.id = k.user_id "
+                "WHERE k.key_hash=? AND k.is_active=1",
+                (key_hash,)
+            ).fetchone()
+            if not row:
+                return None, []
+            c.execute("UPDATE api_keys SET last_used_ts=? WHERE id=?", (time.time(), row["id"]))
+            c.commit()
+            scopes = [s.strip() for s in (row["scopes"] or "").split(",") if s.strip()]
+            user_data = {
+                "id": row["user_id"],
+                "role": row["role"],
+                "email": row["email"],
+                "name": row["user_name"],
+                "picture": row["picture"]
+            }
+            return user_data, scopes
+        finally:
+            c.close()
+
+
+# --- webhook signing secret --------------------------------------------------
+def get_or_create_webhook_secret(user_id: str) -> str:
+    """Get the HMAC signing secret for this workspace's webhooks, generating one if absent."""
+    with _LOCK:
+        c = _conn()
+        try:
+            r = c.execute("SELECT webhook_secret FROM users WHERE id=?", (user_id,)).fetchone()
+            if r and r["webhook_secret"]:
+                return r["webhook_secret"]
+            new_sec = f"whsec_{secrets.token_hex(24)}"
+            c.execute("UPDATE users SET webhook_secret=? WHERE id=?", (new_sec, user_id))
+            c.commit()
+            return new_sec
+        finally:
+            c.close()
+
+
+def rotate_webhook_secret(user_id: str) -> str:
+    """Rotate the HMAC signing secret for a workspace."""
+    new_sec = f"whsec_{secrets.token_hex(24)}"
+    with _LOCK:
+        c = _conn()
+        try:
+            c.execute("UPDATE users SET webhook_secret=? WHERE id=?", (new_sec, user_id))
+            c.commit()
+            return new_sec
+        finally:
+            c.close()
+

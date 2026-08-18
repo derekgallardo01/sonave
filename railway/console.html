@@ -294,19 +294,32 @@ a:hover{color:var(--green-hover)}
   </div>
 
   <div class="mon-grid">
-   <div class="card">
-    <div class="card-hd">
-     <div style="display:flex;align-items:center"><span class="card-lbl">LIVE AUTHENTICITY MONITOR</span><span class="sim-chip" id="simChip">SIMULATED DATA</span></div>
-     <span class="update-note" id="updateNote">standby</span>
+    <div class="card">
+     <div class="card-hd">
+      <div style="display:flex;align-items:center"><span class="card-lbl">LIVE AUTHENTICITY MONITOR</span><span class="sim-chip" id="simChip">SIMULATED DATA</span></div>
+      <span class="update-note" id="updateNote">standby</span>
+     </div>
+     <div class="spk-grid" id="speakersGrid" style="display:none"></div>
+     <div class="idle" id="idleState">
+      <div class="idle-bars"><i style="height:30%"></i><i style="height:55%"></i><i style="height:80%"></i><i style="height:45%"></i><i style="height:95%"></i><i style="height:60%"></i><i style="height:35%"></i><i style="height:70%"></i><i style="height:25%"></i></div>
+      <div class="idle-t1">No meeting monitored</div>
+      <div class="idle-t2">Deploy a bot into a Google Meet, Zoom or Teams call &#8212; every speaker gets a live authenticity verdict within seconds.</div>
+      <button class="btn-soft" onclick="demoToggle()">Run a simulated call</button>
+     </div>
+     <!-- Live Spectrogram Visualizer -->
+     <div style="padding:14px 18px; border-top:1px solid var(--line);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+       <span style="font-size:10px; font-weight:700; color:var(--muted); letter-spacing:0.08em;">ACOUSTIC SPECTRUM &amp; ARTIFACT WATERFALL</span>
+       <span id="specStatus" style="font-size:10.5px; font-family:var(--mono); color:var(--green);">● live spectrum active</span>
+      </div>
+      <div style="position:relative; width:100%; height:90px; background:#06080a; border-radius:8px; border:1px solid var(--line); overflow:hidden;">
+       <canvas id="specCanvas" width="700" height="90" style="width:100%; height:100%; display:block;"></canvas>
+       <div id="anomalyBanner" style="display:none; position:absolute; top:6px; right:8px; background:rgba(255,77,94,0.9); color:#fff; font-size:9.5px; font-weight:800; padding:3px 7px; border-radius:5px; letter-spacing:0.05em;">
+        SYNTHETIC ARTIFACT DETECTED (4–8 kHz ANOMALY)
+       </div>
+      </div>
+     </div>
     </div>
-    <div class="spk-grid" id="speakersGrid" style="display:none"></div>
-    <div class="idle" id="idleState">
-     <div class="idle-bars"><i style="height:30%"></i><i style="height:55%"></i><i style="height:80%"></i><i style="height:45%"></i><i style="height:95%"></i><i style="height:60%"></i><i style="height:35%"></i><i style="height:70%"></i><i style="height:25%"></i></div>
-     <div class="idle-t1">No meeting monitored</div>
-     <div class="idle-t2">Deploy a bot into a Google Meet, Zoom or Teams call &#8212; every speaker gets a live authenticity verdict within seconds.</div>
-     <button class="btn-soft" onclick="demoToggle()">Run a simulated call</button>
-    </div>
-   </div>
 
    <div class="side-col">
     <div class="card-pad">
@@ -362,6 +375,27 @@ a:hover{color:var(--green-hover)}
       <button class="btn-soft" id="calBtn"></button>
       <span class="hint" id="calHint" style="margin:0"></span>
      </div>
+    </div>
+
+    <div class="card-pad">
+     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <span class="card-lbl">PROGRAMMATIC API KEYS</span>
+      <button class="btn-soft" onclick="createKeyPrompt()">+ New Key</button>
+     </div>
+     <div id="apiKeysList" style="display:flex; flex-direction:column; gap:8px;"></div>
+     <div class="hint" style="margin-top:8px;">Generate scoped API keys (<code>snv_live_...</code>) for treasury backends and SIEM alert integrations.</div>
+    </div>
+
+    <div class="card-pad">
+     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <span class="card-lbl">WEBHOOK SIGNING SECRET</span>
+      <button class="btn-soft" onclick="rotateSecret()">Rotate</button>
+     </div>
+     <div style="display:flex; gap:8px;">
+      <input id="whSecInput" class="inp mono" style="font-size:11px;" readonly value="whsec_loading...">
+      <button class="btn-soft" onclick="copySecret()">Copy</button>
+     </div>
+     <div class="hint" style="margin-top:8px;">Verify incoming <code>X-Sonave-Signature</code> headers on your SIEM or webhook receiver using HMAC-SHA256.</div>
     </div>
 
     <div class="card-pad">
@@ -558,12 +592,120 @@ async function saveAlerts(){
 async function testAlerts(){
  var v=document.getElementById('alertHook').value.trim();
  if(!v){toast('Enter a webhook URL first.','err');return}
- toast('Sending test alert…','');
+toast('Sending test alert…','');
  try{
   var r=await fetch('/api/webhook/test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:v})});
   var d=await r.json();
   toast(d.ok?'✓ Test alert delivered successfully!':'✕ Delivery failed: '+(d.detail||d.status_code),d.ok?'ok':'err');
  }catch(e){toast('✕ Webhook error: '+e,'err')}
+}
+
+/* ---- real data: API Keys & Webhook Secret ---- */
+async function loadKeys(){
+ try{
+  var d=await jget('/api/keys');
+  var rows=d.keys||[];
+  var el=document.getElementById('apiKeysList');
+  if(!rows.length){el.innerHTML='<div style="font-size:11px;color:var(--muted)">No API keys created yet.</div>';return}
+  el.innerHTML=rows.map(function(k){
+   var st=k.is_active?'<button class="x" title="Revoke key" onclick="delKey('+k.id+')">×</button>':'<span style="font-size:10px;color:var(--muted)">REVOKED</span>';
+   return '<div style="display:flex;align-items:center;justify-content:space-between;background:var(--chip);padding:6px 10px;border-radius:6px;font-size:11.5px">'+
+    '<div><b>'+esc(k.name)+'</b> <span class="mono" style="color:var(--ink2);font-size:10.5px">'+esc(k.prefix)+'</span><small style="display:block;color:var(--muted);font-size:9.5px">'+esc(k.scopes)+'</small></div>'+st+
+   '</div>';
+  }).join('');
+ }catch(e){}
+}
+async function createKeyPrompt(){
+ var n=prompt('API Key Name (e.g. Treasury Backend):');if(!n)return;
+ try{
+  var r=await fetch('/api/keys',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n,scopes:['read:verdicts','read:incidents','write:incidents']})});
+  var d=await r.json();
+  if(d.ok){
+   prompt('API Key generated! Copy this secret token now — you will not see it again:', d.token);
+   loadKeys();
+  }
+ }catch(e){toast('✕ Failed to create key: '+e,'err')}
+}
+async function delKey(id){
+ if(!confirm('Revoke this API key? Applications using it will lose access immediately.'))return;
+ await fetch('/api/keys/'+id,{method:'DELETE'});
+ loadKeys();
+}
+
+async function loadSecret(){
+ try{
+  var d=await jget('/api/settings/webhook-secret');
+  if(d&&d.webhook_secret){
+   var el=document.getElementById('whSecInput');
+   if(el)el.value=d.webhook_secret;
+  }
+ }catch(e){}
+}
+function copySecret(){
+ var el=document.getElementById('whSecInput');
+ if(!el)return;
+ navigator.clipboard.writeText(el.value);
+ toast('✓ Webhook signing secret copied to clipboard!','ok');
+}
+async function rotateSecret(){
+ if(!confirm('Rotate webhook signing secret? You must update your verification servers with the new secret.'))return;
+ try{
+  var r=await fetch('/api/settings/webhook-secret/rotate',{method:'POST'});
+  var d=await r.json();
+  if(d.ok){
+   document.getElementById('whSecInput').value=d.webhook_secret;
+   toast('✓ Webhook secret rotated successfully.','ok');
+  }
+ }catch(e){}
+}
+
+/* ---- Live Acoustic Spectrogram Canvas Visualizer (60fps) ---- */
+var _specCanvas=null,_specCtx=null,_specBins=new Float32Array(54);
+function initSpectrogram(){
+ _specCanvas=document.getElementById('specCanvas');
+ if(!_specCanvas)return;
+ _specCtx=_specCanvas.getContext('2d');
+ requestAnimationFrame(animateSpectrogram);
+}
+function animateSpectrogram(){
+ if(_specCanvas&&_specCtx){
+  var w=_specCanvas.width, h=_specCanvas.height;
+  _specCtx.fillStyle='rgba(6, 8, 10, 0.3)';
+  _specCtx.fillRect(0, 0, w, h);
+
+  var maxP=0, isLive=false;
+  if(window._lastQuality){
+   var ks=Object.keys(window._lastQuality).filter(function(k){return k[0]!=='_'});
+   isLive=ks.length>0;
+   ks.forEach(function(k){var p=window._lastQuality[k].auth_p||0;if(p>maxP)maxP=p});
+  }
+  if(DEMO&&demoSt){
+   isLive=true;
+   maxP=Math.max.apply(null, demoSt.speakers.map(function(s){return s.p}));
+  }
+
+  var isAnomaly=maxP>=0.7;
+  var banner=document.getElementById('anomalyBanner');
+  if(banner)banner.style.display=isAnomaly?'block':'none';
+
+  var barW=w/_specBins.length;
+  for(var i=0; i<_specBins.length; i++){
+   var target=0.04;
+   if(isLive){
+    var freqFactor=1.0-(i/_specBins.length)*0.55;
+    target=Math.max(0.08, Math.sin(Date.now()*0.005 + i*0.25)*0.35 + 0.45)*freqFactor;
+    if(isAnomaly && i > 32){
+     target=Math.min(0.98, target + 0.42 + Math.random()*0.25);
+    }
+   }
+   _specBins[i]+=(target-_specBins[i])*0.25;
+   var bh=_specBins[i]*h*0.9;
+   var col=isAnomaly && i>32 ? '#ff4d5e' : (isAnomaly ? '#ffb224' : '#2ee584');
+   _specCtx.fillStyle=col;
+   _specCtx.fillRect(i*barW, h-bh, barW-1.5, bh);
+  }
+ }
+ requestAnimationFrame(animateSpectrogram);
 }
 function calRender(d){
  var row=document.getElementById('calRow');if(!row)return;
@@ -658,7 +800,7 @@ function adminStart(){
 }
 
 var _started=0;
-function start(){if(_started)return;_started=1;list();quality();incidents();enrolled();modelInfo();dataProgress();setInterval(list,5000);setInterval(quality,500);setInterval(incidents,3000);setInterval(enrolled,10000);setInterval(dataProgress,60000)}
+function start(){if(_started)return;_started=1;list();quality();incidents();enrolled();loadKeys();loadSecret();initSpectrogram();modelInfo();dataProgress();setInterval(list,5000);setInterval(quality,500);setInterval(incidents,3000);setInterval(enrolled,10000);setInterval(dataProgress,60000)}
 
 async function dataProgress(){
  var d;try{d=await jget('/api/data_progress')}catch(e){return}
@@ -811,6 +953,7 @@ var _sparkHistory={};
 async function quality(){
  if(DEMO)return;
  var d;try{d=await jget('/api/quality')}catch(e){return}
+ window._lastQuality = d;
  if(d._v){if(window._vSeen&&window._vSeen!==d._v){location.reload();return}window._vSeen=d._v}
  var scorerOff=d._scorer&&!d._scorer.configured;
  var ks=Object.keys(d).filter(function(k){return k[0]!=='_'&&!SKIP.test(k)});

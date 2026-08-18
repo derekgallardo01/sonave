@@ -60,12 +60,13 @@ def _session_secret() -> bytes:
 
 @dataclass
 class Principal:
-    kind: str            # "user" | "machine" | "bot"
+    kind: str            # "user" | "machine" | "bot" | "api_key"
     user_id: str
     role: str = "member"
     email: str = ""
     name: str = ""
     picture: str = ""
+    scopes: list[str] | None = None
 
 
 # --- signed tokens (sessions + oauth state) ----------------------------------
@@ -286,6 +287,13 @@ def get_principal(request) -> Principal | None:
     if _machine_token_ok(tok):
         uid = db.first_admin_id() or MACHINE_WORKSPACE
         return Principal("machine", uid, "admin", email="operator")
+    # Programmatic scoped enterprise API keys
+    if tok and tok.startswith("snv_live_"):
+        user_data, scopes = db.verify_api_key(tok)
+        if user_data:
+            return Principal("api_key", user_data["id"], role=user_data.get("role", "member"),
+                             email=user_data.get("email", ""), name=user_data.get("name", ""),
+                             picture=user_data.get("picture", ""), scopes=scopes)
     # A signed session token may also arrive as a bearer header — the Meet add-on
     # iframe authenticates this way (cookies can't cross CHIPS partitions).
     uid = verify_session(tok) \

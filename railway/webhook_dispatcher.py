@@ -201,18 +201,50 @@ def build_payload(url: str, event: dict[str, Any], domain: str = "usesonave.com"
     return format_generic_payload(event, domain)
 
 
-def send_webhook_sync(url: str, payload: dict) -> tuple[bool, int, str]:
-    """Synchronous HTTP POST to the webhook endpoint with 10s timeout."""
+def compute_webhook_signature(payload_bytes: bytes, secret: str, timestamp: int | None = None) -> tuple[str, int]:
+    """Compute HMAC-SHA256 signature formatted as t={timestamp},v1={signature}."""
+    import hashlib
+    import hmac
+    ts = timestamp or int(time.time())
+    to_sign = f"t={ts}.".encode("utf-8") + payload_bytes
+    sig = hmac.new(secret.encode("utf-8"), to_sign, hashlib.sha256).hexdigest()
+    return f"t={ts},v1={sig}", ts
+
+
+def verify_webhook_signature(payload_bytes: bytes, signature_header: str, secret: str, tolerance_sec: int = 300) -> bool:
+    """Verify incoming X-Sonave-Signature header against expected HMAC signature."""
+    import hashlib
+    import hmac
+    try:
+        parts = dict(item.split("=", 1) for item in signature_header.split(",") if "=" in item)
+        ts = int(parts.get("t", 0))
+        v1 = parts.get("v1", "")
+        if abs(time.time() - ts) > tolerance_sec:
+            return False
+        to_sign = f"t={ts}.".encode("utf-8") + payload_bytes
+        expected = hmac.new(secret.encode("utf-8"), to_sign, hashlib.sha256).hexdigest()
+        return hmac.compare_digest(v1, expected)
+    except Exception:
+        return False
+
+
+def send_webhook_sync(url: str, payload: dict, secret: str | None = None) -> tuple[bool, int, str]:
+    """Synchronous HTTP POST to the webhook endpoint with 10s timeout and optional HMAC signature."""
     if not url:
         return False, 0, "no webhook url configured"
     body = json.dumps(payload).encode("utf-8")
+    headers = {
+        "Content-Type": "application/json",
+        "User-Agent": "Sonave-Security-Alerts/1.0"
+    }
+    if secret:
+        sig_header, ts = compute_webhook_signature(body, secret)
+        headers["X-Sonave-Signature"] = sig_header
+        headers["X-Sonave-Timestamp"] = str(ts)
     req = urllib.request.Request(
         url,
         data=body,
-        headers={
-            "Content-Type": "application/json",
-            "User-Agent": "Sonave-Security-Alerts/1.0"
-        }
+        headers=headers
     )
     try:
         with urllib.request.urlopen(req, timeout=10) as r:
@@ -226,21 +258,23 @@ def send_webhook_sync(url: str, payload: dict) -> tuple[bool, int, str]:
         return False, 0, str(e)
 
 
-def dispatch_alert(event: dict[str, Any], webhook_url: str, domain: str = "usesonave.com") -> None:
+def dispatch_alert(event: dict[str, Any], webhook_url: str, domain: str = "usesonave.com",
+                   secret: str | None = None) -> None:
     """Offload alert dispatch to a background daemon thread."""
     if not webhook_url:
         return
     payload = build_payload(webhook_url, event, domain)
     
     def _run():
-        ok, code, msg = send_webhook_sync(webhook_url, payload)
+        ok, code, msg = send_webhook_sync(webhook_url, payload, secret=secret)
         if not ok:
             logger.warning("Async webhook to %s failed (%s: %s)", webhook_url, code, msg)
 
     threading.Thread(target=_run, daemon=True).start()
 
 
-def send_test_alert(webhook_url: str, domain: str = "usesonave.com") -> tuple[bool, int, str]:
+def send_test_alert(webhook_url: str, domain: str = "usesonave.com",
+                    secret: str | None = None) -> tuple[bool, int, str]:
     """Send an immediate test alert to verify webhook integration."""
     test_event = {
         "id": 9999,
@@ -252,4 +286,4 @@ def send_test_alert(webhook_url: str, domain: str = "usesonave.com") -> tuple[bo
         "last_ts": time.time()
     }
     payload = build_payload(webhook_url, test_event, domain)
-    return send_webhook_sync(webhook_url, payload)
+    return send_webhook_sync(webhook_url, payload, secret=secret)

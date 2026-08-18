@@ -1163,6 +1163,50 @@ def api_meet_session_connect(req: MeetConnectReq, p: auth.Principal = Depends(re
     return res
 
 
+class CreateKeyReq(BaseModel):
+    name: str = "Default Key"
+    scopes: list[str] = ["read:verdicts"]
+
+
+@app.get("/api/keys")
+def api_keys_list(p: auth.Principal = Depends(require_principal)):
+    """List programmatic API keys for current workspace."""
+    return {"keys": db.list_api_keys(p.user_id)}
+
+
+@app.post("/api/keys")
+def api_keys_create(req: CreateKeyReq, p: auth.Principal = Depends(require_principal)):
+    """Generate a new scoped API key."""
+    record, raw_token = db.create_api_key(p.user_id, req.name, req.scopes)
+    _track(p.user_id, "api_key_created", key_id=record["id"], scopes=record["scopes"])
+    return {"ok": True, "key": record, "token": raw_token}
+
+
+@app.delete("/api/keys/{key_id}")
+def api_keys_revoke(key_id: int, p: auth.Principal = Depends(require_principal)):
+    """Revoke an API key."""
+    ok = db.revoke_api_key(key_id, p.user_id)
+    if ok:
+        _track(p.user_id, "api_key_revoked", key_id=key_id)
+    return {"ok": ok}
+
+
+@app.get("/api/settings/webhook-secret")
+def api_webhook_secret_get(p: auth.Principal = Depends(require_principal)):
+    """Get or generate the HMAC webhook signing secret for this workspace."""
+    secret = db.get_or_create_webhook_secret(p.user_id)
+    return {"webhook_secret": secret}
+
+
+@app.post("/api/settings/webhook-secret/rotate")
+def api_webhook_secret_rotate(p: auth.Principal = Depends(require_principal)):
+    """Rotate the HMAC webhook signing secret for this workspace."""
+    new_sec = db.rotate_webhook_secret(p.user_id)
+    _track(p.user_id, "webhook_secret_rotated")
+    return {"ok": True, "webhook_secret": new_sec}
+
+
+
 
 class SettingsReq(BaseModel):
     alert_webhook: str = ""
