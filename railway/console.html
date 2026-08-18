@@ -345,12 +345,13 @@ a:hover{color:var(--green-hover)}
     </div>
 
     <div class="card-pad">
-     <div class="card-lbl" style="margin-bottom:12px">ALERTS</div>
+     <div class="card-lbl" style="margin-bottom:12px">ALERTS &amp; WEBHOOKS</div>
      <div style="display:flex;gap:8px">
-      <input id="alertHook" class="inp" placeholder="Slack webhook URL (https://hooks.slack.com/...)">
+      <input id="alertHook" class="inp" placeholder="Slack / Discord / Teams Webhook URL (https://...)">
       <button class="btn-soft" onclick="saveAlerts()">Save</button>
+      <button class="btn-soft" onclick="testAlerts()">Test</button>
      </div>
-     <div class="hint">Wire-hold incidents in your workspace post here the moment they fire.</div>
+     <div class="hint">Instant multi-platform alerts (Slack, Discord, MS Teams, SIEM) fire the moment a synthetic voice is flagged.</div>
      <div class="card-lbl" style="margin:18px 0 12px">AUTO-PROTECT &#183; BETA</div>
      <div style="display:flex;gap:8px">
       <input id="icalUrl" class="inp" placeholder="Secret iCal address (https://calendar.google.com/calendar/ical/.../basic.ics)">
@@ -553,6 +554,16 @@ async function saveAlerts(){
  var r=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({alert_webhook:v,ical_url:ic})});
  if(r.ok)toast('✓ Settings saved.'+(ic?' Auto-protect is watching your calendar.':''),'ok');
  else{var d=await r.json().catch(function(){return{}});toast('✕ '+((d.detail&&d.detail[0]&&d.detail[0].msg)||'must be an https:// URL'),'err')}
+}
+async function testAlerts(){
+ var v=document.getElementById('alertHook').value.trim();
+ if(!v){toast('Enter a webhook URL first.','err');return}
+ toast('Sending test alert…','');
+ try{
+  var r=await fetch('/api/webhook/test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:v})});
+  var d=await r.json();
+  toast(d.ok?'✓ Test alert delivered successfully!':'✕ Delivery failed: '+(d.detail||d.status_code),d.ok?'ok':'err');
+ }catch(e){toast('✕ Webhook error: '+e,'err')}
 }
 function calRender(d){
  var row=document.getElementById('calRow');if(!row)return;

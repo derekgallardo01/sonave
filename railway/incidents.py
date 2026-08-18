@@ -111,19 +111,25 @@ def acknowledge(incident_id: int, user_id: str | None = None) -> bool:
             c.close()
 
 
-def notify(event: dict, webhook: str | None = None) -> None:
-    """Fire the alert webhook (Slack `{text}` block). Uses the per-workspace webhook
-    when given, else the global env fallback. Best-effort — never raises."""
+def notify(event: dict, webhook: str | None = None, domain: str = "usesonave.com") -> None:
+    """Fire rich multi-platform alert webhook (Slack, Discord, MS Teams, or SIEM JSON).
+    Uses the per-workspace webhook when given, else the global env fallback. Best-effort — never raises."""
     url = webhook or ALERT_WEBHOOK
     if not url:
         return
-    held = " Wire *HELD* — re-authenticate the caller before releasing funds." if event.get("hold") else ""
-    text = (f":rotating_light: *Sonave — suspected deepfake voice*\n"
-            f"Speaker *{event['speaker']}* · risk *{event['rolling']:.0%}* · model `{event['model']}`."
-            + held)
-    body = json.dumps({"text": text}).encode()
     try:
-        urllib.request.urlopen(urllib.request.Request(
-            url, data=body, headers={"Content-Type": "application/json"}), timeout=10)
+        import webhook_dispatcher
+        webhook_dispatcher.dispatch_alert(event, url, domain=domain)
     except Exception:
-        pass
+        # Fallback to basic JSON post
+        held = " Wire *HELD* — re-authenticate the caller before releasing funds." if event.get("hold") else ""
+        text = (f":rotating_light: *Sonave — suspected deepfake voice*\n"
+                f"Speaker *{event.get('speaker')}* · risk *{event.get('rolling', 0):.0%}* · model `{event.get('model')}`."
+                + held)
+        body = json.dumps({"text": text}).encode()
+        try:
+            urllib.request.urlopen(urllib.request.Request(
+                url, data=body, headers={"Content-Type": "application/json"}), timeout=10)
+        except Exception:
+            pass
+

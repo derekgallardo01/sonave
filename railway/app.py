@@ -61,6 +61,9 @@ import auth        # Google OAuth + sessions + principals (stdlib-only)
 import db          # app database: users, bots, billing (/data/app.db)
 import billing     # Stripe metered billing (stdlib-only)
 import autojoin    # zero-scope calendar auto-join (secret iCal URL polling)
+import forensics   # cryptographic audit reports (HTML/PDF)
+import webhook_dispatcher # multi-platform alert routing (Slack/Discord/Teams)
+import meet_media_ingest  # native Google Meet Media API WebRTC bridge
 os.environ.setdefault("SONAVE_ENROLL_DIR", "/data/enrollments")
 os.environ.setdefault("SONAVE_MODEL_CACHE", "/data/models/ecapa")
 
@@ -1083,6 +1086,82 @@ def api_ack(a: AckReq, p: auth.Principal = Depends(require_principal)):
     if ok:
         _track(p.user_id, "incident_ack", incident_id=a.id)
     return {"ok": ok}
+
+
+@app.get("/report/{incident_id}", response_class=HTMLResponse)
+@app.get("/api/incidents/{incident_id}/report", response_class=HTMLResponse)
+def api_incident_report(incident_id: int, request: Request, p: auth.Principal = Depends(require_principal)):
+    """Generate printable HTML forensic report with cryptographic HMAC-SHA256 signature."""
+    uid = None if p.role == "admin" else p.user_id
+    inc = incidents.get_incident(incident_id, user_id=uid)
+    if not inc:
+        raise HTTPException(status_code=404, detail="Incident not found")
+    
+    domain = _domain(request) or "usesonave.com"
+    html = forensics.generate_report_html(inc, domain=domain, secret=auth._session_secret())
+    return HTMLResponse(content=html, media_type="text/html")
+
+
+@app.get("/api/incidents/{incident_id}/export.json")
+def api_incident_export(incident_id: int, request: Request, p: auth.Principal = Depends(require_principal)):
+    """Export canonical JSON evidence bundle with digest and HMAC signature."""
+    uid = None if p.role == "admin" else p.user_id
+    inc = incidents.get_incident(incident_id, user_id=uid)
+    if not inc:
+        raise HTTPException(status_code=404, detail="Incident not found")
+    
+    digest, sig = forensics.compute_forensic_signature(inc, auth._session_secret())
+    return {
+        "incident": inc,
+        "integrity": {
+            "digest_sha256": digest,
+            "signature_hmac_sha256": sig,
+            "signed_by": _domain(request) or "usesonave.com"
+        }
+    }
+
+
+class WebhookTestReq(BaseModel):
+    url: str = ""
+
+
+@app.post("/api/webhook/test")
+def api_webhook_test(req: WebhookTestReq, request: Request, p: auth.Principal = Depends(require_principal)):
+    """Send a test incident alert to verify Slack/Discord/Teams/SIEM webhook integration."""
+    target_url = req.url.strip() or db.get_alert_webhook(p.user_id) or incidents.ALERT_WEBHOOK
+    if not target_url:
+        raise HTTPException(status_code=400, detail="No webhook URL provided or configured")
+    
+    domain = _domain(request) or "usesonave.com"
+    ok, status_code, msg = webhook_dispatcher.send_test_alert(target_url, domain=domain)
+    _track(p.user_id, "webhook_test", success=ok, status_code=status_code)
+    return {"ok": ok, "status_code": status_code, "detail": msg}
+
+
+@app.get("/api/meet/sessions")
+def api_meet_sessions(p: auth.Principal = Depends(require_principal)):
+    """Diagnostic status of active Google Meet Media API WebRTC sessions."""
+    return {
+        "active_sessions": [
+            sess.status() for sess in meet_media_ingest.ACTIVE_SESSIONS.values()
+        ]
+    }
+
+
+class MeetConnectReq(BaseModel):
+    space_id: str
+    access_token: str = ""
+
+
+@app.post("/api/meet/sessions/connect")
+def api_meet_session_connect(req: MeetConnectReq, p: auth.Principal = Depends(require_principal)):
+    """Initiate a native Google Meet Media API session for an active conference space."""
+    token = req.access_token or ""
+    sess = meet_media_ingest.get_or_create_session(req.space_id, token)
+    res = sess.connect()
+    _track(p.user_id, "meet_media_connect", space=req.space_id, ok=res.get("ok", False))
+    return res
+
 
 
 class SettingsReq(BaseModel):
