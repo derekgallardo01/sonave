@@ -101,8 +101,16 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
 <div class="hd">
  <div class="brand">
   <svg class="mark" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.6" stroke="var(--green)" stroke-width="2.2"></circle><path d="M6.9 12h.9l.6-1.4.7 2.9.8-4.1.9 5.4.9-7.2.9 8.3.8-6.9.7 4.8.7-2.9.6 1.6.5-.5h1.2" stroke="var(--green)" stroke-width="1.15" stroke-linejoin="round" stroke-linecap="round"></path><circle cx="18.1" cy="5.9" r="2.6" fill="var(--bg)"></circle><circle cx="18.1" cy="5.9" r="1.8" fill="var(--green)"></circle></svg>
-  <div><b>Sonave</b><small>VOICE AUTHENTICITY · THIS CALL</small></div>
+  <div><b>Sonave</b><small id="hdrSub">VOICE AUTHENTICITY · THIS CALL</small></div>
  </div>
+ <select id="addonLangSel" style="background:var(--panel); color:var(--ink2); border:1px solid var(--line); border-radius:6px; font-size:10px; padding:2px 4px;" onchange="setAddonLang(this.value)">
+  <option value="en">🇺🇸 EN</option>
+  <option value="es">🇪🇸 ES</option>
+  <option value="pt">🇧🇷 PT</option>
+  <option value="de">🇩🇪 DE</option>
+  <option value="fr">🇫🇷 FR</option>
+  <option value="ja">🇯🇵 JA</option>
+ </select>
 </div>
 
 <div id="signin" class="center" style="display:none">
@@ -189,6 +197,30 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){retur
 // localStorage and sent as a Bearer header — sign in once per browser.
 var CID='__GOOGLE_CID__';
 var TOK=(function(){try{return localStorage.getItem('sonave_tok')||sessionStorage.getItem('sonave_tok')||''}catch(x){return ''}})();
+var ADDON_I18N = {
+ en: { sub: "VOICE AUTHENTICITY · THIS CALL", protect_btn: "Protect this meeting" },
+ es: { sub: "AUTENTICIDAD DE VOZ · ESTA LLAMADA", protect_btn: "Proteger esta reunión" },
+ pt: { sub: "AUTENTICIDADE DE VOZ · ESTA CHAMADA", protect_btn: "Proteger esta reunião" },
+ de: { sub: "SPRACHAUTHENTIZITÄT · DIESER ANRUF", protect_btn: "Dieses Meeting schützen" },
+ fr: { sub: "AUTHENTICITÉ VOCALE · CET APPEL", protect_btn: "Protéger cette réunion" },
+ ja: { sub: "音声信頼性検証 · このミーティング", protect_btn: "この通話を保護する" }
+};
+var _addonLang = localStorage.getItem('sonave_addon_lang') || 'en';
+function setAddonLang(l){
+ _addonLang = l;
+ localStorage.setItem('sonave_addon_lang', l);
+ applyAddonLang();
+}
+function applyAddonLang(){
+ var d = ADDON_I18N[_addonLang] || ADDON_I18N.en;
+ var sel = document.getElementById('addonLangSel');
+ if(sel) sel.value = _addonLang;
+ var s = document.getElementById('hdrSub');
+ if(s) s.textContent = d.sub;
+ var b = document.getElementById('btnStart');
+ if(b) b.textContent = d.protect_btn;
+}
+
 function saveTok(t){TOK=t;try{localStorage.setItem('sonave_tok',t)}catch(x){}try{sessionStorage.setItem('sonave_tok',t)}catch(x){}}
 function clearTok(){TOK='';try{localStorage.removeItem('sonave_tok');sessionStorage.removeItem('sonave_tok')}catch(x){}}
 

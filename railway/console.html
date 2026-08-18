@@ -243,28 +243,37 @@ a:hover{color:var(--green-hover)}
    <div class="brand-sub">VOICE AUTHENTICITY</div>
   </div>
  </div>
- <div class="nav-item active" id="nav-monitor" onclick="setView('monitor')"><span class="nav-ic">&#9673;</span>Live Monitor</div>
- <div class="nav-item" id="nav-captures" onclick="setView('captures')"><span class="nav-ic">&#8803;</span>Captures</div>
- <div class="nav-item" id="nav-history" onclick="setView('history')"><span class="nav-ic">&#9719;</span>History</div>
- <div class="nav-item" id="nav-lab" onclick="setView('lab')"><span class="nav-ic">&#11041;</span>Model Lab</div>
- <div class="nav-item" id="nav-admin" style="display:none" onclick="setView('admin')"><span class="nav-ic">&#9670;</span>Admin</div>
- <div class="side-spacer"></div>
- <div class="model-card">
-  <div class="model-lbl">ACTIVE MODEL</div>
-  <div class="model-name">sonave-xlsr-meet</div>
-  <div class="model-status"><span id="statusDot" class="status-dot"></span><span id="statusText">idle &#183; scale-to-zero</span></div>
- </div>
-</aside>
-
-<div class="main">
- <div class="topbar">
-  <div class="view-title" id="viewTitle">Live Monitor</div>
-  <div class="topbar-right">
-   <span id="userChip" style="cursor:pointer;font-size:12.5px;color:#c7d2da;font-family:var(--font)" title="sign out" onclick="signout()"></span>
-   <div class="clock" id="clock"></div>
-   <button class="btn" id="demoBtn" onclick="demoToggle()">Simulate call</button>
+  <div class="nav-item active" id="nav-monitor" onclick="setView('monitor')"><span class="nav-ic">&#9673;</span>Live Monitor</div>
+  <div class="nav-item" id="nav-captures" onclick="setView('captures')"><span class="nav-ic">&#8803;</span>Captures</div>
+  <div class="nav-item" id="nav-history" onclick="setView('history')"><span class="nav-ic">&#9719;</span>History</div>
+  <div class="nav-item" id="nav-exec" onclick="setView('exec')"><span class="nav-ic">📊</span>Executive Posture</div>
+  <div class="nav-item" id="nav-lab" onclick="setView('lab')"><span class="nav-ic">&#11041;</span>Model Lab</div>
+  <div class="nav-item" id="nav-admin" style="display:none" onclick="setView('admin')"><span class="nav-ic">&#9670;</span>Admin</div>
+  <div class="side-spacer"></div>
+  <div class="model-card">
+   <div class="model-lbl">ACTIVE MODEL</div>
+   <div class="model-name">sonave-xlsr-meet</div>
+   <div class="model-status"><span id="statusDot" class="status-dot"></span><span id="statusText">idle &#183; scale-to-zero</span></div>
   </div>
- </div>
+ </aside>
+
+ <div class="main">
+  <div class="topbar">
+   <div class="view-title" id="viewTitle">Live Monitor</div>
+   <div class="topbar-right">
+    <select id="langSel" class="sel" style="padding:2px 8px;font-size:11px;width:auto;height:28px" onchange="setLang(this.value)">
+     <option value="en">🇺🇸 EN</option>
+     <option value="es">🇪🇸 ES</option>
+     <option value="pt">🇧🇷 PT</option>
+     <option value="de">🇩🇪 DE</option>
+     <option value="fr">🇫🇷 FR</option>
+     <option value="ja">🇯🇵 日本語</option>
+    </select>
+    <span id="userChip" style="cursor:pointer;font-size:12.5px;color:#c7d2da;font-family:var(--font)" title="sign out" onclick="signout()"></span>
+    <div class="clock" id="clock"></div>
+    <button class="btn" id="demoBtn" onclick="demoToggle()">Simulate call</button>
+   </div>
+  </div>
 
  <!-- ============ LIVE MONITOR ============ -->
  <section class="view on" id="view-monitor">
@@ -432,6 +441,41 @@ a:hover{color:var(--green-hover)}
     <div id="histRows"><div class="empty-st" style="padding:20px">No incidents recorded.</div></div>
    </div>
    <div class="cap-note">Incidents are recorded whenever a speaker's rolling risk crosses the red threshold; wire holds clear on acknowledgement.</div>
+  </div>
+ </section>
+
+ <!-- ============ EXECUTIVE RISK POSTURE ============ -->
+ <section class="view" id="view-exec">
+  <div class="tiles">
+   <div class="tile">
+    <div class="tile-lbl">AUDIO PROTECTED</div>
+    <div class="tile-val mono" id="execHours">0.0 h</div>
+    <div class="tile-sub"><span id="execSessions">0</span> meetings analyzed</div>
+   </div>
+   <div class="tile">
+    <div class="tile-lbl">WIRE HOLDS TRIGGERED</div>
+    <div class="tile-val mono" id="execHolds" style="color:var(--red)">0</div>
+    <div class="tile-sub"><span id="execIncidents">0</span> flagged incidents</div>
+   </div>
+   <div class="tile">
+    <div class="tile-lbl">EST. PREVENTED LOSS</div>
+    <div class="tile-val mono" id="execLoss" style="color:var(--green)">$0</div>
+    <div class="tile-sub">FBI IC3 $250k baseline</div>
+   </div>
+   <div class="tile">
+    <div class="tile-lbl">COMPLIANCE STATUS</div>
+    <div class="tile-val" style="font-size:15px; color:var(--green); font-weight:700">SOC2 / FINRA</div>
+    <div class="tile-sub">tamper-evident WORM audit</div>
+   </div>
+  </div>
+  <div class="card-pad" style="margin-top:16px;">
+   <div style="display:flex; justify-content:space-between; align-items:center;">
+    <div>
+     <span class="card-lbl">EXECUTIVE AUDIT EXPORT</span>
+     <div class="hint" style="margin:2px 0 0">Official compliance spreadsheet for CISO, Risk Committee, and Underwriters.</div>
+    </div>
+    <button class="btn-primary" onclick="location='/api/analytics/executive-report.csv'">Download Audit CSV</button>
+   </div>
   </div>
  </section>
 
@@ -831,13 +875,29 @@ function tod(ms){var d=new Date(ms);var h=d.getHours(),m=d.getMinutes();var ap=h
 function dtd(ms){var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],d=new Date(ms);return M[d.getMonth()]+' '+d.getDate()+', '+tod(ms)}
 
 /* ---- view switching ---- */
-var TITLES={monitor:'Live Monitor',captures:'Captures & Forensic Log',history:'Meeting History',lab:'Model Lab',admin:'Admin'};
+var TITLES={monitor:'Live Monitor',captures:'Captures & Forensic Log',history:'Meeting History',exec:'Executive Risk Posture & Compliance',lab:'Model Lab',admin:'Admin'};
 function setView(name){
- ['monitor','captures','history','lab','admin'].forEach(function(v){
-  document.getElementById('view-'+v).classList.toggle('on',v===name);
-  document.getElementById('nav-'+v).classList.toggle('active',v===name);
+ ['monitor','captures','history','exec','lab','admin'].forEach(function(v){
+  var elV = document.getElementById('view-'+v);
+  var elN = document.getElementById('nav-'+v);
+  if(elV) elV.classList.toggle('on',v===name);
+  if(elN) elN.classList.toggle('active',v===name);
  });
- document.getElementById('viewTitle').textContent=TITLES[name];
+ document.getElementById('viewTitle').textContent=TITLES[name]||'Console';
+ if(name==='exec') loadExecutiveAnalytics();
+}
+
+async function loadExecutiveAnalytics(){
+ try{
+  var d=await jget('/api/analytics/executive');
+  if(!d||!d.summary)return;
+  var s=d.summary;
+  document.getElementById('execHours').textContent=s.total_audio_hours_protected+' h';
+  document.getElementById('execSessions').textContent=s.total_meetings_monitored;
+  document.getElementById('execHolds').textContent=s.total_wire_holds_triggered;
+  document.getElementById('execIncidents').textContent=s.total_incidents_flagged;
+  document.getElementById('execLoss').textContent='$'+(s.estimated_fraud_loss_prevented_usd||0).toLocaleString();
+ }catch(e){}
 }
 
 /* ---- clock (cosmetic, client-local) ---- */
@@ -1023,14 +1083,44 @@ function renderHistory(){
   var badge=open?(i.hold?'WIRE HELD':'OPEN'):'ACKED';
   var bStyle=badge=='WIRE HELD'?'background:rgba(255,77,94,.12);color:var(--red)':badge=='OPEN'?'background:rgba(255,178,36,.1);color:var(--amber)':'background:var(--chip);color:var(--muted)';
   var risk=Math.round(i.rolling*100);
-  return '<div class="hist-grid" style="cursor:pointer" title="open forensic report" onclick="window.open(\'/report/'+i.id+'\',\'_blank\')">'+
+  return '<div class="hist-grid">'+
    '<div style="min-width:0"><div class="hist-spk">'+esc(i.speaker)+'</div><div class="hist-model">'+esc(i.model||'')+'</div></div>'+
    '<span class="hist-cell">'+dtd(i.first_ts*1000)+'</span>'+
    '<span class="hist-cell hide-sm">'+dtd(i.last_ts*1000)+'</span>'+
    '<span class="hist-risk" style="color:'+vcolor(i.rolling)+'">'+risk+'%</span>'+
-   '<span class="hist-badge" style="'+bStyle+'">'+badge+'</span>'+
+   '<div style="display:flex;align-items:center;gap:6px">'+
+    '<span class="hist-badge" style="'+bStyle+'">'+badge+'</span>'+
+    '<button class="btn-soft" style="padding:2px 6px;font-size:11px" title="Forensic Audit Report" onclick="window.open(\'/report/'+i.id+'\',\'_blank\')">📄 Report</button>'+
+    '<button class="btn-soft" style="padding:2px 6px;font-size:11px" title="Legal Certificate" onclick="window.open(\'/certificate/'+i.id+'\',\'_blank\')">⚖️ Legal</button>'+
+   '</div>'+
   '</div>';
  }).join('');
+}
+
+/* ---- Internationalization (i18n) ---- */
+var I18N = {
+ en: { live: "Live Monitor", captures: "Captures & Forensic Log", history: "Meeting History", exec: "Executive Posture", lab: "Model Lab" },
+ es: { live: "Monitor en Vivo", captures: "Capturas y Registro Forense", history: "Historial de Reuniones", exec: "Postura Ejecutiva", lab: "Laboratorio de Modelos" },
+ pt: { live: "Monitor ao Vivo", captures: "Capturas e Registro Forense", history: "Histórico de Reuniões", exec: "Postura Executiva", lab: "Laboratório de Modelos" },
+ de: { live: "Live-Überwachung", captures: "Aufnahmen & Forensik-Protokoll", history: "Besprechungsverlauf", exec: "Führungslage", lab: "Modell-Labor" },
+ fr: { live: "Moniteur en Direct", captures: "Captures et Journal Médico-légal", history: "Historique des Réunions", exec: "Posture Dirigeant", lab: "Laboratoire de Modèles" },
+ ja: { live: "リアルタイム監視", captures: "録音記録とフォレンジックログ", history: "ミーティング履歴", exec: "役員リスク統計", lab: "モデル検証ラボ" }
+};
+var _curLang = localStorage.getItem('sonave_lang') || 'en';
+function setLang(l){
+ _curLang = l;
+ localStorage.setItem('sonave_lang', l);
+ applyLang();
+}
+function applyLang(){
+ var d = I18N[_curLang] || I18N.en;
+ var sel = document.getElementById('langSel');
+ if(sel) sel.value = _curLang;
+ if(document.getElementById('nav-monitor')) document.getElementById('nav-monitor').innerHTML = '<span class="nav-ic">&#9673;</span>' + d.live;
+ if(document.getElementById('nav-captures')) document.getElementById('nav-captures').innerHTML = '<span class="nav-ic">&#8803;</span>' + d.captures;
+ if(document.getElementById('nav-history')) document.getElementById('nav-history').innerHTML = '<span class="nav-ic">&#9719;</span>' + d.history;
+ if(document.getElementById('nav-exec')) document.getElementById('nav-exec').innerHTML = '<span class="nav-ic">📊</span>' + d.exec;
+ if(document.getElementById('nav-lab')) document.getElementById('nav-lab').innerHTML = '<span class="nav-ic">&#11041;</span>' + d.lab;
 }
 
 /* ---- real data: enrollment ---- */
