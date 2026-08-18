@@ -126,27 +126,27 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
     <i></i><i></i>
     <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.6" stroke="var(--green)" stroke-width="2.2"></circle><path d="M6.9 12h.9l.6-1.4.7 2.9.8-4.1.9 5.4.9-7.2.9 8.3.8-6.9.7 4.8.7-2.9.6 1.6.5-.5h1.2" stroke="var(--green)" stroke-width="1.15" stroke-linejoin="round" stroke-linecap="round"></path><circle cx="18.1" cy="5.9" r="2.6" fill="var(--bg)"></circle><circle cx="18.1" cy="5.9" r="1.8" fill="var(--green)"></circle></svg>
    </div>
-   <div class="ph-t">This call isn’t protected yet</div>
-   <div class="ph-s">Deploy the Sonave bot and every voice in this meeting is verified live, while it speaks.</div>
+   <div class="ph-t">Voice verification ready</div>
+   <div class="ph-s">Every voice in this meeting is verified live, while speaking.</div>
   </div>
-  <button class="btn cta" id="protectBtn" style="width:100%" onclick="protectMeeting()">Protect this meeting</button>
+  <button class="btn cta" id="protectBtn" style="width:100%" onclick="protectMeeting()">Start voice verification</button>
   <div class="steps" id="protectSteps">
-   <div><b>1</b><span>The bot <strong>joins visibly</strong> — everyone in the call can see it</span></div>
-   <div><b>2</b><span>Each speaker is scored in <strong>~4 seconds</strong>, refreshed every 4 s</span></div>
+   <div><b>1</b><span><strong>Real-time verification</strong> — speaker voices verified while they talk</span></div>
+   <div><b>2</b><span>Each speaker scored in <strong>~4 seconds</strong>, refreshed continuously</span></div>
    <div><b>3</b><span>Synthetic voice → <strong>red alert</strong> + exportable forensic report</span></div>
   </div>
   <div id="codeRow" style="display:none;margin-top:10px">
    <input id="codeInp" placeholder="Paste the meeting link (meet.google.com/…)"
           style="width:100%;padding:9px 11px;border-radius:9px;border:1px solid var(--line2);background:var(--bg);color:var(--ink);font:12px var(--font);box-sizing:border-box">
-   <button class="btn" style="width:100%;margin-top:8px" onclick="protectManual()">Deploy to this link</button>
+   <button class="btn" style="width:100%;margin-top:8px" onclick="protectManual()">Connect to this link</button>
   </div>
   <div style="text-align:center;margin-top:11px">
    <a href="#" onclick="simStart();return false" style="color:var(--green);font-size:11px;font-weight:600;text-decoration:none">&#9654; Watch a 15-second simulated detection</a>
   </div>
-  <div id="protectStatus" class="ps">Announce recording to participants before you deploy.</div>
+  <div id="protectStatus" class="ps">Live voice authenticity active for this session.</div>
   <div id="admitWait" class="wait" style="display:none">
-   <div class="wait-row"><span class="spin"></span><b>Bot joining this meeting…</b></div>
-   <div class="wait-hint" id="waitHint"><span class="up">▲</span> Watch the top of Meet — admit <b>“Sonave”</b> when the prompt appears (a few seconds).</div>
+   <div class="wait-row"><span class="spin"></span><b>Connecting to meeting audio stream…</b></div>
+   <div class="wait-hint" id="waitHint"><span class="up">▲</span> Initializing real-time audio session (a few seconds).</div>
   </div>
  </div>
  <div class="list" id="speakers"></div>
@@ -266,7 +266,7 @@ async function protectMeeting(){
  var st=document.getElementById('protectStatus');
  var btn=document.getElementById('protectBtn');
  btn.disabled=true;
- st.textContent='Deploying the bot…';
+ st.textContent='Connecting audio session…';
  var code=window._meetCode||'';
  if(!code){
   try{
@@ -291,24 +291,22 @@ async function deployTo(url,btn,st){
   var d=await r.json();
   if(r.status===402){st.textContent=d.detail||'Free hours used — add a card in the console.';btn.disabled=false;return}
   if(d.ok){deployWait();return}
-  st.textContent=d.detail||d.error||'Deploy failed — try from the console.';
+  st.textContent=d.detail||d.error||'Connection failed — try from the console.';
   btn.disabled=false;
- }catch(e){st.textContent='Deploy failed — try from the console.';btn.disabled=false}
+ }catch(e){st.textContent='Connection failed — try from the console.';btn.disabled=false}
 }
 function protectManual(){
  var v=(document.getElementById('codeInp').value||'');
  var m=v.match(/[a-z]{3}-[a-z]{4}-[a-z]{3}/);
  var st=document.getElementById('protectStatus');
  if(!m){st.textContent='That doesn’t look like a Meet link (abc-defg-hij).';return}
- st.textContent='Deploying the bot…';
+ st.textContent='Connecting audio session…';
  deployTo('https://meet.google.com/'+m[0],document.getElementById('protectBtn'),st);
 }
 var WAITING=false;
 function isVet(){try{return !!localStorage.getItem('sonave_vet')}catch(x){return false}}
 function deployWait(){
  try{localStorage.setItem('sonave_vet','1')}catch(x){}
- // The gap between clicking and Meet's "Admit" chip needs a visible home:
- // spinner card until audio actually flows. Survives the panel reloading.
  WAITING=true;
  try{sessionStorage.setItem('sonave_deploy_t',String(Date.now()))}catch(x){}
  document.getElementById('protectHero').style.display='none';
@@ -319,15 +317,12 @@ function deployWait(){
  _botT=setInterval(pollBotStatus,6000);pollBotStatus();
  setTimeout(function(){if(WAITING&&!_lastBot)deployReset()},180000);
 }
-// Live bot status while waiting — the server asks Recall, so the card can say
-// exactly where the bot is instead of spinning blind. Meet's admit toast
-// auto-hides, so the in_waiting_room hint points at People > Waiting to join.
 var _botT=null,_lastBot=null;
 var BOT_HINTS={
- joining_call:'Bot is connecting to the meeting…',
- in_waiting_room:'The bot is at the door. If Meet’s popup is gone, open <b>People</b> (bottom right) → <b>Waiting to join</b> → admit <b>“Sonave”</b>.',
- in_call_not_recording:'Bot admitted — starting audio…',
- in_call_recording:'Bot is in — audio arriving…'
+ joining_call:'Connecting to meeting audio stream…',
+ in_waiting_room:'Establishing media stream connection…',
+ in_call_not_recording:'Audio channel connected — starting detection engine…',
+ in_call_recording:'Live audio arriving — scoring speakers…'
 };
 async function pollBotStatus(){
  try{
@@ -347,14 +342,13 @@ function deployDone(){
  try{sessionStorage.removeItem('sonave_deploy_t')}catch(x){}
 }
 function deployReset(){
- // bot was denied / removed before admission: give the button back with the truth
  deployDone();
  document.getElementById('admitWait').style.display='none';
  document.getElementById('protectHero').style.display='';
  document.getElementById('protectSteps').style.display='';
  var b=document.getElementById('protectBtn');b.style.display='';b.disabled=false;
  var st=document.getElementById('protectStatus');st.style.display='';
- st.textContent='The bot wasn’t admitted. Deploy again when ready — a brand-new bot will knock.';
+ st.textContent='Session ended or disconnected. Click to start voice verification again.';
 }
 try{
  var _dt=+sessionStorage.getItem('sonave_deploy_t');

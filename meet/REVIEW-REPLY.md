@@ -1,5 +1,22 @@
 # GWM review response kit
 
+## Rejection round 3 (2026-08-18) — Bot Policy & Google Meet Media API (Developer Preview)
+
+Reviewer findings:
+- "The add-on must not provide functionality to invite a bot or rely on the presence of a bot in the meeting"
+- Additional notes / screenshot of the "Protect this meeting" / "Deploy bot" screen: https://photos.app.goo.gl/aSvDGo9hAwhP9cuY8
+
+**Status & Action Plan:**
+1. **Google Workspace Developer Preview Program:** Application submitted for Project `940532414120` to gain access to the **Google Meet Media API**.
+2. **Code (shipped):**
+   - Side panel (`meet-addon.html`) stripped of all legacy bot participant language, "Admit bot" cards, and bot-specific states.
+   - Replaced with native session initialization and real-time voice verification states.
+3. **Backend Integration:**
+   - Leveraging Recall.ai's "Meeting Direct Connect" wrapper for Google Meet Media API (streams real-time per-participant audio directly via WebRTC to `/api/ws/audio` without deploying a participant bot into the call).
+4. **Marketplace resubmission:** Once Google approves the Developer Preview enrollment, enable Google Meet Media API in Cloud Console, add required media scopes (`meetings.conference.media.readonly`), and resubmit.
+
+---
+
 ## Rejection round 2 (2026-08-14 3:22 PM) — fixes + YOUR SDK steps
 
 Reviewer findings: (1) pricing model not set; (2) "add-on must provide meeting
