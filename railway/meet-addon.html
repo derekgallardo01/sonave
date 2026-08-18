@@ -232,7 +232,9 @@ async function onCredential(resp){
   var d=await r.json();
   if(d.ok&&d.token){
    try{localStorage.removeItem('sonave_signed_out')}catch(x){}
-   saveTok(d.token);poll()
+   saveTok(d.token);
+   show('live');
+   poll();
   }
  }catch(e){}
 }
@@ -355,13 +357,26 @@ try{
  if(_dt&&Date.now()-_dt<180000)deployWait();
 }catch(x){}
 
+var _inPoll = false;
 async function poll(){
  if(SIM)return;                 // the simulated preview owns the screen
+ if(!TOK){
+  show('signin');
+  maybePrompt();
+  return;
+ }
+ if(_inPoll)return;
+ _inPoll = true;
+ var curTok = TOK;
  try{
   var r=await fetch('/api/quality',{headers:authHeaders()});
   if(r.status===401){
-   if(TOK)clearTok();
-   show('signin');maybePrompt();return
+   if(TOK===curTok){
+    clearTok();
+    show('signin');
+    maybePrompt();
+   }
+   return;
   }
   var d=await r.json();
   if(d._v){if(window._vSeen&&window._vSeen!==d._v){location.reload();return}window._vSeen=d._v}
@@ -400,7 +415,10 @@ async function poll(){
   room.style.color=anyVerdict?vcolor(maxP):'var(--green)';
   room.className='verdict'+(hasAudio&&!anyVerdict?' pulse':'');
   document.getElementById('roomNote').textContent=hasAudio? (anyVerdict? (maxP>=0.7?'A speaker is scoring in the red band.':anyTalk?'All speakers within normal range.':'No one is speaking right now.') : 'First verdict lands in a few seconds — just talk.') :'';
- }catch(e){}
+ }catch(e){
+ }finally{
+  _inPoll = false;
+ }
 }
 var _pt={},_pd={},_peak=0;
 function hmsP(t){t=Math.round(t||0);return Math.floor(t/60)+':'+('0'+t%60).slice(-2)}
@@ -491,7 +509,11 @@ function panelAnim(){
 }
 requestAnimationFrame(panelAnim);
 function show(id){['signin','live'].forEach(function(x){document.getElementById(x).style.display=x===id?'flex':'none'})}
-function boot(){poll();setInterval(poll,700)}
+function boot(){
+ if(TOK){show('live');}else{show('signin');}
+ poll();
+ setInterval(poll,700);
+}
 boot();
 </script>
 </body>
