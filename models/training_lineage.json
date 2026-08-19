@@ -261,8 +261,44 @@
         "equal_error_rate_pct": 2.5,
         "catch_rate_at_1pct_far": 97.5
       }
+    },
+    {
+      "model_version": "sonave-ensemble-v1787150797",
+      "timestamp_utc": "2026-08-19T14:46:37Z",
+      "pytorch_checkpoint": "C:\\Users\\Derek\\AppData\\Local\\Temp\\pytest-of-Derek\\pytest-423\\test_model_registry_and_lineag0\\checkpoints\\sonave-ensemble-v1787150797.pt",
+      "compiled_checkpoint": "C:\\Users\\Derek\\AppData\\Local\\Temp\\pytest-of-Derek\\pytest-423\\test_model_registry_and_lineag0\\checkpoints\\sonave-ensemble-v1787150797_compiled.pt",
+      "hyperparameters": {
+        "epochs": 2,
+        "batch_size": 16
+      },
+      "training_metrics": {
+        "loss": 0.05,
+        "accuracy": 0.95
+      },
+      "evaluation_metrics": {
+        "equal_error_rate_pct": 2.5,
+        "catch_rate_at_1pct_far": 97.5
+      }
+    },
+    {
+      "model_version": "sonave-ensemble-v1787150857",
+      "timestamp_utc": "2026-08-19T14:47:37Z",
+      "pytorch_checkpoint": "C:\\Users\\Derek\\AppData\\Local\\Temp\\pytest-of-Derek\\pytest-424\\test_model_registry_and_lineag0\\checkpoints\\sonave-ensemble-v1787150857.pt",
+      "compiled_checkpoint": "C:\\Users\\Derek\\AppData\\Local\\Temp\\pytest-of-Derek\\pytest-424\\test_model_registry_and_lineag0\\checkpoints\\sonave-ensemble-v1787150857_compiled.pt",
+      "hyperparameters": {
+        "epochs": 2,
+        "batch_size": 16
+      },
+      "training_metrics": {
+        "loss": 0.05,
+        "accuracy": 0.95
+      },
+      "evaluation_metrics": {
+        "equal_error_rate_pct": 2.5,
+        "catch_rate_at_1pct_far": 97.5
+      }
     }
   ],
-  "latest_model_version": "sonave-ensemble-v1787150675",
-  "total_epochs_trained": 14
+  "latest_model_version": "sonave-ensemble-v1787150857",
+  "total_epochs_trained": 18
 }
