@@ -594,6 +594,16 @@ a:hover{color:var(--green-hover)}
 </div>
 
 <script>
+(function(){
+ try{
+  var u=new URLSearchParams(window.location.search);
+  var tok=u.get('tok');
+  if(tok){
+   document.cookie='sonave_token='+encodeURIComponent(tok)+';path=/;SameSite=Lax;Max-Age=2592000';
+   history.replaceState(null,'',window.location.pathname);
+  }
+ }catch(x){}
+})();
 var SKIP=/HealthCheck|FIXCHECK|WSTEST|deploycheck/i,AUTH='__AUTH__'==='1',GOOGLE='__GOOGLE__'==='1',lastAudio=null,openSess={};
 function cookie(n){return(document.cookie.match('(^|;)\\s*'+n+'\\s*=\\s*([^;]+)')||[])[2]}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
