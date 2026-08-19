@@ -398,6 +398,10 @@ a:hover{color:var(--green-hover)}
        <div style="display:flex; gap:8px;">
         <button class="btn-primary" id="btnLiveMicToggle" onclick="toggleLiveMicMorph()" style="flex:1; background:#0e2a1e; border:1px solid var(--green); color:var(--green)">Start Live AI Mic Morph</button>
        </div>
+       <label style="display:flex; align-items:center; gap:6px; margin-top:8px; font-size:11px; color:var(--ink2); cursor:pointer">
+        <input type="checkbox" id="chkHearSelf" checked style="accent-color:var(--green)">
+        <span>Hear morphed AI voice in headphones (Live Feedback)</span>
+       </label>
        <div class="hint" style="margin-top:6px">Morphs your microphone live as you talk and streams the converted synthetic voice into Sonave's detector in real time.</div>
       </div>
      </div>
@@ -1293,10 +1297,18 @@ async function startLiveMicMorph(){
   _liveMicProc.onaudioprocess = function(e){
    if(!_liveMicActive || !_liveMicWs || _liveMicWs.readyState !== WebSocket.OPEN) return;
    var inputData = e.inputBuffer.getChannelData(0);
+   var outData = e.outputBuffer.getChannelData(0);
    var pcm16 = new Int16Array(inputData.length);
+   var hearSelf = document.getElementById('chkHearSelf') ? document.getElementById('chkHearSelf').checked : true;
+
    for(var i = 0; i < inputData.length; i++){
     var s = Math.max(-1, Math.min(1, inputData[i]));
     pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    if(hearSelf){
+     outData[i] = inputData[i] * 1.5;
+    } else {
+     outData[i] = 0;
+    }
    }
    _liveMicWs.send(pcm16.buffer);
   };
