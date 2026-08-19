@@ -27,6 +27,20 @@ def test_data_ingestion_manifest_builder(tmp_path):
     assert len(train_data["samples"]) > 0
 
 
+def test_hf_corpus_harvester(tmp_path):
+    from src.pipeline.hf_corpus_harvester import HFCorpusHarvester
+    harvester = HFCorpusHarvester(cache_dir=tmp_path / "hf_corpora")
+
+    corpora = harvester.list_supported_hf_corpora()
+    assert len(corpora) >= 4
+    assert any(c["category"] == "neural_vocoders" for c in corpora)
+    assert any(c["category"] == "flow_matching_diffusion" for c in corpora)
+
+    samples = harvester.sync_huggingface_manifests(max_samples_per_corpus=10)
+    assert len(samples) > 0
+    assert harvester.manifest_file.exists()
+
+
 def test_meeting_audio_augmentations():
     augmentor = MeetingAudioAugmentor(sample_rate=16000)
     dummy_audio = torch.randn(32000).numpy() # 2 seconds

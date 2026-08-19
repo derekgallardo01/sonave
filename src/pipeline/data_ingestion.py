@@ -67,6 +67,23 @@ class DatasetManifestBuilder:
             samples.append(sample_entry)
         return samples
 
+    def ingest_all_sources(self, num_benchmark: int = 120, include_hf: bool = True) -> list[dict[str, Any]]:
+        """Combine synthetic benchmark corpus, Hugging Face harvested corpora, and local captures."""
+        all_samples = self.generate_synthetic_benchmark_corpus(num_samples=num_benchmark)
+        if include_hf:
+            try:
+                from src.pipeline.hf_corpus_harvester import HFCorpusHarvester
+                harvester = HFCorpusHarvester(cache_dir=self.raw_dir / "hf_corpora")
+                hf_samples = harvester.sync_huggingface_manifests(max_samples_per_corpus=20)
+                # Map HF samples to generator IDs
+                for idx, hf_s in enumerate(hf_samples):
+                    hf_s["generator_id"] = (idx % 11) + 1 if hf_s["label"] == 1 else 0
+                    all_samples.append(hf_s)
+                logger.info("Integrated %d Hugging Face harvested samples into dataset manifest", len(hf_samples))
+            except Exception as e:
+                logger.warning("Hugging Face harvest integration skipped: %s", e)
+        return all_samples
+
     def build_stratified_manifests(self, samples: list[dict[str, Any]],
                                    train_ratio: float = 0.70,
                                    val_ratio: float = 0.15,

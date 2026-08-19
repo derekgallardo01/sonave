@@ -83,9 +83,9 @@ def execute_full_pipeline(epochs: int = 3, batch_size: int = 16, lr: float = 1e-
     logger.info("🚀 STARTING SONAVE PRODUCTION DEEPFAKE TRAINING PIPELINE")
     logger.info("==================================================================")
 
-    # 1. Ingestion & Stratified Splitting
+    # 1. Ingestion & Stratified Splitting with Hugging Face Corpus Harvesting
     builder = DatasetManifestBuilder()
-    samples = builder.generate_synthetic_benchmark_corpus(num_samples=160)
+    samples = builder.ingest_all_sources(num_benchmark=160, include_hf=True)
     splits = builder.build_stratified_manifests(samples)
 
     import json
