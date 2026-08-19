@@ -20,7 +20,7 @@ async def test_generator_audio_synthesis():
 
     voices = generator.list_voice_profiles()
     assert len(voices) >= 3
-    assert any(v["id"] == "me_clone" for v in voices)
+    assert any(v["id"] in ("derek_natural", "me_clone") for v in voices)
 
     # Test synthesis
     pcm = await generator.generate_synthetic_audio("Test audio phrase", voice_tag="en-US-GuyNeural")

@@ -20,7 +20,7 @@ if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
 from models.ensemble import MultiFoundationAcousticEnsemble
-from datasets.benchmark_loader import UniversalDeepfakeBenchmarkDataset
+from src.datasets.benchmark_loader import UniversalDeepfakeBenchmarkDataset
 from train_hf_ensemble import train_one_epoch, evaluate
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [TRAINING-LOOP] %(message)s")

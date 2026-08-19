@@ -61,7 +61,7 @@ def test_multi_foundation_ensemble_forward_pass():
 
 
 def test_benchmark_dataset_loader():
-    from datasets.benchmark_loader import UniversalDeepfakeBenchmarkDataset
+    from src.datasets.benchmark_loader import UniversalDeepfakeBenchmarkDataset
 
     ds = UniversalDeepfakeBenchmarkDataset()
     ds.add_sample("fake_path_1.wav", label=1, generator_id=2, speaker="Target_A")

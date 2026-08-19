@@ -19,7 +19,7 @@ if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
 from models.ensemble import MultiFoundationAcousticEnsemble
-from datasets.benchmark_loader import UniversalDeepfakeBenchmarkDataset
+from src.datasets.benchmark_loader import UniversalDeepfakeBenchmarkDataset
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("sonave.train")

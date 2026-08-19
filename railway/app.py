@@ -1149,6 +1149,61 @@ def api_data_progress(p: auth.Principal = Depends(require_principal)):
             "last_capture_ts": last_ts or None, "m1_target_hours": 15}
 
 
+_TRAINING_STATE = {"status": "idle", "last_run": None, "current_epoch": 0, "total_epochs": 0}
+
+@app.get("/api/training/lineage")
+def api_training_lineage():
+    lineage_file = Path("models/training_lineage.json")
+    if lineage_file.exists():
+        try:
+            return json.loads(lineage_file.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return {"runs": [], "latest_model_version": "sonave-ensemble-v1", "total_epochs_trained": 0}
+
+
+@app.get("/api/training/status")
+def api_training_status():
+    lineage = api_training_lineage()
+    return {
+        "state": _TRAINING_STATE["status"],
+        "current_epoch": _TRAINING_STATE["current_epoch"],
+        "total_epochs": _TRAINING_STATE["total_epochs"],
+        "latest_model_version": lineage.get("latest_model_version"),
+        "total_epochs_trained": lineage.get("total_epochs_trained", 0),
+        "total_runs": len(lineage.get("runs", [])),
+        "last_run": lineage["runs"][-1] if lineage.get("runs") else None
+    }
+
+
+class RetrainReq(BaseModel):
+    epochs: int = 3
+    batch_size: int = 16
+    lr: float = 1e-4
+
+
+@app.post("/api/training/start")
+def api_training_start(req: RetrainReq = RetrainReq(), p: auth.Principal = Depends(require_principal)):
+    if _TRAINING_STATE["status"] == "training":
+        return {"ok": False, "status": "already_running", "detail": "A training iteration is currently in progress."}
+
+    def _worker():
+        _TRAINING_STATE["status"] = "training"
+        _TRAINING_STATE["total_epochs"] = req.epochs
+        try:
+            from src.pipeline.run_pipeline import execute_full_pipeline
+            run_rec = execute_full_pipeline(epochs=req.epochs, batch_size=req.batch_size, lr=req.lr)
+            _TRAINING_STATE["last_run"] = run_rec
+        except Exception as e:
+            logger.error("Training iteration failed: %s", e)
+        finally:
+            _TRAINING_STATE["status"] = "idle"
+
+    t = threading.Thread(target=_worker, daemon=True)
+    t.start()
+    return {"ok": True, "status": "training_started", "epochs": req.epochs}
+
+
 @app.get("/api/incidents")
 def api_incidents(p: auth.Principal = Depends(require_principal)):
     # Admin sees everything (incl. pre-tenancy rows with user_id NULL); members
