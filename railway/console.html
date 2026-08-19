@@ -583,15 +583,26 @@ a:hover{color:var(--green-hover)}
       </div>
      </div>
      <div class="card">
-      <div class="card-hd"><span class="card-lbl">CONTINUOUS TRAINING PIPELINE</span><span class="update-note" id="trainDate">last run &#8212;</span></div>
+      <div class="card-hd"><span class="card-lbl">AUTOMATED TRAINING SCHEDULE</span><span class="update-note" id="schedNextRun">Next: Sunday 00:00 UTC</span></div>
       <div style="padding:16px 20px;display:flex;flex-direction:column;gap:12px">
-       <div class="train-row"><span style="font-size:11.5px;color:var(--ink2)">Unseen-tool catch (Catch @ 1% FAR)</span><span class="mono" id="trainCatch" style="font-size:14px;font-weight:600;color:var(--green)">—</span></div>
-       <div class="bar-track"><div class="bar-fill" id="trainBar" style="width:0%"></div></div>
+       <div class="train-row"><span style="font-size:11.5px;color:var(--ink2)">Automated Retrain Cadence</span><span class="mono" id="schedStatusBadge" style="font-size:11px;font-weight:700;color:var(--green)">SCHEDULE ACTIVE</span></div>
+       <div style="display:flex;gap:8px">
+        <select class="sel" id="schedCadenceSel" onchange="saveScheduleSettings()">
+         <option value="weekly">Weekly on Sundays (00:00 UTC)</option>
+         <option value="daily">Daily at Midnight (00:00 UTC)</option>
+         <option value="threshold">On +5h New Captures Ready</option>
+         <option value="manual">Manual On-Demand Only</option>
+        </select>
+       </div>
+       <div style="border-top:1px solid var(--line); padding-top:10px;">
+        <div class="train-row" style="margin-bottom:6px;"><span style="font-size:11.5px;color:var(--ink2)">Unseen-tool catch (Catch @ 1% FAR)</span><span class="mono" id="trainCatch" style="font-size:14px;font-weight:600;color:var(--green)">—</span></div>
+        <div class="bar-track"><div class="bar-fill" id="trainBar" style="width:0%"></div></div>
+       </div>
        <div style="display:flex;gap:8px">
         <select class="sel" id="trainEpochSel"><option value="3">3 Epochs (Standard)</option><option value="5">5 Epochs (Deep Fine-Tune)</option><option value="1">1 Epoch (Quick Test)</option></select>
         <select class="sel" id="trainBatchSel"><option value="16">Batch 16</option><option value="32">Batch 32</option><option value="8">Batch 8</option></select>
        </div>
-       <button class="btn-primary" id="btnTriggerRetrain" onclick="triggerRetrain()">Queue Continuous Training Run</button>
+       <button class="btn-primary" id="btnTriggerRetrain" onclick="triggerRetrain()">Queue Retraining Run Now</button>
       </div>
      </div>
      <div class="card">
@@ -914,7 +925,7 @@ function adminStart(){
 }
 
 var _started=0;
-function start(){if(_started)return;_started=1;list();quality();incidents();enrolled();loadKeys();loadSecret();loadVoiceProfiles();initSpectrogram();modelInfo();dataProgress();setInterval(list,5000);setInterval(quality,500);setInterval(incidents,3000);setInterval(enrolled,10000);setInterval(dataProgress,60000);setInterval(modelInfo,15000)}
+function start(){if(_started)return;_started=1;list();quality();incidents();enrolled();loadKeys();loadSecret();loadVoiceProfiles();loadScheduleConfig();initSpectrogram();modelInfo();dataProgress();setInterval(list,5000);setInterval(quality,500);setInterval(incidents,3000);setInterval(enrolled,10000);setInterval(dataProgress,60000);setInterval(modelInfo,15000)}
 
 async function dataProgress(){
  var d;try{d=await jget('/api/data_progress')}catch(e){return}
@@ -932,10 +943,9 @@ async function modelInfo(){
  if(d.state === 'training'){
   if(btn){ btn.disabled = true; btn.textContent = 'Training in progress...'; }
  } else {
-  if(btn && btn.disabled){ btn.disabled = false; btn.textContent = 'Queue Continuous Training Run'; }
+  if(btn && btn.disabled){ btn.disabled = false; btn.textContent = 'Queue Retraining Run Now'; }
  }
  if(d.last_run && d.last_run.timestamp_utc){
-  document.getElementById('trainDate').textContent='last run '+d.last_run.timestamp_utc.replace('T',' ').replace('Z',' UTC');
   if(d.last_run.evaluation_metrics && d.last_run.evaluation_metrics.catch_rate_at_1pct_far!=null){
    var c = d.last_run.evaluation_metrics.catch_rate_at_1pct_far;
    document.getElementById('trainCatch').textContent=c+'%';
@@ -964,6 +974,36 @@ async function triggerRetrain(){
   }
  } catch(e){
   toast('Training request failed: ' + e, 'err');
+ }
+}
+
+async function loadScheduleConfig(){
+ try {
+  var d = await jget('/api/training/schedule');
+  if(d && d.config){
+   var sel = document.getElementById('schedCadenceSel');
+   if(sel && d.config.cadence) sel.value = d.config.cadence;
+   var nr = document.getElementById('schedNextRun');
+   if(nr && d.next_run_display) nr.textContent = 'Next: ' + d.next_run_display;
+  }
+ } catch(e){}
+}
+
+async function saveScheduleSettings(){
+ var cadence = (document.getElementById('schedCadenceSel')||{value:'weekly'}).value;
+ try {
+  var r = await fetch('/api/training/schedule', {
+   method: 'POST',
+   headers: {'Content-Type': 'application/json'},
+   body: JSON.stringify({cadence: cadence, hour_utc: 0, capture_threshold_hours: 5.0, auto_deploy_on_pass: true})
+  });
+  var d = await r.json();
+  if(d.ok){
+   toast('✓ Automated schedule updated: ' + cadence, 'ok');
+   loadScheduleConfig();
+  }
+ } catch(e){
+  toast('Could not update schedule', 'err');
  }
 }
 

@@ -1204,6 +1204,46 @@ def api_training_start(req: RetrainReq = RetrainReq(), p: auth.Principal = Depen
     return {"ok": True, "status": "training_started", "epochs": req.epochs}
 
 
+class ScheduleReq(BaseModel):
+    cadence: str = "weekly" # "weekly", "daily", "threshold", "manual"
+    hour_utc: int = 0
+    capture_threshold_hours: float = 5.0
+    auto_deploy_on_pass: bool = True
+
+
+@app.get("/api/training/schedule")
+def api_training_schedule():
+    from src.pipeline.training_scheduler import TrainingScheduler
+    sched = TrainingScheduler()
+    cfg = sched.load_config()
+    next_run = sched.get_next_run_timestamp()
+    return {
+        "ok": True,
+        "config": cfg,
+        "next_run_display": next_run,
+        "cadence": cfg.get("cadence", "weekly"),
+        "status": cfg.get("status", "active")
+    }
+
+
+@app.post("/api/training/schedule")
+def api_training_set_schedule(req: ScheduleReq, p: auth.Principal = Depends(require_principal)):
+    from src.pipeline.training_scheduler import TrainingScheduler
+    sched = TrainingScheduler()
+    cfg = sched.load_config()
+    cfg["cadence"] = req.cadence
+    cfg["hour_utc"] = req.hour_utc
+    cfg["capture_threshold_hours"] = req.capture_threshold_hours
+    cfg["auto_deploy_on_pass"] = req.auto_deploy_on_pass
+    sched.save_config(cfg)
+    next_run = sched.get_next_run_timestamp()
+    return {
+        "ok": True,
+        "config": cfg,
+        "next_run_display": next_run
+    }
+
+
 @app.get("/api/incidents")
 def api_incidents(p: auth.Principal = Depends(require_principal)):
     # Admin sees everything (incl. pre-tenancy rows with user_id NULL); members
