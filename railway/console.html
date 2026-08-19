@@ -1261,6 +1261,19 @@ async function startLiveMicMorph(){
  var btn = document.getElementById('btnLiveMicToggle');
  var st = document.getElementById('liveMicStatus');
  try {
+  if(_liveMicStream){
+   _liveMicStream.getTracks().forEach(function(t){ t.stop(); });
+   _liveMicStream = null;
+  }
+  if(_liveMicCtx){
+   try { await _liveMicCtx.close(); } catch(x){}
+   _liveMicCtx = null;
+  }
+  if(_liveMicWs){
+   try { _liveMicWs.close(); } catch(x){}
+   _liveMicWs = null;
+  }
+
   _liveMicStream = await navigator.mediaDevices.getUserMedia({
    audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: true }
   });
@@ -1359,11 +1372,11 @@ async function startLiveMicMorph(){
  }
 }
 
-function stopLiveMicMorph(){
+async function stopLiveMicMorph(){
  _liveMicActive = false;
  if(_liveMicProc){ try{_liveMicProc.disconnect();}catch(x){} _liveMicProc = null; }
  if(_liveMicStream){ try{_liveMicStream.getTracks().forEach(function(t){ t.stop(); });}catch(x){} _liveMicStream = null; }
- if(_liveMicCtx){ try{_liveMicCtx.close();}catch(x){} _liveMicCtx = null; }
+ if(_liveMicCtx){ try{ await _liveMicCtx.close(); }catch(x){} _liveMicCtx = null; }
  if(_liveMicWs){ try{_liveMicWs.close();}catch(x){} _liveMicWs = null; }
  var btn = document.getElementById('btnLiveMicToggle');
  var st = document.getElementById('liveMicStatus');
