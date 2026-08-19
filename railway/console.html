@@ -904,7 +904,7 @@ function adminStart(){
 }
 
 var _started=0;
-function start(){if(_started)return;_started=1;list();quality();incidents();enrolled();loadKeys();loadSecret();initSpectrogram();modelInfo();dataProgress();setInterval(list,5000);setInterval(quality,500);setInterval(incidents,3000);setInterval(enrolled,10000);setInterval(dataProgress,60000)}
+function start(){if(_started)return;_started=1;list();quality();incidents();enrolled();loadKeys();loadSecret();loadVoiceProfiles();initSpectrogram();modelInfo();dataProgress();setInterval(list,5000);setInterval(quality,500);setInterval(incidents,3000);setInterval(enrolled,10000);setInterval(dataProgress,60000)}
 
 async function dataProgress(){
  var d;try{d=await jget('/api/data_progress')}catch(e){return}
@@ -1240,6 +1240,20 @@ async function playSynthPreview(){
  } catch(e){
   toast('Preview failed', 'err');
  }
+}
+
+async function loadVoiceProfiles(){
+ try {
+  var d = await jget('/api/generator/voices');
+  if(d && d.voices && d.voices.length){
+   var sel = document.getElementById('synthVoiceSel');
+   if(sel){
+    sel.innerHTML = d.voices.map(function(v){
+     return '<option value="'+esc(v.id)+'">'+esc(v.name)+'</option>';
+    }).join('');
+   }
+  }
+ } catch(e){}
 }
 
 /* ---- Real-Time Live AI Microphone Transformer (DSP Closed-Loop) ---- */
