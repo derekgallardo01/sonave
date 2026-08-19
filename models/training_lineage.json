@@ -1,0 +1,268 @@
+{
+  "runs": [
+    {
+      "model_version": "sonave-ensemble-v1787146397",
+      "timestamp_utc": "2026-08-19T13:33:17Z",
+      "pytorch_checkpoint": "models\\ensemble_checkpoints\\sonave-ensemble-v1787146397.pt",
+      "onnx_model": null,
+      "hyperparameters": {
+        "epochs": 2,
+        "batch_size": 16,
+        "lr": 0.0001
+      },
+      "training_metrics": {
+        "epoch": 2,
+        "loss": 0.08965898709040936,
+        "accuracy": 0.9252336448598131,
+        "duration_sec": 1.3065502643585205,
+        "val_loss": 0.1026862349949385,
+        "val_accuracy": 0.7368421052631579,
+        "val_catch_rate": 0.8571428571428571
+      },
+      "evaluation_metrics": {
+        "total_test_samples": 34,
+        "bonafide_samples": 12,
+        "spoof_samples": 22,
+        "equal_error_rate_pct": 15.15,
+        "eer_operating_threshold": 0.5005,
+        "catch_rate_at_1pct_far": 86.36,
+        "catch_rate_at_5pct_far": 86.36,
+        "generators_evaluated": {
+          "bark_generative": {
+            "samples": 2,
+            "mean_fake_score": 0.5051987171173096,
+            "catch_rate_at_eer": 100.0
+          },
+          "diff_tts_diffusion": {
+            "samples": 2,
+            "mean_fake_score": 0.5054116249084473,
+            "catch_rate_at_eer": 100.0
+          },
+          "elevenlabs_v2": {
+            "samples": 2,
+            "mean_fake_score": 0.49970388412475586,
+            "catch_rate_at_eer": 0.0
+          },
+          "hifigan_vocoder": {
+            "samples": 2,
+            "mean_fake_score": 0.5026856064796448,
+            "catch_rate_at_eer": 100.0
+          },
+          "mms_tts": {
+            "samples": 2,
+            "mean_fake_score": 0.5042026042938232,
+            "catch_rate_at_eer": 100.0
+          },
+          "openai_voice_engine": {
+            "samples": 2,
+            "mean_fake_score": 0.5012161731719971,
+            "catch_rate_at_eer": 50.0
+          },
+          "rvc_voice_conversion": {
+            "samples": 2,
+            "mean_fake_score": 0.5043065547943115,
+            "catch_rate_at_eer": 100.0
+          },
+          "speecht5_tts": {
+            "samples": 2,
+            "mean_fake_score": 0.5032150745391846,
+            "catch_rate_at_eer": 100.0
+          },
+          "styletts2": {
+            "samples": 2,
+            "mean_fake_score": 0.502881646156311,
+            "catch_rate_at_eer": 100.0
+          },
+          "wavefake_melgan": {
+            "samples": 2,
+            "mean_fake_score": 0.5028961896896362,
+            "catch_rate_at_eer": 100.0
+          },
+          "xtts_v2": {
+            "samples": 2,
+            "mean_fake_score": 0.5024747848510742,
+            "catch_rate_at_eer": 100.0
+          }
+        }
+      }
+    },
+    {
+      "model_version": "sonave-ensemble-v1787148749",
+      "timestamp_utc": "2026-08-19T14:12:29Z",
+      "pytorch_checkpoint": "models\\ensemble_checkpoints\\sonave-ensemble-v1787148749.pt",
+      "compiled_checkpoint": "models\\ensemble_checkpoints\\sonave-ensemble-v1787148749_compiled.pt",
+      "hyperparameters": {
+        "epochs": 2,
+        "batch_size": 16,
+        "lr": 0.0001
+      },
+      "training_metrics": {
+        "epoch": 2,
+        "loss": 0.08943871571904137,
+        "accuracy": 0.9333333333333333,
+        "duration_sec": 1.6061336994171143,
+        "val_loss": 0.10135399275704433,
+        "val_accuracy": 0.631578947368421,
+        "val_catch_rate": 0.0
+      },
+      "evaluation_metrics": {
+        "total_test_samples": 36,
+        "bonafide_samples": 12,
+        "spoof_samples": 24,
+        "equal_error_rate_pct": 0.0,
+        "eer_operating_threshold": 0.493,
+        "catch_rate_at_1pct_far": 100.0,
+        "catch_rate_at_5pct_far": 100.0,
+        "generators_evaluated": {
+          "bark_generative": {
+            "samples": 2,
+            "mean_fake_score": 0.4973911643028259,
+            "catch_rate_at_eer": 100.0
+          },
+          "diff_tts_diffusion": {
+            "samples": 2,
+            "mean_fake_score": 0.49789029359817505,
+            "catch_rate_at_eer": 100.0
+          },
+          "elevenlabs_v2": {
+            "samples": 2,
+            "mean_fake_score": 0.4933651089668274,
+            "catch_rate_at_eer": 100.0
+          },
+          "hifigan_vocoder": {
+            "samples": 3,
+            "mean_fake_score": 0.4942156970500946,
+            "catch_rate_at_eer": 100.0
+          },
+          "mms_tts": {
+            "samples": 3,
+            "mean_fake_score": 0.4965764284133911,
+            "catch_rate_at_eer": 100.0
+          },
+          "openai_voice_engine": {
+            "samples": 2,
+            "mean_fake_score": 0.4946504831314087,
+            "catch_rate_at_eer": 100.0
+          },
+          "rvc_voice_conversion": {
+            "samples": 2,
+            "mean_fake_score": 0.49659425020217896,
+            "catch_rate_at_eer": 100.0
+          },
+          "speecht5_tts": {
+            "samples": 2,
+            "mean_fake_score": 0.49581801891326904,
+            "catch_rate_at_eer": 100.0
+          },
+          "styletts2": {
+            "samples": 2,
+            "mean_fake_score": 0.4960635304450989,
+            "catch_rate_at_eer": 100.0
+          },
+          "wavefake_melgan": {
+            "samples": 2,
+            "mean_fake_score": 0.4951974153518677,
+            "catch_rate_at_eer": 100.0
+          },
+          "xtts_v2": {
+            "samples": 2,
+            "mean_fake_score": 0.49623996019363403,
+            "catch_rate_at_eer": 100.0
+          }
+        }
+      }
+    },
+    {
+      "model_version": "sonave-ensemble-v1787148825",
+      "timestamp_utc": "2026-08-19T14:13:45Z",
+      "pytorch_checkpoint": "C:\\Users\\Derek\\AppData\\Local\\Temp\\pytest-of-Derek\\pytest-418\\test_model_registry_and_lineag0\\checkpoints\\sonave-ensemble-v1787148825.pt",
+      "compiled_checkpoint": "C:\\Users\\Derek\\AppData\\Local\\Temp\\pytest-of-Derek\\pytest-418\\test_model_registry_and_lineag0\\checkpoints\\sonave-ensemble-v1787148825_compiled.pt",
+      "hyperparameters": {
+        "epochs": 2,
+        "batch_size": 16
+      },
+      "training_metrics": {
+        "loss": 0.05,
+        "accuracy": 0.95
+      },
+      "evaluation_metrics": {
+        "equal_error_rate_pct": 2.5,
+        "catch_rate_at_1pct_far": 97.5
+      }
+    },
+    {
+      "model_version": "sonave-ensemble-v1787148874",
+      "timestamp_utc": "2026-08-19T14:14:34Z",
+      "pytorch_checkpoint": "C:\\Users\\Derek\\AppData\\Local\\Temp\\pytest-of-Derek\\pytest-419\\test_model_registry_and_lineag0\\checkpoints\\sonave-ensemble-v1787148874.pt",
+      "compiled_checkpoint": "C:\\Users\\Derek\\AppData\\Local\\Temp\\pytest-of-Derek\\pytest-419\\test_model_registry_and_lineag0\\checkpoints\\sonave-ensemble-v1787148874_compiled.pt",
+      "hyperparameters": {
+        "epochs": 2,
+        "batch_size": 16
+      },
+      "training_metrics": {
+        "loss": 0.05,
+        "accuracy": 0.95
+      },
+      "evaluation_metrics": {
+        "equal_error_rate_pct": 2.5,
+        "catch_rate_at_1pct_far": 97.5
+      }
+    },
+    {
+      "model_version": "sonave-ensemble-v1787148937",
+      "timestamp_utc": "2026-08-19T14:15:38Z",
+      "pytorch_checkpoint": "C:\\Users\\Derek\\AppData\\Local\\Temp\\pytest-of-Derek\\pytest-420\\test_model_registry_and_lineag0\\checkpoints\\sonave-ensemble-v1787148937.pt",
+      "compiled_checkpoint": "C:\\Users\\Derek\\AppData\\Local\\Temp\\pytest-of-Derek\\pytest-420\\test_model_registry_and_lineag0\\checkpoints\\sonave-ensemble-v1787148937_compiled.pt",
+      "hyperparameters": {
+        "epochs": 2,
+        "batch_size": 16
+      },
+      "training_metrics": {
+        "loss": 0.05,
+        "accuracy": 0.95
+      },
+      "evaluation_metrics": {
+        "equal_error_rate_pct": 2.5,
+        "catch_rate_at_1pct_far": 97.5
+      }
+    },
+    {
+      "model_version": "sonave-ensemble-v1787149913",
+      "timestamp_utc": "2026-08-19T14:31:54Z",
+      "pytorch_checkpoint": "C:\\Users\\Derek\\AppData\\Local\\Temp\\pytest-of-Derek\\pytest-421\\test_model_registry_and_lineag0\\checkpoints\\sonave-ensemble-v1787149913.pt",
+      "compiled_checkpoint": "C:\\Users\\Derek\\AppData\\Local\\Temp\\pytest-of-Derek\\pytest-421\\test_model_registry_and_lineag0\\checkpoints\\sonave-ensemble-v1787149913_compiled.pt",
+      "hyperparameters": {
+        "epochs": 2,
+        "batch_size": 16
+      },
+      "training_metrics": {
+        "loss": 0.05,
+        "accuracy": 0.95
+      },
+      "evaluation_metrics": {
+        "equal_error_rate_pct": 2.5,
+        "catch_rate_at_1pct_far": 97.5
+      }
+    },
+    {
+      "model_version": "sonave-ensemble-v1787150675",
+      "timestamp_utc": "2026-08-19T14:44:35Z",
+      "pytorch_checkpoint": "C:\\Users\\Derek\\AppData\\Local\\Temp\\pytest-of-Derek\\pytest-422\\test_model_registry_and_lineag0\\checkpoints\\sonave-ensemble-v1787150675.pt",
+      "compiled_checkpoint": "C:\\Users\\Derek\\AppData\\Local\\Temp\\pytest-of-Derek\\pytest-422\\test_model_registry_and_lineag0\\checkpoints\\sonave-ensemble-v1787150675_compiled.pt",
+      "hyperparameters": {
+        "epochs": 2,
+        "batch_size": 16
+      },
+      "training_metrics": {
+        "loss": 0.05,
+        "accuracy": 0.95
+      },
+      "evaluation_metrics": {
+        "equal_error_rate_pct": 2.5,
+        "catch_rate_at_1pct_far": 97.5
+      }
+    }
+  ],
+  "latest_model_version": "sonave-ensemble-v1787150675",
+  "total_epochs_trained": 14
+}

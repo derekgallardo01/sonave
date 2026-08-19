@@ -10,6 +10,8 @@ __pycache__/
 data/
 models/*
 !models/sonave_xlsr_meet/
+!models/scheduler_config.json
+!models/training_lineage.json
 *.opus
 *.wav
 *.flac

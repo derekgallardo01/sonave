@@ -1,0 +1,13 @@
+{
+  "cadence": "daily",
+  "day_of_week": 6,
+  "hour_utc": 2,
+  "minute_utc": 0,
+  "capture_threshold_hours": 5.0,
+  "last_retrain_hours": 0.0,
+  "auto_deploy_on_pass": true,
+  "max_acceptable_eer_pct": 10.0,
+  "min_acceptable_catch_pct": 90.0,
+  "last_run_utc": null,
+  "status": "active"
+}
