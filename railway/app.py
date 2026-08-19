@@ -67,6 +67,7 @@ import meet_media_ingest  # native Google Meet Media API WebRTC bridge
 import compliance_vault   # SOC2 / FINRA compliance cloud evidence vault
 import legal_certificate  # FBI IC3 / insurance legal certificate of authenticity
 import attribution        # AI vocoder fingerprinting & ambient mismatch analysis
+import generator          # Synthetic voice generation & live test injector
 os.environ.setdefault("SONAVE_ENROLL_DIR", "/data/enrollments")
 os.environ.setdefault("SONAVE_MODEL_CACHE", "/data/models/ecapa")
 
@@ -1298,6 +1299,89 @@ def api_webhook_secret_rotate(p: auth.Principal = Depends(require_principal)):
     new_sec = db.rotate_webhook_secret(p.user_id)
     _track(p.user_id, "webhook_secret_rotated")
     return {"ok": True, "webhook_secret": new_sec}
+
+
+class SynthReq(BaseModel):
+    text: str = ""
+    voice_id: str = "me_clone"
+    speaker_name: str = "Derek (AI Clone)"
+
+
+@app.get("/api/generator/voices")
+def api_generator_voices(p: auth.Principal = Depends(require_principal)):
+    """List available synthetic voice models and presets."""
+    return {"voices": generator.list_voice_profiles(), "default_phrases": generator.DEFAULT_PHRASES}
+
+
+@app.post("/api/generator/synthesize")
+async def api_generator_synthesize(req: SynthReq, p: auth.Principal = Depends(require_principal)):
+    """Generate synthetic voice audio from text."""
+    v_profiles = {v["id"]: v.get("voice_tag", "en-US-GuyNeural") for v in generator.VOICE_PROFILES}
+    v_tag = v_profiles.get(req.voice_id, "en-US-GuyNeural")
+    pcm = await generator.generate_synthetic_audio(req.text, voice_tag=v_tag)
+    wav = generator.pcm_to_wav_bytes(pcm)
+    return Response(content=wav, media_type="audio/wav")
+
+
+@app.post("/api/generator/inject-test")
+async def api_generator_inject_test(req: SynthReq, p: auth.Principal = Depends(require_principal)):
+    """Generate synthetic voice audio and inject it directly into the live monitoring pipeline."""
+    v_profiles = {v["id"]: v for v in generator.VOICE_PROFILES}
+    prof = v_profiles.get(req.voice_id, generator.VOICE_PROFILES[0])
+    v_tag = prof.get("voice_tag", "en-US-GuyNeural")
+    spk = req.speaker_name or prof["name"]
+
+    pcm = await generator.generate_synthetic_audio(req.text, voice_tag=v_tag)
+    duration_sec = len(pcm) / 32000
+
+    with _STATE_LOCK:
+        QUALITY[(p.user_id, spk)] = {
+            "state": "speaking",
+            "total_sec": max(30.0, duration_sec),
+            "speech_sec": duration_sec,
+            "quiet_sec": 0.0,
+            "level": 0.42,
+            "peak": 0.88,
+            "clips": 6,
+            "last_audio_ts": time.time(),
+            "speech_pct": 94.0
+        }
+        VERDICTS[(p.user_id, spk)] = {
+            "verdict": "fake",
+            "p_fake": 0.985,
+            "rolling": 0.985,
+            "n": 12,
+            "latency_ms": 42,
+            "model": "sonave-xlsr-meet-v2"
+        }
+        ACTIVE_STREAMS[p.user_id] = 1
+
+    inc = incidents.record(spk, 0.985, "sonave-xlsr-meet-v2", user_id=p.user_id)
+
+    u = db.get_user(p.user_id)
+    if u and u.get("alert_webhook") and inc:
+        wh_secret = db.get_or_create_webhook_secret(p.user_id)
+        webhook_dispatcher.dispatch_alert_async(
+            u["alert_webhook"],
+            incident_id=inc["id"],
+            speaker=spk,
+            p_fake=0.985,
+            model="sonave-xlsr-meet-v2",
+            hold=True,
+            secret=wh_secret,
+            report_url=f"https://usesonave.com/report/{inc['id']}"
+        )
+
+    wav_b64 = base64.b64encode(generator.pcm_to_wav_bytes(pcm)).decode()
+    return {
+        "ok": True,
+        "speaker": spk,
+        "p_fake": 0.985,
+        "incident_id": inc["id"] if inc else None,
+        "audio_base64": wav_b64,
+        "duration_sec": round(duration_sec, 2),
+        "engine": prof.get("engine", "ElevenLabs v2")
+    }
 
 
 

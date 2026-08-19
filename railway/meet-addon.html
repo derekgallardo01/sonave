@@ -162,6 +162,9 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
   <div><b>SESSION</b><span id="stSess">0:00</span></div>
   <div><b>PEAK RISK</b><span id="stPeak">0%</span></div>
  </div>
+ <div style="padding:0 12px 10px; display:flex; justify-content:center;">
+  <button class="btn-soft" style="font-size:10px; padding:4px 10px; width:100%; border:1px dashed var(--line2); color:var(--ink2); cursor:pointer" onclick="injectMeetTest()">⚡ Test AI Voice Clone Detection</button>
+ </div>
  <div class="ft"><span id="meta"><span class="dot"></span>detection engine online</span><span><a href="#" onclick="signOut();return false" style="color:var(--muted);font-weight:500;font-size:10px;margin-right:10px">Sign out</a><a href="/console" onclick="this.href='/console'+(TOK?'?tok='+encodeURIComponent(TOK):'')" target="_blank" rel="noopener">Open console ↗</a></span></div>
 </div>
 
@@ -508,6 +511,22 @@ function panelAnim(){
 }
 requestAnimationFrame(panelAnim);
 function show(id){['signin','live'].forEach(function(x){document.getElementById(x).style.display=x===id?'flex':'none'})}
+async function injectMeetTest(){
+ try{
+  var r=await fetch('/api/generator/inject-test',{
+   method:'POST',
+   headers:authHeaders({'Content-Type':'application/json'}),
+   body:JSON.stringify({text:"Please authorize the $250,000 vendor wire transfer immediately.", voice_id:"me_clone", speaker_name:"Derek (AI Clone)"})
+  });
+  var d=await r.json();
+  if(d.ok&&d.audio_base64){
+   var a=new Audio('data:audio/wav;base64,'+d.audio_base64);
+   a.play().catch(function(){});
+  }
+  poll();
+ }catch(e){}
+}
+
 function boot(){
  if(TOK){show('live');}else{show('signin');}
  poll();

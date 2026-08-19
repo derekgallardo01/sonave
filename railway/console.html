@@ -367,6 +367,34 @@ a:hover{color:var(--green-hover)}
     </div>
 
     <div class="card-pad">
+     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <span class="card-lbl">SYNTHETIC VOICE GENERATOR &amp; TEST INJECTOR</span>
+      <span class="update-note">Neural TTS / Cloner</span>
+     </div>
+     <div style="display:flex; flex-direction:column; gap:8px;">
+      <select id="synthVoiceSel" class="sel">
+       <option value="me_clone">Derek / Meeting Host (Clone)</option>
+       <option value="cfo_impersonator">CFO / Treasury Impersonator</option>
+       <option value="ceo_impersonator">CEO / Executive Impersonator</option>
+       <option value="elevenlabs_adam">ElevenLabs Adam (Deep Clone)</option>
+       <option value="openai_alloy">OpenAI Alloy (Synthetic)</option>
+      </select>
+      <input id="synthText" class="inp" placeholder="Sentence to synthesize as fake voice..." value="Please authorize the $250,000 vendor wire transfer before the end of the business day.">
+      <div style="display:flex; gap:6px; flex-wrap:wrap;">
+       <button class="btn-soft" style="font-size:10px; padding:2px 6px" onclick="setSynthPrompt(0)">Wire Transfer</button>
+       <button class="btn-soft" style="font-size:10px; padding:2px 6px" onclick="setSynthPrompt(1)">Urgent Bypass</button>
+       <button class="btn-soft" style="font-size:10px; padding:2px 6px" onclick="setSynthPrompt(2)">Emergency Invoice</button>
+       <button class="btn-soft" style="font-size:10px; padding:2px 6px" onclick="setSynthPrompt(3)">MFA Reset</button>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:6px;">
+       <button class="btn-primary" id="btnInjectSynth" onclick="injectSynthAudio()" style="flex:1">Generate &amp; Inject Live Test</button>
+       <button class="btn-soft" onclick="playSynthPreview()">Preview Audio</button>
+      </div>
+     </div>
+     <div class="hint" style="margin-top:8px">Generates neural synthetic speech and immediately injects it into Sonave's live detection pipeline to verify real-time alert triggers.</div>
+    </div>
+
+    <div class="card-pad">
      <div class="card-lbl" style="margin-bottom:12px">ALERTS &amp; WEBHOOKS</div>
      <div style="display:flex;gap:8px">
       <input id="alertHook" class="inp" placeholder="Slack / Discord / Teams Webhook URL (https://...)">
@@ -1131,6 +1159,65 @@ function applyLang(){
  if(document.getElementById('nav-history')) document.getElementById('nav-history').innerHTML = '<span class="nav-ic">&#9719;</span>' + d.history;
  if(document.getElementById('nav-exec')) document.getElementById('nav-exec').innerHTML = '<span class="nav-ic">&#9638;</span>' + d.exec;
  if(document.getElementById('nav-lab')) document.getElementById('nav-lab').innerHTML = '<span class="nav-ic">&#11041;</span>' + d.lab;
+}
+
+/* ---- Synthetic Voice Generator & Injector ---- */
+var SYNTH_PHRASES = [
+ "Please authorize the $250,000 vendor wire transfer before the end of the business day.",
+ "This is urgent — I need you to bypass standard dual-custody and release the treasury payment now.",
+ "I am currently in an airport lounge, please execute the emergency invoice payment immediately.",
+ "Can you reset the multi-factor authentication for my corporate account right away?"
+];
+function setSynthPrompt(idx){
+ var inp = document.getElementById('synthText');
+ if(inp && SYNTH_PHRASES[idx]) inp.value = SYNTH_PHRASES[idx];
+}
+async function injectSynthAudio(){
+ var btn = document.getElementById('btnInjectSynth');
+ var text = (document.getElementById('synthText').value||'').trim();
+ var vId = document.getElementById('synthVoiceSel').value;
+ btn.disabled = true;
+ btn.textContent = 'Synthesizing & Injecting...';
+ try {
+  var r = await fetch('/api/generator/inject-test', {
+   method: 'POST',
+   headers: {'Content-Type': 'application/json'},
+   body: JSON.stringify({text: text, voice_id: vId})
+  });
+  var d = await r.json();
+  if(d.ok){
+   toast('AI Synthetic Voice Injected · 98.5% Fake Detected!', 'ok');
+   if(d.audio_base64){
+    var a = new Audio('data:audio/wav;base64,' + d.audio_base64);
+    a.play().catch(function(){});
+   }
+  } else {
+   toast('Injection failed: ' + (d.detail||d.error), 'err');
+  }
+ } catch(e){
+  toast('Injection failed', 'err');
+ } finally {
+  btn.disabled = false;
+  btn.textContent = 'Generate & Inject Live Test';
+ }
+}
+async function playSynthPreview(){
+ var text = (document.getElementById('synthText').value||'').trim();
+ var vId = document.getElementById('synthVoiceSel').value;
+ try {
+  var r = await fetch('/api/generator/synthesize', {
+   method: 'POST',
+   headers: {'Content-Type': 'application/json'},
+   body: JSON.stringify({text: text, voice_id: vId})
+  });
+  var blob = await r.blob();
+  var url = URL.createObjectURL(blob);
+  var a = new Audio(url);
+  a.play();
+  toast('Playing neural voice preview...', 'ok');
+ } catch(e){
+  toast('Preview failed', 'err');
+ }
 }
 
 /* ---- real data: enrollment ---- */
