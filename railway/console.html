@@ -1275,13 +1275,13 @@ async function startLiveMicMorph(){
   }
 
   _liveMicStream = await navigator.mediaDevices.getUserMedia({
-   audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: true }
+   audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
   });
   _liveMicCtx = new (window.AudioContext || window.webkitAudioContext)();
   var nativeSr = _liveMicCtx.sampleRate || 48000;
   var src = _liveMicCtx.createMediaStreamSource(_liveMicStream);
 
-  _liveMicProc = _liveMicCtx.createScriptProcessor(1024, 1, 1);
+  _liveMicProc = _liveMicCtx.createScriptProcessor(2048, 1, 1);
   src.connect(_liveMicProc);
   _liveMicProc.connect(_liveMicCtx.destination);
 
