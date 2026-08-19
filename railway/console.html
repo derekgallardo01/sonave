@@ -1264,65 +1264,41 @@ async function startLiveMicMorph(){
   _liveMicStream = await navigator.mediaDevices.getUserMedia({
    audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: true }
   });
-  _liveMicCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+  _liveMicCtx = new (window.AudioContext || window.webkitAudioContext)();
+  var nativeSr = _liveMicCtx.sampleRate || 48000;
   var src = _liveMicCtx.createMediaStreamSource(_liveMicStream);
-  
-  // Real-Time Neural Phase Vocoder & Formant Warping DSP Node Chain
-  var filterHigh = _liveMicCtx.createBiquadFilter();
-  filterHigh.type = 'peaking';
-  filterHigh.frequency.value = 5800;
-  filterHigh.gain.value = 14.0;
-
-  var filterMid = _liveMicCtx.createBiquadFilter();
-  filterMid.type = 'bandpass';
-  filterMid.frequency.value = 1800;
-  filterMid.Q.value = 2.5;
-
-  var distortion = _liveMicCtx.createWaveShaper();
-  var n_samples = 44100;
-  var curve = new Float32Array(n_samples);
-  var deg = Math.PI / 180;
-  for(var i=0; i<n_samples; ++i){
-   var x = i * 2 / n_samples - 1;
-   curve[i] = (3 + 12) * x * 20 * deg / (Math.PI + 12 * Math.abs(x));
-  }
-  distortion.curve = curve;
-  distortion.oversample = '4x';
-
-  var merger = _liveMicCtx.createChannelMerger(1);
-  src.connect(filterHigh);
-  filterHigh.connect(distortion);
-  distortion.connect(merger);
 
   _liveMicProc = _liveMicCtx.createScriptProcessor(4096, 1, 1);
-  merger.connect(_liveMicProc);
+  src.connect(_liveMicProc);
   _liveMicProc.connect(_liveMicCtx.destination);
 
   var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
   _liveMicWs = new WebSocket(proto + '//' + location.host + '/api/ws/mic-ai-test?speaker=Derek%20(AI%20Morphed%20Mic)');
   _liveMicWs.binaryType = 'arraybuffer';
 
-  var _grainSize = 2048;
-  var _buf = new Float32Array(16384);
+  var _grainSize = Math.floor(nativeSr * 0.06); // ~60ms smooth grain
+  var _buf = new Float32Array(_grainSize * 8);
   var _wPtr = 0;
   var _g0 = 0;
-  var _g1 = 1024;
+  var _g1 = Math.floor(_grainSize / 2);
+  var _ringPhase = 0;
 
   _liveMicProc.onaudioprocess = function(e){
-   if(!_liveMicActive || !_liveMicWs || _liveMicWs.readyState !== WebSocket.OPEN) return;
+   if(!_liveMicActive) return;
    var inputData = e.inputBuffer.getChannelData(0);
    var outData = e.outputBuffer.getChannelData(0);
-   var pcm16 = new Int16Array(inputData.length);
    var hearSelf = document.getElementById('chkHearSelf') ? document.getElementById('chkHearSelf').checked : true;
    var style = document.getElementById('morphStyleSel') ? document.getElementById('morphStyleSel').value : 'deep';
 
-   var pRatio = style === 'robot' ? 1.0 : style === 'high' ? 1.45 : style === 'extreme' ? 0.56 : 0.64;
+   var pRatio = style === 'robot' ? 1.0 : style === 'high' ? 1.45 : style === 'extreme' ? 0.60 : 0.68;
    var ringModOn = (style === 'robot' || style === 'extreme');
 
    var sumSq = 0;
    for(var k = 0; k < inputData.length; k++) sumSq += inputData[k] * inputData[k];
    var rms = Math.sqrt(sumSq / inputData.length);
-   var isVoiced = rms > 0.008;
+   var isVoiced = rms > 0.006;
+
+   var morphedBuf = new Float32Array(inputData.length);
 
    for(var i = 0; i < inputData.length; i++){
     _buf[_wPtr] = inputData[i];
@@ -1330,7 +1306,7 @@ async function startLiveMicMorph(){
 
     if(!isVoiced){
      outData[i] = 0;
-     pcm16[i] = 0;
+     morphedBuf[i] = 0;
      continue;
     }
 
@@ -1348,12 +1324,12 @@ async function startLiveMicMorph(){
     _g1 = (_g1 + pRatio) % _grainSize;
 
     if(ringModOn){
-     _ringPhase += (2 * Math.PI * 72.0) / 16000;
-     morphed = morphed * (0.55 + 0.45 * Math.sin(_ringPhase));
+     _ringPhase += (2 * Math.PI * 65.0) / nativeSr;
+     morphed = morphed * (0.60 + 0.40 * Math.sin(_ringPhase));
     }
 
-    var clamped = Math.max(-1, Math.min(1, morphed * 1.4));
-    pcm16[i] = clamped < 0 ? clamped * 0x8000 : clamped * 0x7FFF;
+    var clamped = Math.max(-1, Math.min(1, morphed * 1.3));
+    morphedBuf[i] = clamped;
 
     if(hearSelf){
      outData[i] = clamped;
@@ -1361,7 +1337,17 @@ async function startLiveMicMorph(){
      outData[i] = 0;
     }
    }
-   if(isVoiced){
+
+   if(isVoiced && _liveMicWs && _liveMicWs.readyState === WebSocket.OPEN){
+    // Downsample to 16 kHz PCM for neural detector
+    var step = nativeSr / 16000;
+    var outLen = Math.floor(inputData.length / step);
+    var pcm16 = new Int16Array(outLen);
+    for(var p = 0; p < outLen; p++){
+     var srcIdx = Math.floor(p * step);
+     var s = morphedBuf[srcIdx] || 0;
+     pcm16[p] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
     _liveMicWs.send(pcm16.buffer);
    }
   };
