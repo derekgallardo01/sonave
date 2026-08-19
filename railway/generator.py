@@ -42,6 +42,24 @@ def list_voice_profiles() -> list[dict[str, Any]]:
     return VOICE_PROFILES
 
 
+async def generate_synthetic_mp3(text: str, voice_tag: str = "en-US-GuyNeural",
+                                 pitch: str = "-12Hz", rate: str = "-4%") -> bytes:
+    """Generate high-definition MP3 synthetic speech directly using edge-tts."""
+    text = text.strip() or random.choice(DEFAULT_PHRASES)
+    try:
+        import edge_tts
+        communicate = edge_tts.Communicate(text, voice_tag, pitch=pitch, rate=rate)
+        mp3_buffer = io.BytesIO()
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                mp3_buffer.write(chunk["data"])
+        return mp3_buffer.getvalue()
+    except Exception as e:
+        logger.warning("edge-tts mp3 generation failed: %s", e)
+        pcm = await generate_synthetic_audio(text, voice_tag, pitch, rate)
+        return pcm_to_wav_bytes(pcm)
+
+
 async def generate_synthetic_audio(text: str, voice_tag: str = "en-US-GuyNeural",
                                    pitch: str = "-12Hz", rate: str = "-4%") -> bytes:
     """Generate 16 kHz mono PCM synthetic speech using edge-tts or fallback synthesizer."""

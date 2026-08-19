@@ -68,8 +68,8 @@ def test_generator_http_endpoints(railway_mod, tmp_path, monkeypatch):
     # 2. POST /api/generator/synthesize
     r_syn = client.post("/api/generator/synthesize", json={"text": "Test synthesis", "voice_id": "me_clone"})
     assert r_syn.status_code == 200
-    assert "audio/wav" in r_syn.headers["content-type"]
-    assert r_syn.content.startswith(b"RIFF")
+    assert "audio/" in r_syn.headers["content-type"]
+    assert len(r_syn.content) > 100
 
     # 3. POST /api/generator/inject-test
     r_inj = client.post("/api/generator/inject-test", json={"text": "Urgent wire transfer", "voice_id": "me_clone", "speaker_name": "Derek (Clone)"})

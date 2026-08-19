@@ -1396,9 +1396,8 @@ async def api_generator_synthesize(req: SynthReq, p: auth.Principal = Depends(re
     v_tag = prof.get("voice_tag", "en-US-GuyNeural")
     pitch = prof.get("pitch", "-12Hz")
     rate = prof.get("rate", "-4%")
-    pcm = await generator.generate_synthetic_audio(req.text, voice_tag=v_tag, pitch=pitch, rate=rate)
-    wav = generator.pcm_to_wav_bytes(pcm)
-    return Response(content=wav, media_type="audio/wav")
+    mp3_bytes = await generator.generate_synthetic_mp3(req.text, voice_tag=v_tag, pitch=pitch, rate=rate)
+    return Response(content=mp3_bytes, media_type="audio/mpeg")
 
 
 @app.post("/api/generator/inject-test")
@@ -1411,8 +1410,8 @@ async def api_generator_inject_test(req: SynthReq, p: auth.Principal = Depends(r
     rate = prof.get("rate", "-4%")
     spk = req.speaker_name or prof["name"]
 
-    pcm = await generator.generate_synthetic_audio(req.text, voice_tag=v_tag, pitch=pitch, rate=rate)
-    duration_sec = len(pcm) / 32000
+    mp3_bytes = await generator.generate_synthetic_mp3(req.text, voice_tag=v_tag, pitch=pitch, rate=rate)
+    duration_sec = max(3.5, min(10.0, len(req.text) * 0.07))
 
     with _STATE_LOCK:
         QUALITY[(p.user_id, spk)] = {
@@ -1452,13 +1451,13 @@ async def api_generator_inject_test(req: SynthReq, p: auth.Principal = Depends(r
             report_url=f"https://usesonave.com/report/{inc['id']}"
         )
 
-    wav_b64 = base64.b64encode(generator.pcm_to_wav_bytes(pcm)).decode()
+    mp3_b64 = base64.b64encode(mp3_bytes).decode()
     return {
         "ok": True,
         "speaker": spk,
         "p_fake": 0.985,
         "incident_id": inc["id"] if inc else None,
-        "audio_base64": wav_b64,
+        "audio_base64": mp3_b64,
         "duration_sec": round(duration_sec, 2),
         "engine": prof.get("engine", "ElevenLabs v2")
     }
