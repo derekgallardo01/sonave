@@ -1268,7 +1268,7 @@ async function startLiveMicMorph(){
   var nativeSr = _liveMicCtx.sampleRate || 48000;
   var src = _liveMicCtx.createMediaStreamSource(_liveMicStream);
 
-  _liveMicProc = _liveMicCtx.createScriptProcessor(4096, 1, 1);
+  _liveMicProc = _liveMicCtx.createScriptProcessor(1024, 1, 1);
   src.connect(_liveMicProc);
   _liveMicProc.connect(_liveMicCtx.destination);
 
@@ -1276,7 +1276,7 @@ async function startLiveMicMorph(){
   _liveMicWs = new WebSocket(proto + '//' + location.host + '/api/ws/mic-ai-test?speaker=Derek%20(AI%20Morphed%20Mic)');
   _liveMicWs.binaryType = 'arraybuffer';
 
-  var _grainSize = Math.floor(nativeSr * 0.05); // 50ms grain
+  var _grainSize = Math.floor(nativeSr * 0.035); // 35ms ultra-low-latency grain
   var _buf = new Float32Array(nativeSr * 2);
   var _wPtr = 0;
   var _mod0 = 0.0;
