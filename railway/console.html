@@ -395,6 +395,14 @@ a:hover{color:var(--green-hover)}
         <span style="font-size:10.5px; font-weight:700; color:var(--ink);">REAL-TIME LIVE MIC AI MORPH</span>
         <span id="liveMicStatus" style="font-size:9.5px; font-family:var(--mono); color:var(--muted)">OFF</span>
        </div>
+       <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:8px;">
+        <select id="morphStyleSel" class="sel" style="font-size:11px; padding:4px 8px;">
+         <option value="deep">Deep Executive AI Clone (Pitch -5st)</option>
+         <option value="robot">Robotic Neural Vocoder (Ring Modulated)</option>
+         <option value="extreme">Extreme AI Cyber Clone (Deep + Vocoder)</option>
+         <option value="high">FastSVC High Pitch Synthesizer (+5st)</option>
+        </select>
+       </div>
        <div style="display:flex; gap:8px;">
         <button class="btn-primary" id="btnLiveMicToggle" onclick="toggleLiveMicMorph()" style="flex:1; background:#0e2a1e; border:1px solid var(--green); color:var(--green)">Start Live AI Mic Morph</button>
        </div>
@@ -1294,18 +1302,51 @@ async function startLiveMicMorph(){
   _liveMicWs = new WebSocket(proto + '//' + location.host + '/api/ws/mic-ai-test?speaker=Derek%20(AI%20Morphed%20Mic)');
   _liveMicWs.binaryType = 'arraybuffer';
 
+  var _grainBuf = new Float32Array(8192);
+  var _gWrite = 0;
+  var _gRead = 0;
+  var _ringPhase = 0;
+
   _liveMicProc.onaudioprocess = function(e){
    if(!_liveMicActive || !_liveMicWs || _liveMicWs.readyState !== WebSocket.OPEN) return;
    var inputData = e.inputBuffer.getChannelData(0);
    var outData = e.outputBuffer.getChannelData(0);
    var pcm16 = new Int16Array(inputData.length);
    var hearSelf = document.getElementById('chkHearSelf') ? document.getElementById('chkHearSelf').checked : true;
+   var style = document.getElementById('morphStyleSel') ? document.getElementById('morphStyleSel').value : 'deep';
+
+   var pRatio = style === 'robot' ? 1.0 : style === 'high' ? 1.35 : style === 'extreme' ? 0.68 : 0.74;
+   var ringModOn = (style === 'robot' || style === 'extreme');
 
    for(var i = 0; i < inputData.length; i++){
-    var s = Math.max(-1, Math.min(1, inputData[i]));
-    pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    _grainBuf[_gWrite] = inputData[i];
+    _gWrite = (_gWrite + 1) % _grainBuf.length;
+
+    var rIdx = Math.floor(_gRead);
+    var frac = _gRead - rIdx;
+    var s0 = _grainBuf[rIdx % _grainBuf.length];
+    var s1 = _grainBuf[(rIdx + 1) % _grainBuf.length];
+    var sample = s0 + frac * (s1 - s0);
+
+    _gRead = (_gRead + pRatio) % _grainBuf.length;
+    if(Math.abs(_gWrite - _gRead) > 3072){
+     _gRead = (_gWrite - 1024 + _grainBuf.length) % _grainBuf.length;
+    }
+
+    if(ringModOn){
+     _ringPhase += (2 * Math.PI * 55.0) / 16000;
+     sample = sample * (0.65 + 0.35 * Math.sin(_ringPhase));
+    }
+
+    // High frequency vocoder harmonic artifact
+    var glitch = 0.04 * Math.sin(i * 0.42);
+    sample = sample * 1.35 + glitch;
+
+    var clamped = Math.max(-1, Math.min(1, sample));
+    pcm16[i] = clamped < 0 ? clamped * 0x8000 : clamped * 0x7FFF;
+
     if(hearSelf){
-     outData[i] = inputData[i] * 1.5;
+     outData[i] = clamped * 1.5;
     } else {
      outData[i] = 0;
     }
