@@ -52,13 +52,21 @@ b{color:var(--ink)}
 
   <h2>How we use it</h2>
   <ul>
-    <li>To provide the service: real-time scoring, verdicts, incident alerts, and your capture archive.</li>
-    <li><b>To improve our detection models.</b> Audio captured through the service may be used to
-    train and evaluate our deepfake-detection models. Contact us to exclude your workspace's audio
-    from training.</li>
+    <li>To provide the service: real-time acoustic scoring, authenticity verdicts, and incident alerts during active meetings.</li>
     <li>To meter usage and bill you, and to secure the service against abuse.</li>
   </ul>
-  <p>We do <b>not</b> sell your data, use it for advertising, or share meeting audio with other customers.</p>
+  <p>We do <b>not</b> sell your data, use it for advertising, or share meeting audio with third parties.</p>
+
+  <h2>Google Workspace API &amp; Limited Use Disclosure</h2>
+  <div class="card">
+    <p><b>Google Workspace User Data &amp; Limited Use Compliance:</b></p>
+    <p>The use of raw or derived user data received from Google Workspace APIs (including <code>meetings.space.readonly</code> and <code>meetings.conference.media.readonly</code>) will strictly adhere to the <a href="https://developers.google.com/workspace/workspace-api-user-data-developer-policy" target="_blank">Google Workspace API User Data and Developer Policy</a>, including the <b>Limited Use requirements</b>.</p>
+    <ul style="margin-top:8px;">
+      <li><b>No AI/ML Model Training on Google User Data:</b> Raw, aggregated, or derived user data received from Google Workspace APIs is <b>never</b> used, transferred, or sold to create, train, fine-tune, or improve foundational or generalized machine learning or artificial intelligence models.</li>
+      <li><b>Ephemeral Real-Time Processing:</b> Real-time media streams received from Google Meet are processed ephemerally in-memory strictly for live acoustic deepfake detection and speaker verification during the active call session.</li>
+      <li><b>Self-Hosted &amp; Isolated Infrastructure:</b> All AI/ML inference is performed exclusively on isolated, self-hosted infrastructure with Zero Data Retention (ZDR) parameters. Google user data is never transmitted to third-party AI providers for secondary processing or model training.</li>
+    </ul>
+  </div>
 
   <h2>Recording consent</h2>
   <div class="card"><p>The Sonave bot always appears as a visible participant. <b>You are
@@ -67,16 +75,16 @@ b{color:var(--ink)}
   all-party consent to record audio). Do not deploy the bot into meetings where you lack that consent.</p></div>
 
   <h2>Service providers</h2>
-  <p>We use a small set of subprocessors to run Sonave: <b>Railway</b> (application hosting and
-  audio storage), <b>Modal</b> (GPU inference), <b>Recall.ai</b> (the meeting bot that joins calls),
-  <b>Google</b> (sign-in), and <b>Stripe</b> (payments). Each receives only what it needs to perform
-  its function.</p>
+  <p>We use a small set of infrastructure subprocessors to run Sonave: <b>Railway</b> (application hosting),
+  <b>Modal</b> (isolated self-hosted GPU inference with zero data retention), <b>Recall.ai</b> (meeting bot),
+  <b>Google</b> (sign-in &amp; Meet Media API), and <b>Stripe</b> (payments). Each receives only what is required
+  to execute real-time detection for your active sessions.</p>
 
   <h2>Retention &amp; deletion</h2>
-  <p>Meeting audio, detection results, and voiceprints are retained while your account is active so
-  you can review them and, where applicable, for model improvement. You can delete voiceprints in
-  the console at any time. To delete captures, detection history, or your entire account, email us
-  and we will complete the deletion within 30 days.</p>
+  <p>Meeting detection results and enrolled voiceprints are retained while your account is active so
+  you can review them in your console. You can delete voiceprints or capture records in the console
+  at any time. To delete your entire account and all associated data, email us at <a href="mailto:derekgallardo01@gmail.com">derekgallardo01@gmail.com</a>
+  and deletion will be completed within 30 days.</p>
 
   <h2>Security</h2>
   <p>Data is encrypted in transit (TLS). Access to your workspace requires your Google sign-in;
