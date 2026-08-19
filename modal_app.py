@@ -98,3 +98,17 @@ def fastapi_app():
         sys.path.insert(0, "/root")
     from service.app import app as web   # FastAPI app; its startup event warms the model
     return web
+
+
+@app.function(
+    gpu="T4",
+    timeout=1800,
+    secrets=[_AUTH_SECRET, _HF_SECRET]
+)
+def train_pipeline_modal(epochs: int = 3, batch_size: int = 16, lr: float = 1e-4):
+    """Run full deepfake detection training pipeline on Modal T4 GPU."""
+    import sys
+    if "/root" not in sys.path:
+        sys.path.insert(0, "/root")
+    from src.pipeline.run_pipeline import execute_full_pipeline
+    return execute_full_pipeline(epochs=epochs, batch_size=batch_size, lr=lr)
