@@ -392,6 +392,16 @@ a:hover{color:var(--green-hover)}
       </div>
       <div style="border-top:1px solid var(--line); margin-top:10px; padding-top:10px;">
        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+        <span style="font-size:10.5px; font-weight:700; color:var(--ink);">REAL NEURAL VOICE-TO-VOICE AI (LIVE MIC)</span>
+        <span id="v2vStatus" style="font-size:9.5px; font-family:var(--mono); color:var(--muted)">OFF</span>
+       </div>
+       <div style="display:flex; gap:8px;">
+        <button class="btn-primary" id="btnV2VToggle" onclick="toggleV2V()" style="flex:1; background:#0e2a1e; border:1px solid var(--green); color:var(--green)">Start Real Voice-to-Voice (Speak &amp; Clone)</button>
+       </div>
+       <div class="hint" style="margin-top:6px">Speak any phrase into your mic — the selected real neural voice (ElevenLabs, OpenAI, etc.) will immediately speak your exact words in that voice!</div>
+      </div>
+      <div style="border-top:1px solid var(--line); margin-top:10px; padding-top:10px;">
+       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
         <span style="font-size:10.5px; font-weight:700; color:var(--ink);">REAL-TIME LIVE MIC AI MORPH</span>
         <span id="liveMicStatus" style="font-size:9.5px; font-family:var(--mono); color:var(--muted)">OFF</span>
        </div>
@@ -1254,6 +1264,107 @@ async function loadVoiceProfiles(){
    }
   }
  } catch(e){}
+}
+
+/* ---- Real-Time Live Neural Voice-to-Voice AI (Speak & Clone) ---- */
+var _v2vActive = false;
+var _v2vRecognizer = null;
+
+function toggleV2V(){
+ if(_v2vActive){
+  stopV2V();
+ } else {
+  startV2V();
+ }
+}
+
+function startV2V(){
+ var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+ if(!SpeechRecognition){
+  toast('Speech recognition not supported in this browser — please use Chrome or Edge.', 'err');
+  return;
+ }
+
+ var btn = document.getElementById('btnV2VToggle');
+ var st = document.getElementById('v2vStatus');
+
+ try {
+  _v2vRecognizer = new SpeechRecognition();
+  _v2vRecognizer.continuous = true;
+  _v2vRecognizer.interimResults = false;
+  _v2vRecognizer.lang = 'en-US';
+
+  _v2vRecognizer.onresult = async function(event){
+   for(var i = event.resultIndex; i < event.results.length; i++){
+    if(event.results[i].isFinal){
+     var transcript = event.results[i][0].transcript.trim();
+     if(transcript.length > 1){
+      var vId = document.getElementById('synthVoiceSel').value;
+      st.textContent = 'SYNTHESIZING...';
+      try {
+       var r = await fetch('/api/generator/inject-test', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({text: transcript, voice_id: vId})
+       });
+       var d = await r.json();
+       if(d.ok && d.audio_base64){
+        var a = new Audio('data:audio/mp3;base64,' + d.audio_base64);
+        a.play().catch(function(){});
+        toast('Neural Clone Speaking: "' + transcript + '"', 'ok');
+       }
+      } catch(e){}
+      st.textContent = 'LISTENING (SPEAK INTO MIC)';
+     }
+    }
+   }
+  };
+
+  _v2vRecognizer.onerror = function(e){
+   console.warn('V2V error:', e);
+  };
+
+  _v2vRecognizer.onend = function(){
+   if(_v2vActive && _v2vRecognizer){
+    try { _v2vRecognizer.start(); } catch(x){}
+   }
+  };
+
+  _v2vRecognizer.start();
+  _v2vActive = true;
+  btn.textContent = 'Stop Real Voice-to-Voice';
+  btn.style.background = 'rgba(255,77,94,0.2)';
+  btn.style.borderColor = 'var(--red)';
+  btn.style.color = 'var(--red)';
+  st.textContent = 'LISTENING (SPEAK INTO MIC)';
+  st.style.color = 'var(--green)';
+  toast('Real Voice-to-Voice active · Speak any phrase into your mic!', 'ok');
+ } catch(e){
+  console.error(e);
+  toast('Could not start microphone speech recognition', 'err');
+  stopV2V();
+ }
+}
+
+function stopV2V(){
+ _v2vActive = false;
+ if(_v2vRecognizer){
+  try { _v2vRecognizer.stop(); } catch(x){}
+  _v2vRecognizer = null;
+ }
+ var btn = document.getElementById('btnV2VToggle');
+ var st = document.getElementById('v2vStatus');
+ if(btn){
+  btn.textContent = 'Start Real Voice-to-Voice (Speak & Clone)';
+  btn.style.background = '#0e2a1e';
+  btn.style.borderColor = 'var(--green)';
+  btn.style.color = 'var(--green)';
+ }
+ if(st){
+  st.textContent = 'OFF';
+  st.style.color = 'var(--muted)';
+ }
+ toast('Real Voice-to-Voice stopped', 'ok');
 }
 
 /* ---- Real-Time Live AI Microphone Transformer (DSP Closed-Loop) ---- */
