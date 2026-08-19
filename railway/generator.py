@@ -22,11 +22,11 @@ from typing import Any
 logger = logging.getLogger("sonave.generator")
 
 VOICE_PROFILES = [
-    {"id": "me_clone", "name": "Derek / Meeting Host (Clone)", "engine": "ElevenLabs v2", "gender": "male", "voice_tag": "en-US-GuyNeural"},
-    {"id": "cfo_impersonator", "name": "CFO / Treasury Impersonator", "engine": "OpenAI Voice Engine", "gender": "male", "voice_tag": "en-US-ChristopherNeural"},
-    {"id": "ceo_impersonator", "name": "CEO / Executive Impersonator", "engine": "XTTS-v2", "gender": "female", "voice_tag": "en-US-JennyNeural"},
-    {"id": "elevenlabs_adam", "name": "ElevenLabs Adam (Deep Clone)", "engine": "ElevenLabs v2", "gender": "male", "voice_tag": "en-US-EricNeural"},
-    {"id": "openai_alloy", "name": "OpenAI Alloy (Synthetic)", "engine": "OpenAI Voice Engine", "gender": "neutral", "voice_tag": "en-US-AriaNeural"},
+    {"id": "me_clone", "name": "Derek / Meeting Host (Clone)", "engine": "ElevenLabs v2", "gender": "male", "voice_tag": "en-US-GuyNeural", "pitch": "-12Hz", "rate": "-4%"},
+    {"id": "cfo_impersonator", "name": "CFO / Treasury Impersonator", "engine": "OpenAI Voice Engine", "gender": "male", "voice_tag": "en-US-ChristopherNeural", "pitch": "-18Hz", "rate": "-3%"},
+    {"id": "ceo_impersonator", "name": "CEO / Executive Impersonator", "engine": "XTTS-v2", "gender": "female", "voice_tag": "en-US-JennyNeural", "pitch": "-6Hz", "rate": "-2%"},
+    {"id": "elevenlabs_adam", "name": "ElevenLabs Adam (Deep Clone)", "engine": "ElevenLabs v2", "gender": "male", "voice_tag": "en-US-EricNeural", "pitch": "-22Hz", "rate": "-6%"},
+    {"id": "openai_alloy", "name": "OpenAI Alloy (Synthetic)", "engine": "OpenAI Voice Engine", "gender": "neutral", "voice_tag": "en-US-RogerNeural", "pitch": "-14Hz", "rate": "-4%"},
 ]
 
 DEFAULT_PHRASES = [
@@ -42,12 +42,13 @@ def list_voice_profiles() -> list[dict[str, Any]]:
     return VOICE_PROFILES
 
 
-async def generate_synthetic_audio(text: str, voice_tag: str = "en-US-GuyNeural") -> bytes:
+async def generate_synthetic_audio(text: str, voice_tag: str = "en-US-GuyNeural",
+                                   pitch: str = "-12Hz", rate: str = "-4%") -> bytes:
     """Generate 16 kHz mono PCM synthetic speech using edge-tts or fallback synthesizer."""
     text = text.strip() or random.choice(DEFAULT_PHRASES)
     try:
         import edge_tts
-        communicate = edge_tts.Communicate(text, voice_tag)
+        communicate = edge_tts.Communicate(text, voice_tag, pitch=pitch, rate=rate)
         mp3_buffer = io.BytesIO()
         async for chunk in communicate.stream():
             if chunk["type"] == "audio":

@@ -1391,9 +1391,12 @@ def api_generator_voices(p: auth.Principal = Depends(require_principal)):
 @app.post("/api/generator/synthesize")
 async def api_generator_synthesize(req: SynthReq, p: auth.Principal = Depends(require_principal)):
     """Generate synthetic voice audio from text."""
-    v_profiles = {v["id"]: v.get("voice_tag", "en-US-GuyNeural") for v in generator.VOICE_PROFILES}
-    v_tag = v_profiles.get(req.voice_id, "en-US-GuyNeural")
-    pcm = await generator.generate_synthetic_audio(req.text, voice_tag=v_tag)
+    v_profiles = {v["id"]: v for v in generator.VOICE_PROFILES}
+    prof = v_profiles.get(req.voice_id, generator.VOICE_PROFILES[0])
+    v_tag = prof.get("voice_tag", "en-US-GuyNeural")
+    pitch = prof.get("pitch", "-12Hz")
+    rate = prof.get("rate", "-4%")
+    pcm = await generator.generate_synthetic_audio(req.text, voice_tag=v_tag, pitch=pitch, rate=rate)
     wav = generator.pcm_to_wav_bytes(pcm)
     return Response(content=wav, media_type="audio/wav")
 
@@ -1404,9 +1407,11 @@ async def api_generator_inject_test(req: SynthReq, p: auth.Principal = Depends(r
     v_profiles = {v["id"]: v for v in generator.VOICE_PROFILES}
     prof = v_profiles.get(req.voice_id, generator.VOICE_PROFILES[0])
     v_tag = prof.get("voice_tag", "en-US-GuyNeural")
+    pitch = prof.get("pitch", "-12Hz")
+    rate = prof.get("rate", "-4%")
     spk = req.speaker_name or prof["name"]
 
-    pcm = await generator.generate_synthetic_audio(req.text, voice_tag=v_tag)
+    pcm = await generator.generate_synthetic_audio(req.text, voice_tag=v_tag, pitch=pitch, rate=rate)
     duration_sec = len(pcm) / 32000
 
     with _STATE_LOCK:

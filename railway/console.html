@@ -1316,7 +1316,7 @@ async function startLiveMicMorph(){
    var hearSelf = document.getElementById('chkHearSelf') ? document.getElementById('chkHearSelf').checked : true;
    var style = document.getElementById('morphStyleSel') ? document.getElementById('morphStyleSel').value : 'deep';
 
-   var pRatio = style === 'robot' ? 1.0 : style === 'high' ? 1.35 : style === 'extreme' ? 0.72 : 0.78;
+   var pRatio = style === 'robot' ? 1.0 : style === 'high' ? 1.45 : style === 'extreme' ? 0.56 : 0.64;
    var ringModOn = (style === 'robot' || style === 'extreme');
 
    var sumSq = 0;
@@ -1348,7 +1348,8 @@ async function startLiveMicMorph(){
     _g1 = (_g1 + pRatio) % _grainSize;
 
     if(ringModOn){
-     morphed = morphed * (0.7 + 0.3 * Math.sin(i * 0.05));
+     _ringPhase += (2 * Math.PI * 72.0) / 16000;
+     morphed = morphed * (0.55 + 0.45 * Math.sin(_ringPhase));
     }
 
     var clamped = Math.max(-1, Math.min(1, morphed * 1.4));
