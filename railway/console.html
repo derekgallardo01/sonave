@@ -1289,7 +1289,7 @@ async function startLiveMicMorph(){
    var hearSelf = document.getElementById('chkHearSelf') ? document.getElementById('chkHearSelf').checked : true;
    var style = document.getElementById('morphStyleSel') ? document.getElementById('morphStyleSel').value : 'deep';
 
-   var pRatio = style === 'robot' ? 1.0 : style === 'high' ? 1.33 : style === 'extreme' ? 0.63 : 0.75;
+   var pRatio = style === 'robot' ? 0.95 : style === 'high' ? 1.22 : style === 'extreme' ? 0.70 : 0.78;
    var slope = 1.0 - pRatio;
    var ringModOn = (style === 'robot' || style === 'extreme');
 
@@ -1298,10 +1298,9 @@ async function startLiveMicMorph(){
    for(var i = 0; i < inputData.length; i++){
     _buf[_wPtr] = inputData[i];
 
-    var d0 = _mod0 % _grainSize;
-    if(d0 < 0) d0 += _grainSize;
-    var d1 = (_mod0 + _grainSize * 0.5) % _grainSize;
-    if(d1 < 0) d1 += _grainSize;
+    var d0 = _mod0;
+    var d1 = (_mod0 + _grainSize * 0.5);
+    while(d1 >= _grainSize) d1 -= _grainSize;
 
     var w0 = 0.5 * (1.0 - Math.cos((2.0 * Math.PI * d0) / _grainSize));
     var w1 = 1.0 - w0;
@@ -1310,12 +1309,16 @@ async function startLiveMicMorph(){
     var r1 = Math.floor((_wPtr - d1 + _buf.length) % _buf.length);
 
     var sample = (_buf[r0] * w0) + (_buf[r1] * w1);
-    _mod0 = (_mod0 + slope) % _grainSize;
+
+    _mod0 += slope;
+    while(_mod0 < 0) _mod0 += _grainSize;
+    while(_mod0 >= _grainSize) _mod0 -= _grainSize;
+
     _wPtr = (_wPtr + 1) % _buf.length;
 
     if(ringModOn){
-     _ringPhase += (2 * Math.PI * 65.0) / nativeSr;
-     sample = sample * (0.60 + 0.40 * Math.sin(_ringPhase));
+     _ringPhase += (2 * Math.PI * 45.0) / nativeSr;
+     sample = sample * (0.85 + 0.15 * Math.sin(_ringPhase));
     }
 
     var clamped = Math.max(-1.0, Math.min(1.0, sample * 1.25));
