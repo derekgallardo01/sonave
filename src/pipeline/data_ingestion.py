@@ -72,7 +72,10 @@ class DatasetManifestBuilder:
         all_samples = self.generate_synthetic_benchmark_corpus(num_samples=num_benchmark)
         if include_hf:
             try:
-                from src.pipeline.hf_corpus_harvester import HFCorpusHarvester
+                try:
+                    from src.pipeline.hf_corpus_harvester import HFCorpusHarvester
+                except ImportError:
+                    from hf_corpus_harvester import HFCorpusHarvester
                 harvester = HFCorpusHarvester(cache_dir=self.raw_dir / "hf_corpora")
                 hf_samples = harvester.sync_huggingface_manifests(max_samples_per_corpus=20)
                 # Map HF samples to generator IDs
