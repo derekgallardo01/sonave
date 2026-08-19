@@ -66,6 +66,7 @@ import webhook_dispatcher # multi-platform alert routing (Slack/Discord/Teams)
 import meet_media_ingest  # native Google Meet Media API WebRTC bridge
 import compliance_vault   # SOC2 / FINRA compliance cloud evidence vault
 import legal_certificate  # FBI IC3 / insurance legal certificate of authenticity
+import attribution        # AI vocoder fingerprinting & ambient mismatch analysis
 os.environ.setdefault("SONAVE_ENROLL_DIR", "/data/enrollments")
 os.environ.setdefault("SONAVE_MODEL_CACHE", "/data/models/ecapa")
 
@@ -414,15 +415,15 @@ def _speech_fraction(pcm: bytes) -> float:
 
 
 def _quality_verdict(q: dict) -> str:
-    if q["total_sec"] < 3:
+    if q.get("total_sec", 0) < 3:
         return "warming up"
     if q.get("silent_sec", 0) > 3:
         return "quiet"
-    if q["peak"] >= 0.985 or q["clips"] > 5:
+    if q.get("peak", 0.0) >= 0.985 or q.get("clips", 0) > 5:
         return "CLIPPING — lower volume"
-    if q["level"] < 0.01:
+    if q.get("level", 0.0) < 0.01:
         return "TOO QUIET — raise volume"
-    speech = q["speech_sec"] / max(q["total_sec"], 1e-6)
+    speech = q.get("speech_sec", 0.0) / max(q.get("total_sec", 1.0), 1e-6)
     if speech < 0.2:
         return "mostly silence — is audio playing?"
     return "good"
@@ -953,10 +954,10 @@ def api_quality(p: auth.Principal = Depends(require_principal)):
         row["state"] = "speaking" if speaking else "quiet"
         row["quiet_sec"] = round(quiet_sec)
         if q:
-            speech = q["speech_sec"] / max(q["total_sec"], 1e-6)
-            row.update({"level": round(q["level"], 3), "peak": round(q["peak"], 3),
-                        "clips": q["clips"], "speech_pct": round(speech * 100),
-                        "total_sec": round(q["total_sec"])})
+            speech = q.get("speech_sec", 0.0) / max(q.get("total_sec", 1.0), 1e-6)
+            row.update({"level": round(q.get("level", 0.0), 3), "peak": round(q.get("peak", 0.0), 3),
+                        "clips": q.get("clips", 0), "speech_pct": round(speech * 100),
+                        "total_sec": round(q.get("total_sec", 0.0))})
         av = VERDICTS.get((uid, spk))
         if av:
             row["auth_verdict"] = av["verdict"]
@@ -969,6 +970,9 @@ def api_quality(p: auth.Principal = Depends(require_principal)):
                 row["match_conf"] = av.get("match_conf")
         # show enrollment status
         row["enrolled"] = enroll.is_enrolled(spk, base_dir=udir)
+        p_val = row.get("auth_p") or 0.0
+        row["attribution"] = attribution.attribute_synthesis_engine(p_val, speaker_name=spk)
+        row["ambient"] = attribution.compute_ambient_mismatch(p_val)
         out[spk] = row
     # meta row (underscore prefix = not a speaker; the console filters these out)
     out["_scorer"] = {"configured": bool(SCORER_URL)}
