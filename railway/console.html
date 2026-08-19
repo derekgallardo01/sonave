@@ -1069,6 +1069,7 @@ function cardHTML(s){
   var a=String(s.name).replace(/_/g,' ').toLowerCase(), b=me.name.toLowerCase();
   if(a===b||a.split(' ')[0]===b.split(' ')[0])you=' <span style="color:var(--muted);font-weight:500">· you</span>';
  }
+ var attrTag = (pct >= 70) ? '<span class="match" style="background:rgba(255,77,94,0.15); border-color:var(--red); color:var(--red);">⚡ Neural Clone Model</span>' : '';
  return '<div class="spk-card'+(s.verdict=='fake'?' fake':'')+(spkQuiet(s)?' quiet':'')+'" data-spk="'+esc(s.name)+'">'+
   '<div class="spk-top"><div class="spk-who">'+
    '<div class="avatar">'+esc(s.name.charAt(0).toUpperCase())+'</div>'+
@@ -1077,7 +1078,7 @@ function cardHTML(s){
   '<div class="risk-row"><span class="risk-lbl">DEEPFAKE RISK</span><span class="risk-pct" style="color:'+c+'">'+pct+'%</span></div>'+
   '<div class="risk-track"><div class="risk-fill" style="width:'+pct+'%;background:'+c+'"></div></div>'+
   '<div class="spark">'+sparkHTML(s)+'</div>'+
-  '<div class="spk-meta">'+metaHTML(s)+'</div>'+
+  '<div class="spk-meta">'+metaHTML(s)+attrTag+'</div>'+
  '</div>';
 }
 function patchCard(el,s){

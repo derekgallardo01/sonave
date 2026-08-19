@@ -1244,6 +1244,52 @@ def api_training_set_schedule(req: ScheduleReq, p: auth.Principal = Depends(requ
     }
 
 
+def _background_scheduler_daemon():
+    """Autonomous scheduler loop checking cadence triggers in background."""
+    import datetime
+    while True:
+        try:
+            time.sleep(60)
+            from src.pipeline.training_scheduler import TrainingScheduler
+            sched = TrainingScheduler()
+            cfg = sched.load_config()
+            cadence = cfg.get("cadence", "weekly")
+            if cadence == "manual":
+                continue
+
+            now = datetime.datetime.now(datetime.timezone.utc)
+            target_hour = cfg.get("hour_utc", 0)
+            target_min = cfg.get("minute_utc", 0)
+
+            should_run = False
+            if cadence == "daily":
+                if now.hour == target_hour and now.minute == target_min:
+                    should_run = True
+            elif cadence == "weekly":
+                if now.weekday() == cfg.get("day_of_week", 6) and now.hour == target_hour and now.minute == target_min:
+                    should_run = True
+
+            if should_run and _TRAINING_STATE["status"] != "training":
+                logger.info("Autonomous training scheduler triggering run for cadence: %s", cadence)
+                _TRAINING_STATE["status"] = "training"
+                try:
+                    run_rec = sched.execute_scheduled_retrain(epochs=3, batch_size=16)
+                    _TRAINING_STATE["last_run"] = run_rec
+                except Exception as e:
+                    logger.error("Scheduled retrain run failed: %s", e)
+                finally:
+                    _TRAINING_STATE["status"] = "idle"
+
+        except Exception as ex:
+            pass
+
+
+try:
+    threading.Thread(target=_background_scheduler_daemon, daemon=True, name="SonaveSchedulerDaemon").start()
+except Exception:
+    pass
+
+
 @app.get("/api/incidents")
 def api_incidents(p: auth.Principal = Depends(require_principal)):
     # Admin sees everything (incl. pre-tenancy rows with user_id NULL); members
