@@ -106,12 +106,12 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
   <div><b>Sonave</b><small id="hdrSub">VOICE AUTHENTICITY · THIS CALL</small></div>
  </div>
  <select id="addonLangSel" style="background:var(--panel); color:var(--ink2); border:1px solid var(--line); border-radius:6px; font-size:10px; padding:2px 4px;" onchange="setAddonLang(this.value)">
-  <option value="en">🇺🇸 EN</option>
-  <option value="es">🇪🇸 ES</option>
-  <option value="pt">🇧🇷 PT</option>
-  <option value="de">🇩🇪 DE</option>
-  <option value="fr">🇫🇷 FR</option>
-  <option value="ja">🇯🇵 JA</option>
+  <option value="en">EN</option>
+  <option value="es">ES</option>
+  <option value="pt">PT</option>
+  <option value="de">DE</option>
+  <option value="fr">FR</option>
+  <option value="ja">JA</option>
  </select>
 </div>
 
@@ -483,10 +483,10 @@ function patchRow(el,k,s){
  if(sattr){
   var h='';
   if(s.attribution&&p>=0.65){
-   h+='<div class="attr-pill">🤖 <b>'+esc(s.attribution.engine_name)+'</b><br><span style="opacity:.85">Vocoder Anomaly: '+esc(s.attribution.anomaly_band)+' ('+Math.round(s.attribution.attribution_confidence*100)+'% match)</span></div>';
+   h+='<div class="attr-pill"><b>AI SYNTHESIS ENGINE: '+esc(s.attribution.engine_name)+'</b><br><span style="opacity:.85">Vocoder Anomaly: '+esc(s.attribution.anomaly_band)+' ('+Math.round(s.attribution.attribution_confidence*100)+'% match)</span></div>';
   }
   if(s.ambient&&s.ambient.is_mismatched){
-   h+='<div class="ambient-pill">⚠️ '+esc(s.ambient.status)+'</div>';
+   h+='<div class="ambient-pill">ACOUSTIC MISMATCH: '+esc(s.ambient.status)+'</div>';
   }
   sattr.innerHTML=h;
   sattr.style.display=h?'block':'none';

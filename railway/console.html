@@ -246,7 +246,7 @@ a:hover{color:var(--green-hover)}
   <div class="nav-item active" id="nav-monitor" onclick="setView('monitor')"><span class="nav-ic">&#9673;</span>Live Monitor</div>
   <div class="nav-item" id="nav-captures" onclick="setView('captures')"><span class="nav-ic">&#8803;</span>Captures</div>
   <div class="nav-item" id="nav-history" onclick="setView('history')"><span class="nav-ic">&#9719;</span>History</div>
-  <div class="nav-item" id="nav-exec" onclick="setView('exec')"><span class="nav-ic">📊</span>Executive Posture</div>
+  <div class="nav-item" id="nav-exec" onclick="setView('exec')"><span class="nav-ic">&#9638;</span>Executive Posture</div>
   <div class="nav-item" id="nav-lab" onclick="setView('lab')"><span class="nav-ic">&#11041;</span>Model Lab</div>
   <div class="nav-item" id="nav-admin" style="display:none" onclick="setView('admin')"><span class="nav-ic">&#9670;</span>Admin</div>
   <div class="side-spacer"></div>
@@ -262,12 +262,12 @@ a:hover{color:var(--green-hover)}
    <div class="view-title" id="viewTitle">Live Monitor</div>
    <div class="topbar-right">
     <select id="langSel" class="sel" style="padding:2px 8px;font-size:11px;width:auto;height:28px" onchange="setLang(this.value)">
-     <option value="en">🇺🇸 EN</option>
-     <option value="es">🇪🇸 ES</option>
-     <option value="pt">🇧🇷 PT</option>
-     <option value="de">🇩🇪 DE</option>
-     <option value="fr">🇫🇷 FR</option>
-     <option value="ja">🇯🇵 日本語</option>
+     <option value="en">EN</option>
+     <option value="es">ES</option>
+     <option value="pt">PT</option>
+     <option value="de">DE</option>
+     <option value="fr">FR</option>
+     <option value="ja">JA</option>
     </select>
     <span id="userChip" style="cursor:pointer;font-size:12.5px;color:#c7d2da;font-family:var(--font)" title="sign out" onclick="signout()"></span>
     <div class="clock" id="clock"></div>
@@ -1100,8 +1100,8 @@ function renderHistory(){
    '<span class="hist-risk" style="color:'+vcolor(i.rolling)+'">'+risk+'%</span>'+
    '<div style="display:flex;align-items:center;gap:6px">'+
     '<span class="hist-badge" style="'+bStyle+'">'+badge+'</span>'+
-    '<button class="btn-soft" style="padding:2px 6px;font-size:11px" title="Forensic Audit Report" onclick="window.open(\'/report/'+i.id+'\',\'_blank\')">📄 Report</button>'+
-    '<button class="btn-soft" style="padding:2px 6px;font-size:11px" title="Legal Certificate" onclick="window.open(\'/certificate/'+i.id+'\',\'_blank\')">⚖️ Legal</button>'+
+    '<button class="btn-soft" style="padding:2px 6px;font-size:11px" title="Forensic Audit Report" onclick="window.open(\'/report/'+i.id+'\',\'_blank\')">Report</button>'+
+    '<button class="btn-soft" style="padding:2px 6px;font-size:11px" title="Legal Certificate" onclick="window.open(\'/certificate/'+i.id+'\',\'_blank\')">Certificate</button>'+
    '</div>'+
   '</div>';
  }).join('');
@@ -1129,7 +1129,7 @@ function applyLang(){
  if(document.getElementById('nav-monitor')) document.getElementById('nav-monitor').innerHTML = '<span class="nav-ic">&#9673;</span>' + d.live;
  if(document.getElementById('nav-captures')) document.getElementById('nav-captures').innerHTML = '<span class="nav-ic">&#8803;</span>' + d.captures;
  if(document.getElementById('nav-history')) document.getElementById('nav-history').innerHTML = '<span class="nav-ic">&#9719;</span>' + d.history;
- if(document.getElementById('nav-exec')) document.getElementById('nav-exec').innerHTML = '<span class="nav-ic">📊</span>' + d.exec;
+ if(document.getElementById('nav-exec')) document.getElementById('nav-exec').innerHTML = '<span class="nav-ic">&#9638;</span>' + d.exec;
  if(document.getElementById('nav-lab')) document.getElementById('nav-lab').innerHTML = '<span class="nav-ic">&#11041;</span>' + d.lab;
 }
 
