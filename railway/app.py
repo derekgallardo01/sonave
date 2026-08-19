@@ -1244,6 +1244,47 @@ def api_training_set_schedule(req: ScheduleReq, p: auth.Principal = Depends(requ
     }
 
 
+@app.get("/api/hf/trending")
+def api_hf_trending():
+    from src.pipeline.hf_corpus_harvester import HFCorpusHarvester
+    harvester = HFCorpusHarvester()
+    registry_file = Path("models/hf_discovered_models.json")
+    if registry_file.exists():
+        try:
+            return json.loads(registry_file.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    models = harvester.discover_trending_hf_models()
+    return {"discovered_models": models, "total_tracked": len(models)}
+
+
+@app.post("/api/hf/sync")
+def api_hf_sync(p: auth.Principal = Depends(require_principal)):
+    from src.pipeline.hf_corpus_harvester import HFCorpusHarvester
+    harvester = HFCorpusHarvester()
+    models = harvester.discover_trending_hf_models()
+    harvested = harvester.sync_huggingface_manifests(max_samples_per_corpus=20)
+    return {
+        "ok": True,
+        "discovered_models_count": len(models),
+        "harvested_samples_count": len(harvested),
+        "models": models[:10]
+    }
+
+
+@app.post("/api/webhooks/hf-model-update")
+async def api_hf_webhook(request: Request):
+    """Hugging Face Hub Webhook Receiver for real-time model release notifications."""
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
+    from src.pipeline.hf_corpus_harvester import HFCorpusHarvester
+    harvester = HFCorpusHarvester()
+    res = harvester.handle_hf_webhook_event(payload)
+    return res
+
+
 def _background_scheduler_daemon():
     """Autonomous scheduler loop checking cadence triggers in background."""
     import datetime

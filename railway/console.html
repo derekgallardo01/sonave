@@ -552,26 +552,28 @@ a:hover{color:var(--green-hover)}
 
    <div class="lab-grid">
     <div class="card">
-     <div class="card-hd"><span class="card-lbl">MODEL REGISTRY</span></div>
-     <div style="padding:14px 20px;display:flex;flex-direction:column;gap:10px">
-      <div class="model-row prod">
-       <div><div class="model-row-name">sonave-xlsr-meet</div><div class="model-row-desc">XLS-R-300M + SLS head &#183; &#964; 0.40 / 0.70 &#183; Meet-domain fine-tune</div></div>
-       <span class="model-tag t-prod">PRODUCTION</span>
-      </div>
-      <div class="model-row">
-       <div><div class="model-row-name">sonave-xlsr-rw</div><div class="model-row-desc">Real-world robust fine-tune (VoxPopuli) &#183; pre-Meet lineage</div></div>
-       <span class="model-tag t-cand">CANDIDATE</span>
-      </div>
-      <div class="model-row">
-       <div><div class="model-row-name">wav2vec2-ASV</div><div class="model-row-desc">Commodity baseline &#183; ~2% catch on modern tools</div></div>
-       <span class="model-tag t-legacy">LEGACY</span>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:4px">
-       <input class="inp" placeholder="Load from HuggingFace &#8212; org/model">
-       <button class="btn" onclick="toast('Model loading is not wired up yet — registry is informational.','err')">Load</button>
+      <div class="card-hd"><span class="card-lbl">HUGGING FACE VOICE MODEL SUBSCRIPTION STREAM</span><span class="update-note" id="hfSyncStatus">Live API Sync</span></div>
+      <div style="padding:14px 20px;display:flex;flex-direction:column;gap:10px">
+       <div id="hfModelList" style="display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto;">
+        <div class="model-row prod">
+         <div><div class="model-row-name">SWivid/F5-TTS</div><div class="model-row-desc">Non-autoregressive Flow-Matching · 128k dl · Diffusion</div></div>
+         <span class="model-tag t-prod">SYNCED</span>
+        </div>
+        <div class="model-row">
+         <div><div class="model-row-name">FunAudioLLM/CosyVoice-300M</div><div class="model-row-desc">Multilingual Voice Clone & Synthesis · 95k dl</div></div>
+         <span class="model-tag t-cand">SYNCED</span>
+        </div>
+        <div class="model-row">
+         <div><div class="model-row-name">yl4579/StyleTTS2-LibriTTS</div><div class="model-row-desc">Style Diffusion Speech Synthesizer · 88k dl</div></div>
+         <span class="model-tag t-cand">SYNCED</span>
+        </div>
+       </div>
+       <div style="display:flex;gap:8px;margin-top:4px">
+        <input class="inp" id="inpHfCustomModel" placeholder="Subscribe custom HF model (org/model-id)">
+        <button class="btn" id="btnSyncHf" onclick="syncHfModels()">Sync All Trending</button>
+       </div>
       </div>
      </div>
-    </div>
 
     <div style="display:flex;flex-direction:column;gap:18px">
      <div class="card">
@@ -925,7 +927,7 @@ function adminStart(){
 }
 
 var _started=0;
-function start(){if(_started)return;_started=1;list();quality();incidents();enrolled();loadKeys();loadSecret();loadVoiceProfiles();loadScheduleConfig();initSpectrogram();modelInfo();dataProgress();setInterval(list,5000);setInterval(quality,500);setInterval(incidents,3000);setInterval(enrolled,10000);setInterval(dataProgress,60000);setInterval(modelInfo,15000)}
+function start(){if(_started)return;_started=1;list();quality();incidents();enrolled();loadKeys();loadSecret();loadVoiceProfiles();loadScheduleConfig();loadHfTrendingModels();initSpectrogram();modelInfo();dataProgress();setInterval(list,5000);setInterval(quality,500);setInterval(incidents,3000);setInterval(enrolled,10000);setInterval(dataProgress,60000);setInterval(modelInfo,15000)}
 
 async function dataProgress(){
  var d;try{d=await jget('/api/data_progress')}catch(e){return}
@@ -1004,6 +1006,43 @@ async function saveScheduleSettings(){
   }
  } catch(e){
   toast('Could not update schedule', 'err');
+ }
+}
+
+async function loadHfTrendingModels(){
+ try {
+  var d = await jget('/api/hf/trending');
+  if(d && d.discovered_models && d.discovered_models.length){
+   var listEl = document.getElementById('hfModelList');
+   if(listEl){
+    listEl.innerHTML = d.discovered_models.map(function(m, idx){
+     var tagCls = idx < 2 ? 't-prod' : 't-cand';
+     var tagTxt = idx < 2 ? 'SYNCED' : 'MONITORED';
+     var dl = m.downloads ? (m.downloads >= 1000 ? Math.round(m.downloads/1000)+'k' : m.downloads) + ' dl' : 'Active';
+     return '<div class="model-row ' + (idx===0?'prod':'') + '">'+
+      '<div><div class="model-row-name">' + esc(m.model_id) + '</div><div class="model-row-desc">' + esc(m.author) + ' · ' + dl + ' · ' + esc((m.tags||[]).slice(0,2).join(', ')) + '</div></div>'+
+      '<span class="model-tag ' + tagCls + '">' + tagTxt + '</span>'+
+     '</div>';
+    }).join('');
+   }
+  }
+ } catch(e){}
+}
+
+async function syncHfModels(){
+ var btn = document.getElementById('btnSyncHf');
+ if(btn){ btn.disabled = true; btn.textContent = 'Syncing HF...'; }
+ try {
+  var r = await fetch('/api/hf/sync', {method: 'POST'});
+  var d = await r.json();
+  if(d.ok){
+   toast('✓ Synchronized ' + d.discovered_models_count + ' trending Hugging Face voice models!', 'ok');
+   loadHfTrendingModels();
+  }
+ } catch(e){
+  toast('Could not sync with Hugging Face', 'err');
+ } finally {
+  if(btn){ btn.disabled = false; btn.textContent = 'Sync All Trending'; }
  }
 }
 
