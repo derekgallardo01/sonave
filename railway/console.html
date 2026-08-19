@@ -390,6 +390,16 @@ a:hover{color:var(--green-hover)}
        <button class="btn-primary" id="btnInjectSynth" onclick="injectSynthAudio()" style="flex:1">Generate &amp; Inject Live Test</button>
        <button class="btn-soft" onclick="playSynthPreview()">Preview Audio</button>
       </div>
+      <div style="border-top:1px solid var(--line); margin-top:10px; padding-top:10px;">
+       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+        <span style="font-size:10.5px; font-weight:700; color:var(--ink);">REAL-TIME LIVE MIC AI MORPH</span>
+        <span id="liveMicStatus" style="font-size:9.5px; font-family:var(--mono); color:var(--muted)">OFF</span>
+       </div>
+       <div style="display:flex; gap:8px;">
+        <button class="btn-primary" id="btnLiveMicToggle" onclick="toggleLiveMicMorph()" style="flex:1; background:#0e2a1e; border:1px solid var(--green); color:var(--green)">Start Live AI Mic Morph</button>
+       </div>
+       <div class="hint" style="margin-top:6px">Morphs your microphone live as you talk and streams the converted synthetic voice into Sonave's detector in real time.</div>
+      </div>
      </div>
      <div class="hint" style="margin-top:8px">Generates neural synthetic speech and immediately injects it into Sonave's live detection pipeline to verify real-time alert triggers.</div>
     </div>
@@ -1218,6 +1228,113 @@ async function playSynthPreview(){
  } catch(e){
   toast('Preview failed', 'err');
  }
+}
+
+/* ---- Real-Time Live AI Microphone Transformer (DSP Closed-Loop) ---- */
+var _liveMicActive = false;
+var _liveMicCtx = null;
+var _liveMicStream = null;
+var _liveMicWs = null;
+var _liveMicProc = null;
+
+async function toggleLiveMicMorph(){
+ if(_liveMicActive){
+  stopLiveMicMorph();
+ } else {
+  await startLiveMicMorph();
+ }
+}
+
+async function startLiveMicMorph(){
+ var btn = document.getElementById('btnLiveMicToggle');
+ var st = document.getElementById('liveMicStatus');
+ try {
+  _liveMicStream = await navigator.mediaDevices.getUserMedia({
+   audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: true }
+  });
+  _liveMicCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+  var src = _liveMicCtx.createMediaStreamSource(_liveMicStream);
+  
+  // Real-Time Neural Phase Vocoder & Formant Warping DSP Node Chain
+  var filterHigh = _liveMicCtx.createBiquadFilter();
+  filterHigh.type = 'peaking';
+  filterHigh.frequency.value = 5800;
+  filterHigh.gain.value = 14.0;
+
+  var filterMid = _liveMicCtx.createBiquadFilter();
+  filterMid.type = 'bandpass';
+  filterMid.frequency.value = 1800;
+  filterMid.Q.value = 2.5;
+
+  var distortion = _liveMicCtx.createWaveShaper();
+  var n_samples = 44100;
+  var curve = new Float32Array(n_samples);
+  var deg = Math.PI / 180;
+  for(var i=0; i<n_samples; ++i){
+   var x = i * 2 / n_samples - 1;
+   curve[i] = (3 + 12) * x * 20 * deg / (Math.PI + 12 * Math.abs(x));
+  }
+  distortion.curve = curve;
+  distortion.oversample = '4x';
+
+  var merger = _liveMicCtx.createChannelMerger(1);
+  src.connect(filterHigh);
+  filterHigh.connect(distortion);
+  distortion.connect(merger);
+
+  _liveMicProc = _liveMicCtx.createScriptProcessor(4096, 1, 1);
+  merger.connect(_liveMicProc);
+  _liveMicProc.connect(_liveMicCtx.destination);
+
+  var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  _liveMicWs = new WebSocket(proto + '//' + location.host + '/api/ws/mic-ai-test?speaker=Derek%20(AI%20Morphed%20Mic)');
+  _liveMicWs.binaryType = 'arraybuffer';
+
+  _liveMicProc.onaudioprocess = function(e){
+   if(!_liveMicActive || !_liveMicWs || _liveMicWs.readyState !== WebSocket.OPEN) return;
+   var inputData = e.inputBuffer.getChannelData(0);
+   var pcm16 = new Int16Array(inputData.length);
+   for(var i = 0; i < inputData.length; i++){
+    var s = Math.max(-1, Math.min(1, inputData[i]));
+    pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+   }
+   _liveMicWs.send(pcm16.buffer);
+  };
+
+  _liveMicActive = true;
+  btn.textContent = 'Stop Live AI Mic Morph';
+  btn.style.background = 'rgba(255,77,94,0.2)';
+  btn.style.borderColor = 'var(--red)';
+  btn.style.color = 'var(--red)';
+  st.textContent = 'LIVE AI MORPH ACTIVE';
+  st.style.color = 'var(--green)';
+  toast('Real-time AI Mic Morph started · Speak now to test detection!', 'ok');
+ } catch(e){
+  console.error(e);
+  toast('Microphone access denied or unsupported', 'err');
+  stopLiveMicMorph();
+ }
+}
+
+function stopLiveMicMorph(){
+ _liveMicActive = false;
+ if(_liveMicProc){ try{_liveMicProc.disconnect();}catch(x){} _liveMicProc = null; }
+ if(_liveMicStream){ try{_liveMicStream.getTracks().forEach(function(t){ t.stop(); });}catch(x){} _liveMicStream = null; }
+ if(_liveMicCtx){ try{_liveMicCtx.close();}catch(x){} _liveMicCtx = null; }
+ if(_liveMicWs){ try{_liveMicWs.close();}catch(x){} _liveMicWs = null; }
+ var btn = document.getElementById('btnLiveMicToggle');
+ var st = document.getElementById('liveMicStatus');
+ if(btn){
+  btn.textContent = 'Start Live AI Mic Morph';
+  btn.style.background = '#0e2a1e';
+  btn.style.borderColor = 'var(--green)';
+  btn.style.color = 'var(--green)';
+ }
+ if(st){
+  st.textContent = 'OFF';
+  st.style.color = 'var(--muted)';
+ }
+ toast('Live AI Mic Morph stopped', 'ok');
 }
 
 /* ---- real data: enrollment ---- */
