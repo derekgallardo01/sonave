@@ -143,11 +143,29 @@ class HFCorpusHarvester:
 
     def handle_hf_webhook_event(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Process incoming webhook notification from Hugging Face Hub."""
-        event_type = payload.get("event", "update")
-        repo_id = payload.get("repo", {}).get("name", payload.get("repo_id", "unknown/model"))
+        # 1. Parse Event Type (can be str or dict in HF Webhooks)
+        raw_event = payload.get("event", "update")
+        if isinstance(raw_event, dict):
+            event_type = f"{raw_event.get('scope', 'repo')}.{raw_event.get('action', 'update')}"
+        else:
+            event_type = str(raw_event)
+
+        # 2. Parse Repo ID / Name
+        repo_data = payload.get("repo", {})
+        if isinstance(repo_data, dict):
+            repo_id = repo_data.get("name") or repo_data.get("id") or payload.get("repo_id", "huggingface/model-update")
+        elif isinstance(repo_data, str):
+            repo_id = repo_data
+        else:
+            repo_id = payload.get("repo_id", "huggingface/model-update")
+
         logger.info("Received Hugging Face Webhook event: %s on repo: %s", event_type, repo_id)
 
-        # Append to discovered registry
+        # 3. Handle Ping / Test Webhooks
+        if "ping" in event_type.lower() or repo_id == "huggingface/model-update":
+            return {"ok": True, "status": "ping_received", "message": "Sonave Webhook endpoint active & verified."}
+
+        # 4. Append to discovered registry
         registry_file = Path("models/hf_discovered_models.json")
         data = {"discovered_models": [], "total_tracked": 0}
         if registry_file.exists():
@@ -169,4 +187,4 @@ class HFCorpusHarvester:
         data["total_tracked"] = len(data["discovered_models"])
         registry_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
-        return {"ok": True, "status": "webhook_processed", "model_id": repo_id}
+        return {"ok": True, "status": "webhook_processed", "model_id": repo_id, "event": event_type}
