@@ -1210,7 +1210,7 @@ async function injectSynthAudio(){
   if(d.ok){
    toast('AI Synthetic Voice Injected · 98.5% Fake Detected!', 'ok');
    if(d.audio_base64){
-    var a = new Audio('data:audio/wav;base64,' + d.audio_base64);
+    var a = new Audio('data:audio/mp3;base64,' + d.audio_base64);
     a.play().catch(function(){});
    }
   } else {
