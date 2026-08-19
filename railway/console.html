@@ -1302,10 +1302,11 @@ async function startLiveMicMorph(){
   _liveMicWs = new WebSocket(proto + '//' + location.host + '/api/ws/mic-ai-test?speaker=Derek%20(AI%20Morphed%20Mic)');
   _liveMicWs.binaryType = 'arraybuffer';
 
-  var _grainBuf = new Float32Array(8192);
-  var _gWrite = 0;
-  var _gRead = 0;
-  var _ringPhase = 0;
+  var _grainSize = 2048;
+  var _buf = new Float32Array(16384);
+  var _wPtr = 0;
+  var _g0 = 0;
+  var _g1 = 1024;
 
   _liveMicProc.onaudioprocess = function(e){
    if(!_liveMicActive || !_liveMicWs || _liveMicWs.readyState !== WebSocket.OPEN) return;
@@ -1315,43 +1316,53 @@ async function startLiveMicMorph(){
    var hearSelf = document.getElementById('chkHearSelf') ? document.getElementById('chkHearSelf').checked : true;
    var style = document.getElementById('morphStyleSel') ? document.getElementById('morphStyleSel').value : 'deep';
 
-   var pRatio = style === 'robot' ? 1.0 : style === 'high' ? 1.35 : style === 'extreme' ? 0.68 : 0.74;
+   var pRatio = style === 'robot' ? 1.0 : style === 'high' ? 1.35 : style === 'extreme' ? 0.72 : 0.78;
    var ringModOn = (style === 'robot' || style === 'extreme');
 
+   var sumSq = 0;
+   for(var k = 0; k < inputData.length; k++) sumSq += inputData[k] * inputData[k];
+   var rms = Math.sqrt(sumSq / inputData.length);
+   var isVoiced = rms > 0.008;
+
    for(var i = 0; i < inputData.length; i++){
-    _grainBuf[_gWrite] = inputData[i];
-    _gWrite = (_gWrite + 1) % _grainBuf.length;
+    _buf[_wPtr] = inputData[i];
+    _wPtr = (_wPtr + 1) % _buf.length;
 
-    var rIdx = Math.floor(_gRead);
-    var frac = _gRead - rIdx;
-    var s0 = _grainBuf[rIdx % _grainBuf.length];
-    var s1 = _grainBuf[(rIdx + 1) % _grainBuf.length];
-    var sample = s0 + frac * (s1 - s0);
-
-    _gRead = (_gRead + pRatio) % _grainBuf.length;
-    if(Math.abs(_gWrite - _gRead) > 3072){
-     _gRead = (_gWrite - 1024 + _grainBuf.length) % _grainBuf.length;
+    if(!isVoiced){
+     outData[i] = 0;
+     pcm16[i] = 0;
+     continue;
     }
+
+    var pos0 = (_wPtr - _grainSize + _g0 + _buf.length) % _buf.length;
+    var pos1 = (_wPtr - _grainSize + _g1 + _buf.length) % _buf.length;
+
+    var w0 = 0.5 * (1 - Math.cos((2 * Math.PI * _g0) / _grainSize));
+    var w1 = 0.5 * (1 - Math.cos((2 * Math.PI * _g1) / _grainSize));
+
+    var s0 = _buf[Math.floor(pos0)];
+    var s1 = _buf[Math.floor(pos1)];
+    var morphed = (s0 * w0) + (s1 * w1);
+
+    _g0 = (_g0 + pRatio) % _grainSize;
+    _g1 = (_g1 + pRatio) % _grainSize;
 
     if(ringModOn){
-     _ringPhase += (2 * Math.PI * 55.0) / 16000;
-     sample = sample * (0.65 + 0.35 * Math.sin(_ringPhase));
+     morphed = morphed * (0.7 + 0.3 * Math.sin(i * 0.05));
     }
 
-    // High frequency vocoder harmonic artifact
-    var glitch = 0.04 * Math.sin(i * 0.42);
-    sample = sample * 1.35 + glitch;
-
-    var clamped = Math.max(-1, Math.min(1, sample));
+    var clamped = Math.max(-1, Math.min(1, morphed * 1.4));
     pcm16[i] = clamped < 0 ? clamped * 0x8000 : clamped * 0x7FFF;
 
     if(hearSelf){
-     outData[i] = clamped * 1.5;
+     outData[i] = clamped;
     } else {
      outData[i] = 0;
     }
    }
-   _liveMicWs.send(pcm16.buffer);
+   if(isVoiced){
+    _liveMicWs.send(pcm16.buffer);
+   }
   };
 
   _liveMicActive = true;
