@@ -1795,9 +1795,7 @@ def auth_login(ctx: str = ""):
 
 @app.get("/auth/meet/connect")
 def auth_meet_connect(request: Request):
-    """Incremental Google Meet Media API grant for real-time acoustic protection."""
-    if not auth.google_configured():
-        raise HTTPException(status_code=404, detail="Google OAuth not configured")
+    """Google Meet Media API OAuth authorization endpoint."""
     state = auth.make_state("meet")
     resp = RedirectResponse(auth.meet_login_url(state), status_code=302)
     resp.set_cookie(auth.STATE_COOKIE, state, max_age=auth.STATE_TTL,

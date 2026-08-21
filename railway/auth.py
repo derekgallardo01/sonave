@@ -47,8 +47,15 @@ STATE_TTL = 600
 MACHINE_WORKSPACE = "admin"
 
 
+DEFAULT_GOOGLE_CLIENT_ID = "940532414120-h1a3vd9iub01f46qj0e2jgt8d7v9n12b.apps.googleusercontent.com"
+
+
 def _env(name: str, default: str = "") -> str:
     return os.environ.get(name, default)
+
+
+def client_id() -> str:
+    return _env("SONAVE_GOOGLE_CLIENT_ID") or DEFAULT_GOOGLE_CLIENT_ID
 
 
 def google_configured() -> bool:
@@ -147,7 +154,7 @@ def redirect_uri() -> str:
 
 def login_url(state: str) -> str:
     q = urllib.parse.urlencode({
-        "client_id": _env("SONAVE_GOOGLE_CLIENT_ID"),
+        "client_id": client_id(),
         "redirect_uri": redirect_uri(),
         "response_type": "code",
         "scope": " ".join(OAUTH_SCOPES),
@@ -160,7 +167,7 @@ def login_url(state: str) -> str:
 def meet_login_url(state: str) -> str:
     """OAuth URL requesting Google Meet Space & Media API scopes."""
     q = urllib.parse.urlencode({
-        "client_id": _env("SONAVE_GOOGLE_CLIENT_ID"),
+        "client_id": client_id(),
         "redirect_uri": redirect_uri(),
         "response_type": "code",
         "scope": " ".join(MEET_SCOPES),
@@ -175,7 +182,7 @@ def meet_login_url(state: str) -> str:
 def _exchange_code(code: str) -> dict:
     body = urllib.parse.urlencode({
         "code": code,
-        "client_id": _env("SONAVE_GOOGLE_CLIENT_ID"),
+        "client_id": client_id(),
         "client_secret": _env("SONAVE_GOOGLE_CLIENT_SECRET"),
         "redirect_uri": redirect_uri(),
         "grant_type": "authorization_code",
@@ -223,7 +230,7 @@ GOOGLE_REVOKE_URL = "https://oauth2.googleapis.com/revoke"
 
 def calendar_login_url(state: str) -> str:
     q = urllib.parse.urlencode({
-        "client_id": _env("SONAVE_GOOGLE_CLIENT_ID"),
+        "client_id": client_id(),
         "redirect_uri": redirect_uri(),
         "response_type": "code",
         "scope": CALENDAR_SCOPE,
