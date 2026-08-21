@@ -9,7 +9,11 @@ param([switch]$Remove)
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
-$pwsh = (Get-Command pwsh).Source
+# NEVER use (Get-Command pwsh).Source here: for Store installs it resolves to a
+# VERSIONED WindowsApps path that dies on the next PowerShell update (tasks then
+# fail with 0x80070002 file-not-found). The per-user alias is version-stable.
+$pwsh = "$env:LOCALAPPDATA\Microsoft\WindowsApps\pwsh.exe"
+if (-not (Test-Path $pwsh)) { $pwsh = (Get-Command pwsh).Source }
 
 if ($Remove) {
     foreach ($n in 'SonaveDailyCaptureCheck', 'SonaveSundayRetrain') {
@@ -19,7 +23,7 @@ if ($Remove) {
     exit 0
 }
 
-$daily = New-ScheduledTaskAction -Execute $pwsh -Argument "-NoProfile -File `"$root\tools\daily_capture_check.ps1`""
+$daily = New-ScheduledTaskAction -Execute $pwsh -Argument "-NoProfile -File `"$root\tools\daily_capture_check.ps1`"" -WorkingDirectory $root
 $dailyTrig = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Monday,Tuesday,Wednesday,Thursday,Friday -At 09:30
 Register-ScheduledTask -TaskName 'SonaveDailyCaptureCheck' -Action $daily -Trigger $dailyTrig -Force | Out-Null
 Write-Host 'registered SonaveDailyCaptureCheck (Mon-Fri 09:30)'
