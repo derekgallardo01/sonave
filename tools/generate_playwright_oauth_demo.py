@@ -23,8 +23,8 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT_DIR = ROOT / "results" / "google_oauth_e2e_video"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-CLIENT_ID = "940532414120-h1a3vd9iub01f46qj0e2jgt8d7v9n12b.apps.googleusercontent.com"
-AUTH_URL = f"https://accounts.google.com/o/oauth2/v2/auth?client_id={CLIENT_ID}&redirect_uri=https%3A%2F%2Fusesonave.com%2Fauth%2Fgoogle%2Fcallback&response_type=code&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fmeetings.space.readonly%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fmeetings.conference.media.readonly&access_type=offline&prompt=consent"
+CLIENT_ID = "940532414120-ttmjtf2q1om8e682ju38qaqg2u56a921.apps.googleusercontent.com"
+AUTH_URL = f"https://accounts.google.com/o/oauth2/v2/auth?client_id={CLIENT_ID}&redirect_uri=https%3A%2F%2Fusesonave.com%2Fauth%2Fcallback&response_type=code&scope=openid%20email%20profile%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fmeetings.space.readonly%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fmeetings.conference.media.readonly&access_type=offline&prompt=consent"
 
 VOICEOVER_TEXTS = [
     (

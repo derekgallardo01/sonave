@@ -44,7 +44,7 @@ VOICEOVER_SEGMENTS = [
     }
 ]
 
-CLIENT_ID = "940532414120-h1a3vd9iub01f46qj0e2jgt8d7v9n12b.apps.googleusercontent.com"
+CLIENT_ID = "940532414120-ttmjtf2q1om8e682ju38qaqg2u56a921.apps.googleusercontent.com"
 
 
 # Typography
