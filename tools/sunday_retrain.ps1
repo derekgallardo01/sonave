@@ -28,7 +28,24 @@ if ($Pull) {
 }
 Step 'retrain + validate'   { & $py src/retrain_from_captures.py }
 Step 'benchmark'            { & $py src/eval_xlsr.py --model models/sonave_xlsr_meet }
-Step 'regression gate'      { & $py -m pytest -m gpu tests/test_model_regression.py -q }
+
+# Gate failure must leave the working tree DEPLOYABLE: training writes the new
+# checkpoint over models/sonave_xlsr_meet in place, so on a hold we preserve it
+# as a dated candidate and restore the deployed checkpoint from git. (This
+# footgun shipped a dirty tree twice before this block existed.)
+& $py -m pytest -m gpu tests/test_model_regression.py -q
+if ($LASTEXITCODE -ne 0) {
+    $cand = "models\sonave_xlsr_meet_candidate_$stamp"
+    New-Item -ItemType Directory -Force $cand | Out-Null
+    Copy-Item models\sonave_xlsr_meet\* $cand\ -Force
+    if (Test-Path models\training_lineage.json) {
+        Copy-Item models\training_lineage.json "$cand\training_lineage.json" -Force
+    }
+    git checkout -- models/sonave_xlsr_meet models/training_lineage.json 2>$null
+    Add-Content results/retrain_log.md "- $stamp — retrained; REGRESSION GATE HELD. Candidate preserved at $cand; deployed checkpoint restored. See eval output above."
+    Write-Host "`nGate HELD — candidate preserved at $cand, deployed checkpoint restored." -ForegroundColor Yellow
+    throw "step failed: regression gate (candidate preserved, tree restored)"
+}
 Step 'write metrics'        { & $py tools/write_metrics.py }
 Step 'fast suite'           { & $py -m pytest -q }
 
