@@ -24,8 +24,14 @@ import db
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo"
-# Calendar auto-join later: append "https://www.googleapis.com/auth/calendar.readonly"
 OAUTH_SCOPES = ["openid", "email", "profile"]
+MEET_SCOPES = [
+    "openid",
+    "email",
+    "profile",
+    "https://www.googleapis.com/auth/meetings.space.readonly",
+    "https://www.googleapis.com/auth/meetings.conference.media.readonly"
+]
 
 SESSION_COOKIE = "sonave_session"
 # Partitioned (CHIPS) companion cookie: SameSite=None + Partitioned, so the Meet
@@ -147,6 +153,21 @@ def login_url(state: str) -> str:
         "scope": " ".join(OAUTH_SCOPES),
         "state": state,
         "prompt": "select_account",
+    })
+    return f"{GOOGLE_AUTH_URL}?{q}"
+
+
+def meet_login_url(state: str) -> str:
+    """OAuth URL requesting Google Meet Space & Media API scopes."""
+    q = urllib.parse.urlencode({
+        "client_id": _env("SONAVE_GOOGLE_CLIENT_ID"),
+        "redirect_uri": redirect_uri(),
+        "response_type": "code",
+        "scope": " ".join(MEET_SCOPES),
+        "state": state,
+        "access_type": "offline",
+        "prompt": "consent",
+        "include_granted_scopes": "true",
     })
     return f"{GOOGLE_AUTH_URL}?{q}"
 
