@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import csv
 import glob
+import random
 import sys
 from pathlib import Path
 
@@ -89,19 +90,44 @@ def main() -> None:
     if orphan_rows:
         print(f"legacy orphan windows re-added as real: {len(orphan_rows)}")
 
-    train_rows = real_rows + fake_rows + orphan_rows
-
     with open(BASE_CSV, newline="", encoding="utf-8") as f:
         base = list(csv.DictReader(f))
     cols = list(base[0].keys())
-    all_rows = base + train_rows
+
+    # --- domain & label balance (2026-08-21 gate-hold post-mortem) ------------
+    # A capture-heavy week must never drown the diverse base corpus: the 08-21
+    # retrain fed 26k meet-domain windows against 3.5k base train rows (85% of
+    # training mass from one domain; meet-real alone outnumbered ALL diverse
+    # fakes 7:1) and fake-catch collapsed ~10 pts on every benchmark while
+    # real-acc soared. Enforce two invariants, deterministically:
+    #   1. meet REAL windows are subsampled to <=1.2x meet FAKE windows
+    #      (fake-through-Meet audio is scarce and precious; reals are cheap);
+    #   2. the base corpus's train rows are oversampled so the diverse domain
+    #      keeps roughly half the training mass regardless of the week's haul.
+    rng = random.Random(20260821)
+    real_pool = real_rows + orphan_rows
+    real_orig = len(real_pool)
+    if fake_rows:
+        cap = int(1.2 * len(fake_rows))
+        if len(real_pool) > cap:
+            real_pool = rng.sample(real_pool, cap)
+    meet_rows = real_pool + fake_rows
+    base_train = [r for r in base if r.get("split") == "train"]
+    reps = min(6, max(1, round(len(meet_rows) / max(1, len(base_train)))))
+    all_rows = base + base_train * (reps - 1) + meet_rows
+
     with open(OUT_CSV, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=cols)
         w.writeheader()
         w.writerows(all_rows)
 
+    bt_f = sum(r["label"] == "fake" for r in base_train)
+    bt_r = len(base_train) - bt_f
     print(f"real captures: {n_real} files -> {len(real_rows)} train windows / {real_test} test")
     print(f"fake captures: {n_fake} files -> {len(fake_rows)} train windows / {fake_test} test")
+    print(f"mix: base train x{reps} ({bt_f * reps} fake / {bt_r * reps} real) + "
+          f"meet {len(fake_rows)} fake / {len(real_pool)} real"
+          + (f" (real subsampled from {real_orig})" if len(real_pool) < real_orig else ""))
     print(f"wrote {OUT_CSV} ({len(all_rows)} rows)")
     print("Next: python src/train_xlsr.py --manifest data/corpus_meet.csv "
           "--out models/sonave_xlsr_meet --augment")
