@@ -26,15 +26,16 @@ function Step($name, $block) {
 if ($Pull) {
     Step 'pull captures' { & $py src/pull_captures.py https://sonave-production-3ca2.up.railway.app }
 }
-Step 'retrain + validate'   { & $py src/retrain_from_captures.py }
-Step 'benchmark'            { & $py src/eval_xlsr.py --model models/sonave_xlsr_meet }
 
-# Gate failure must leave the working tree DEPLOYABLE: training writes the new
-# checkpoint over models/sonave_xlsr_meet in place, so on a hold we preserve it
-# as a dated candidate and restore the deployed checkpoint from git. (This
-# footgun shipped a dirty tree twice before this block existed.)
-& $py -m pytest -m gpu tests/test_model_regression.py -q
-if ($LASTEXITCODE -ne 0) {
+# Training writes the new checkpoint over models/sonave_xlsr_meet IN PLACE, so
+# ANY failure after that point (split validation, benchmark, regression gate,
+# fast suite) must preserve the candidate and restore the deployed checkpoint —
+# a bare failure left a rejected model sitting on the deployed path twice.
+try {
+    Step 'retrain + validate'   { & $py src/retrain_from_captures.py }
+    Step 'benchmark'            { & $py src/eval_xlsr.py --model models/sonave_xlsr_meet }
+    Step 'regression gate'      { & $py -m pytest -m gpu tests/test_model_regression.py -q }
+} catch {
     $cand = "models\sonave_xlsr_meet_candidate_$stamp"
     New-Item -ItemType Directory -Force $cand | Out-Null
     Copy-Item models\sonave_xlsr_meet\* $cand\ -Force
@@ -42,9 +43,9 @@ if ($LASTEXITCODE -ne 0) {
         Copy-Item models\training_lineage.json "$cand\training_lineage.json" -Force
     }
     git checkout -- models/sonave_xlsr_meet models/training_lineage.json 2>$null
-    Add-Content results/retrain_log.md "- $stamp — retrained; REGRESSION GATE HELD. Candidate preserved at $cand; deployed checkpoint restored. See eval output above."
-    Write-Host "`nGate HELD — candidate preserved at $cand, deployed checkpoint restored." -ForegroundColor Yellow
-    throw "step failed: regression gate (candidate preserved, tree restored)"
+    Add-Content results/retrain_log.md "- $stamp — retrain attempt FAILED ($($_.Exception.Message)). Candidate preserved at $cand; deployed checkpoint restored."
+    Write-Host "`nHELD/FAILED — candidate preserved at $cand, deployed checkpoint restored." -ForegroundColor Yellow
+    throw
 }
 Step 'write metrics'        { & $py tools/write_metrics.py }
 Step 'fast suite'           { & $py -m pytest -q }

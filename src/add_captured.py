@@ -111,7 +111,11 @@ def main() -> None:
         cap = int(1.2 * len(fake_rows))
         if len(real_pool) > cap:
             real_pool = rng.sample(real_pool, cap)
-    meet_rows = real_pool + fake_rows
+    # Meet-fakes are the scarcest, highest-value windows and the first casualty
+    # of dilution: at 1x, the balanced mix scored 78% held-out meet-fake catch
+    # (bar: 80%) while everything else improved. Double their sampling weight.
+    MEET_FAKE_REPS = 2
+    meet_rows = real_pool + fake_rows * MEET_FAKE_REPS
     base_train = [r for r in base if r.get("split") == "train"]
     reps = min(6, max(1, round(len(meet_rows) / max(1, len(base_train)))))
     all_rows = base + base_train * (reps - 1) + meet_rows
@@ -126,7 +130,7 @@ def main() -> None:
     print(f"real captures: {n_real} files -> {len(real_rows)} train windows / {real_test} test")
     print(f"fake captures: {n_fake} files -> {len(fake_rows)} train windows / {fake_test} test")
     print(f"mix: base train x{reps} ({bt_f * reps} fake / {bt_r * reps} real) + "
-          f"meet {len(fake_rows)} fake / {len(real_pool)} real"
+          f"meet {len(fake_rows)}x{MEET_FAKE_REPS} fake / {len(real_pool)} real"
           + (f" (real subsampled from {real_orig})" if len(real_pool) < real_orig else ""))
     print(f"wrote {OUT_CSV} ({len(all_rows)} rows)")
     print("Next: python src/train_xlsr.py --manifest data/corpus_meet.csv "
