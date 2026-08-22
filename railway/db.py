@@ -270,6 +270,13 @@ def resolve_bot_token(token_hash: str, max_age_sec: float = 24 * 3600) -> dict |
 def mark_bot(bot_id: str, **cols) -> None:
     if not cols:
         return
+    # Whitelist allowed column names to prevent SQL injection via f-string (OWASP A03)
+    _ALLOWED_BOT_COLS = frozenset({
+        "status", "started_ts", "ended_ts", "metered_sec", "meeting_url"
+    })
+    invalid = set(cols) - _ALLOWED_BOT_COLS
+    if invalid:
+        raise ValueError(f"mark_bot: disallowed column(s): {invalid}")
     sets = ", ".join(f"{k}=?" for k in cols)
     with _LOCK:
         c = _conn()

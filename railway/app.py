@@ -166,6 +166,83 @@ def _notify_admin(summary: str) -> None:
 
 app = FastAPI(title="Sonave Capture")
 
+# ---------------------------------------------------------------------------
+# OWASP / CASA AL1 Security Headers Middleware
+# Injects required headers on every response to pass the ADA-CASA AL1 security
+# assessment (Content-Security-Policy, HSTS, X-Frame-Options, etc.)
+# ---------------------------------------------------------------------------
+_AUTH_RATE: dict[str, list[float]] = {}   # ip -> [timestamps]
+_AUTH_RATE_LOCK = threading.Lock()
+_AUTH_RATE_WINDOW = 60        # seconds
+_AUTH_RATE_MAX = 20           # max auth attempts per window per IP
+
+
+def _auth_rate_ok(ip: str) -> bool:
+    now = time.time()
+    with _AUTH_RATE_LOCK:
+        hits = _AUTH_RATE.get(ip, [])
+        hits = [t for t in hits if now - t < _AUTH_RATE_WINDOW]
+        if len(hits) >= _AUTH_RATE_MAX:
+            return False
+        hits.append(now)
+        _AUTH_RATE[ip] = hits
+    return True
+
+
+@app.middleware("http")
+async def _security_headers(request: Request, call_next):
+    # Rate-limit auth endpoints to prevent brute force (OWASP A07)
+    if request.url.path.startswith("/auth/"):
+        ip = (request.headers.get("cf-connecting-ip")
+              or request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+              or request.client.host if request.client else "unknown")
+        if not _auth_rate_ok(ip):
+            return Response(content='{"detail":"too many requests"}',
+                            status_code=429,
+                            media_type="application/json",
+                            headers={"Retry-After": "60"})
+
+    response = await call_next(request)
+
+    # HSTS — force HTTPS for 1 year, include subdomains (OWASP A02)
+    response.headers["Strict-Transport-Security"] = (
+        "max-age=31536000; includeSubDomains; preload"
+    )
+    # Clickjacking protection (OWASP A05)
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    # Prevent MIME-type sniffing (OWASP A05)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    # Referrer — don't leak URL paths to third parties (privacy + OWASP A01)
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    # Limit browser feature access (OWASP A05)
+    response.headers["Permissions-Policy"] = (
+        "microphone=(self), camera=(), geolocation=(), payment=()"
+    )
+    # Prevent cross-origin window attacks (OWASP A05)
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
+    # Content-Security-Policy — restrict scripts/styles/media sources (OWASP A03)
+    response.headers["Content-Security-Policy"] = "; ".join([
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline' https://accounts.google.com https://cdn.jsdelivr.net",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "font-src 'self' https://fonts.gstatic.com",
+        "img-src 'self' data: https: blob:",
+        "media-src 'self' blob:",
+        "connect-src 'self' wss: https://accounts.google.com https://oauth2.googleapis.com https://openidconnect.googleapis.com",
+        "frame-src 'self' https://accounts.google.com https://meet.google.com",
+        "frame-ancestors 'self' https://meet.google.com https://workspace.google.com",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "form-action 'self' https://accounts.google.com",
+        "upgrade-insecure-requests",
+    ])
+    # Remove any server/version info (OWASP A05 info disclosure)
+    try:
+        del response.headers["x-powered-by"]
+    except KeyError:
+        pass
+    return response
+
 # Inline favicon: the Sonave scope-pulse mark — green radar scope with a voice
 # pulse and contact blip (matches designs/logo/sonave-logo-master.png).
 _FAVICON_SVG = (
@@ -2030,9 +2107,24 @@ def meet_addon():
     Marketplace deployment steps live in PRODUCTION.md; the panel talks to the
     same /api/quality the console uses."""
     html = (_HERE / "meet-addon.html").read_text(encoding="utf-8")
-    return (html.replace("__FAVICON__", _FAVICON_B64)
-                .replace("__MEET_PROJECT__", os.environ.get("SONAVE_MEET_PROJECT_NUMBER", ""))
-                .replace("__GOOGLE_CID__", os.environ.get("SONAVE_GOOGLE_CLIENT_ID", "")))
+    content = (html.replace("__FAVICON__", _FAVICON_B64)
+                   .replace("__MEET_PROJECT__", os.environ.get("SONAVE_MEET_PROJECT_NUMBER", ""))
+                   .replace("__GOOGLE_CID__", os.environ.get("SONAVE_GOOGLE_CLIENT_ID", "")))
+    # Override framing policy: the Meet add-on MUST be embeddable in Google Meet's iframe.
+    # The global middleware sets X-Frame-Options: SAMEORIGIN; we relax it for this route only.
+    resp = HTMLResponse(content=content)
+    resp.headers["X-Frame-Options"] = "ALLOW-FROM https://meet.google.com"
+    resp.headers["Content-Security-Policy"] = "; ".join([
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline' https://accounts.google.com",
+        "style-src 'self' 'unsafe-inline'",
+        "img-src 'self' data: https: blob:",
+        "media-src 'self' blob:",
+        "connect-src 'self' wss: https://accounts.google.com https://oauth2.googleapis.com",
+        "frame-ancestors https://meet.google.com https://workspace.google.com 'self'",
+        "object-src 'none'",
+    ])
+    return resp
 
 
 @app.get("/og.png")
