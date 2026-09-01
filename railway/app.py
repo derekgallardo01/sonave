@@ -538,6 +538,19 @@ async def ws_audio(ws: WebSocket):
             await ws.close(code=1008)    # policy violation — no valid token
             return
         uid = db.first_admin_id() or auth.MACHINE_WORKSPACE   # fully-open dev mode
+    # Validate WebSocket Origin to prevent cross-site WebSocket hijacking (CASA AL1 / ASVS V13.5)
+    _origin = ws.headers.get("origin", "")
+    _allowed_origins = (
+        "https://usesonave.com",
+        "https://meet.google.com",
+        "https://workspace.google.com",
+        "http://localhost",
+        "http://127.0.0.1",
+    )
+    if _origin and not any(_origin.startswith(o) for o in _allowed_origins):
+        logger.warning("ws_audio: rejected disallowed origin %s", _origin)
+        await ws.close(code=1008)
+        return
     await ws.accept()
     if bot_row is not None:
         _track(uid, "meeting_started", bot_id=bot_row["bot_id"])
