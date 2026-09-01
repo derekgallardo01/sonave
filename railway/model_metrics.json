@@ -1,9 +1,9 @@
 {
   "model": "sonave-xlsr-meet",
-  "trained": "2026-08-01",
-  "benchmarked": "2026-08-13",
-  "unseen_tools_catch_pct": 95.2,
-  "unseen_gens_eer_pct": 7.0,
-  "opus_real_acc_pct": 94.0,
-  "itw_catch_pct": 58.7
+  "trained": "2026-08-23",
+  "benchmarked": "2026-08-23",
+  "unseen_tools_catch_pct": 96.5,
+  "unseen_gens_eer_pct": 6.2,
+  "opus_real_acc_pct": 93.3,
+  "itw_catch_pct": 78.0
 }

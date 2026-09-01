@@ -27,3 +27,5 @@ One line per weekly retrain (appended by tools/sunday_retrain.ps1).
   Next run needs fake-side balance: generate red-team clones over the new real
   captures and/or up-weight the 87-generator diverse fake set so a real-heavy
   capture week can't tilt the loss.
+- 2026-08-21 — retrain attempt FAILED (step failed: regression gate). Candidate preserved at models\sonave_xlsr_meet_candidate_2026-08-21; deployed checkpoint restored.
+- 2026-08-30 — retrain attempt FAILED (step failed: regression gate). Candidate preserved at models\sonave_xlsr_meet_candidate_2026-08-30; deployed checkpoint restored.
