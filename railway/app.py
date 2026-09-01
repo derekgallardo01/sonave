@@ -164,7 +164,15 @@ def _notify_admin(summary: str) -> None:
     threading.Thread(target=_send, daemon=True).start()
 
 
-app = FastAPI(title="Sonave Capture")
+# Disable /docs, /redoc, /openapi.json in production — CASA AL1 / OWASP ASVS V14.3
+# Debug/API schema endpoints must not be publicly accessible in production.
+_DEBUG = os.environ.get("SONAVE_DEBUG", "").lower() in ("1", "true", "yes")
+app = FastAPI(
+    title="Sonave Capture",
+    docs_url="/docs" if _DEBUG else None,
+    redoc_url="/redoc" if _DEBUG else None,
+    openapi_url="/openapi.json" if _DEBUG else None,
+)
 
 # ---------------------------------------------------------------------------
 # OWASP / CASA AL1 Security Headers Middleware
@@ -241,6 +249,11 @@ async def _security_headers(request: Request, call_next):
         del response.headers["x-powered-by"]
     except KeyError:
         pass
+    # Prevent browser caching of authenticated/sensitive pages (OWASP ASVS V8.1)
+    _NO_CACHE_PATHS = ("/console", "/api/", "/auth/", "/admin")
+    if any(request.url.path.startswith(p) for p in _NO_CACHE_PATHS):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private"
+        response.headers["Pragma"] = "no-cache"
     return response
 
 # Inline favicon: the Sonave scope-pulse mark — green radar scope with a voice
