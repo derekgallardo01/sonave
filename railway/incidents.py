@@ -118,6 +118,11 @@ def notify(event: dict, webhook: str | None = None, domain: str = "usesonave.com
     if not url:
         return
     try:
+        import netsafe
+        netsafe.assert_public_https(url)   # SSRF guard: user-set webhook URLs
+    except Exception:
+        return                             # never post toward private networks
+    try:
         import webhook_dispatcher
         webhook_dispatcher.dispatch_alert(event, url, domain=domain)
     except Exception:

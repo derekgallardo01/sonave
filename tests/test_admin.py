@@ -188,8 +188,10 @@ def test_meeting_end_cause_everyone_left(mod):
 
 
 # --- settings events ----------------------------------------------------------
-def test_settings_changed_fields_only_no_urls(mod):
+def test_settings_changed_fields_only_no_urls(mod, monkeypatch):
     ua = _mk_user(mod, "s-s1", "s1@x.com")
+    import netsafe
+    monkeypatch.setattr(netsafe, "assert_public_https", lambda u: None)
     c = _client_as(mod, ua["id"])
     c.post("/api/settings", json={"alert_webhook": "", "ical_url": "https://x.y/z.ics"})
     ev = mod.db.list_events(user_id=ua["id"], kind="settings_changed")

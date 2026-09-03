@@ -1784,8 +1784,9 @@ class SettingsReq(BaseModel):
     @classmethod
     def _url(cls, v: str) -> str:
         v = (v or "").strip()
-        if v and not v.startswith("https://"):
-            raise ValueError("must be an https:// URL")
+        if v:
+            import netsafe
+            netsafe.assert_public_https(v)   # SSRF guard: server fetches/posts these
         return v[:800]
 
 

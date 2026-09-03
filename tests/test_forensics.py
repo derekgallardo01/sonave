@@ -84,6 +84,8 @@ def test_settings_webhook_validation_and_roundtrip(mod):
 
 
 def test_notify_uses_workspace_webhook_over_env(mod, monkeypatch):
+    import netsafe
+    monkeypatch.setattr(netsafe, 'assert_public_https', lambda u: None)
     import incidents
     sent = {}
 
@@ -105,6 +107,8 @@ def test_notify_uses_workspace_webhook_over_env(mod, monkeypatch):
 
 
 def test_incident_alert_fires_to_workspace_webhook(mod, monkeypatch, tmp_path):
+    import netsafe
+    monkeypatch.setattr(netsafe, 'assert_public_https', lambda u: None)
     import incidents
     monkeypatch.setattr(incidents, "DB_PATH", tmp_path / "i2.db")
     ua = _user(mod, "s-wh", "wh@x.com")

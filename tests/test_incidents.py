@@ -38,6 +38,8 @@ def test_notify_noop_without_webhook(inc):
 
 
 def test_notify_posts_slack_text(inc, monkeypatch):
+    import netsafe
+    monkeypatch.setattr(netsafe, 'assert_public_https', lambda u: None)
     monkeypatch.setattr(inc, "ALERT_WEBHOOK", "http://hook.test")
     sent = {}
 

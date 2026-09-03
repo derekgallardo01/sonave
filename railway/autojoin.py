@@ -40,8 +40,11 @@ def find_meeting_url(text: str) -> str | None:
 
 
 def fetch_ics(url: str, timeout: float = 12) -> str:
-    req = urllib.request.Request(url, headers={"User-Agent": "Sonave-AutoJoin/1.0"})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
+    # user-supplied URL fetched server-side -> SSRF guard (public https only,
+    # no redirects; see netsafe.py)
+    import netsafe
+    with netsafe.open_public(url, headers={"User-Agent": "Sonave-AutoJoin/1.0"},
+                             timeout=timeout) as r:
         return r.read().decode("utf-8", "replace")
 
 
