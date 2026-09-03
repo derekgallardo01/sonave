@@ -702,14 +702,21 @@ async def ws_audio(ws: WebSocket):
 async def ws_mic_ai_test(ws: WebSocket):
     """Real-time AI microphone voice transformer test endpoint.
     Receives raw 16kHz PCM audio stream from user's live morphed microphone and scores in real time."""
-    tok = ws.query_params.get("token") or ws.cookies.get("sonave_token") or ws.cookies.get("sonave_session")
-    p = None
-    if tok:
-        try:
-            p = auth.get_principal(f"Bearer {tok}" if not tok.startswith("ey") else tok)
-        except Exception:
-            pass
-    uid = p.user_id if p else (db.first_admin_id() or auth.MACHINE_WORKSPACE)
+    # Same auth contract as /api/ws/audio: machine token or a valid session,
+    # resolved to ITS OWN workspace — never a fallback into the admin's. The
+    # previous version passed a string into get_principal (which takes a
+    # Request), always threw, and dropped every anonymous caller into the
+    # first admin's live view with fabricated verdicts. (CASA hardening.)
+    tok = ws.query_params.get("token") or ws.cookies.get("sonave_token") or ""
+    if _token_ok(tok):
+        uid = db.first_admin_id() or auth.MACHINE_WORKSPACE
+    else:
+        uid = (auth.verify_session(tok)
+               or auth.verify_session(ws.cookies.get(auth.SESSION_COOKIE))
+               or auth.verify_session(ws.cookies.get(auth.PARTITIONED_COOKIE)))
+    if uid is None:
+        await ws.close(code=1008)
+        return
 
     await ws.accept()
     spk = ws.query_params.get("speaker") or "Derek (AI Morphed Mic)"
@@ -1255,7 +1262,7 @@ def api_data_progress(p: auth.Principal = Depends(require_principal)):
 _TRAINING_STATE = {"status": "idle", "last_run": None, "current_epoch": 0, "total_epochs": 0}
 
 @app.get("/api/training/lineage")
-def api_training_lineage():
+def api_training_lineage(p: auth.Principal = Depends(require_principal)):
     lineage_file = Path("models/training_lineage.json")
     if lineage_file.exists():
         try:
@@ -1266,8 +1273,8 @@ def api_training_lineage():
 
 
 @app.get("/api/training/status")
-def api_training_status():
-    lineage = api_training_lineage()
+def api_training_status(p: auth.Principal = Depends(require_principal)):
+    lineage = api_training_lineage(p)
     return {
         "state": _TRAINING_STATE["status"],
         "current_epoch": _TRAINING_STATE["current_epoch"],
@@ -1286,7 +1293,7 @@ class RetrainReq(BaseModel):
 
 
 @app.post("/api/training/start")
-def api_training_start(req: RetrainReq = RetrainReq(), p: auth.Principal = Depends(require_principal)):
+def api_training_start(req: RetrainReq = RetrainReq(), p: auth.Principal = Depends(require_admin)):
     if _TRAINING_STATE["status"] == "training":
         return {"ok": False, "status": "already_running", "detail": "A training iteration is currently in progress."}
 
@@ -1315,11 +1322,16 @@ class ScheduleReq(BaseModel):
 
 
 @app.get("/api/training/schedule")
-def api_training_schedule():
-    from src.pipeline.training_scheduler import TrainingScheduler
-    sched = TrainingScheduler()
-    cfg = sched.load_config()
-    next_run = sched.get_next_run_timestamp()
+def api_training_schedule(p: auth.Principal = Depends(require_admin)):
+    try:
+        from src.pipeline.training_scheduler import TrainingScheduler
+        sched = TrainingScheduler()
+        cfg = sched.load_config()
+        next_run = sched.get_next_run_timestamp()
+    except Exception as e:  # noqa: BLE001 — module absent in the deployed container
+        logger.warning("training scheduler unavailable: %s", repr(e)[:80])
+        return {"ok": False, "config": {}, "next_run_display": None,
+                "cadence": "manual", "status": "unavailable"}
     return {
         "ok": True,
         "config": cfg,
@@ -1330,7 +1342,7 @@ def api_training_schedule():
 
 
 @app.post("/api/training/schedule")
-def api_training_set_schedule(req: ScheduleReq, p: auth.Principal = Depends(require_principal)):
+def api_training_set_schedule(req: ScheduleReq, p: auth.Principal = Depends(require_admin)):
     from src.pipeline.training_scheduler import TrainingScheduler
     sched = TrainingScheduler()
     cfg = sched.load_config()
@@ -1348,16 +1360,19 @@ def api_training_set_schedule(req: ScheduleReq, p: auth.Principal = Depends(requ
 
 
 @app.get("/api/hf/trending")
-def api_hf_trending():
-    from src.pipeline.hf_corpus_harvester import HFCorpusHarvester
-    harvester = HFCorpusHarvester()
+def api_hf_trending(p: auth.Principal = Depends(require_principal)):
     registry_file = Path("models/hf_discovered_models.json")
     if registry_file.exists():
         try:
             return json.loads(registry_file.read_text(encoding="utf-8"))
         except Exception:
             pass
-    models = harvester.discover_trending_hf_models()
+    try:
+        from src.pipeline.hf_corpus_harvester import HFCorpusHarvester
+        models = HFCorpusHarvester().discover_trending_hf_models()
+    except Exception as e:  # noqa: BLE001 — module absent in the deployed container
+        logger.warning("hf trending unavailable: %s", repr(e)[:80])
+        return {"discovered_models": [], "total_tracked": 0}
     return {"discovered_models": models, "total_tracked": len(models)}
 
 
@@ -1377,15 +1392,26 @@ def api_hf_sync(p: auth.Principal = Depends(require_principal)):
 
 @app.post("/api/webhooks/hf-model-update")
 async def api_hf_webhook(request: Request):
-    """Hugging Face Hub Webhook Receiver for real-time model release notifications."""
+    """Hugging Face Hub webhook receiver for model release notifications.
+    Secret-gated (X-Webhook-Secret vs SONAVE_HF_WEBHOOK_SECRET) and fail-closed:
+    an unconfigured or unauthorized caller can never reach the handler or
+    produce a 500 (the open version 500'd at the CASA scanner)."""
+    hook_secret = os.environ.get("SONAVE_HF_WEBHOOK_SECRET", "")
+    if not hook_secret:
+        raise HTTPException(status_code=404, detail="not configured")
+    sent = request.headers.get("x-webhook-secret", "")
+    if not sent or not secrets.compare_digest(sent, hook_secret):
+        raise HTTPException(status_code=403, detail="bad webhook secret")
     try:
         payload = await request.json()
     except Exception:
-        payload = {}
-    from src.pipeline.hf_corpus_harvester import HFCorpusHarvester
-    harvester = HFCorpusHarvester()
-    res = harvester.handle_hf_webhook_event(payload)
-    return res
+        raise HTTPException(status_code=400, detail="invalid JSON")
+    try:
+        from src.pipeline.hf_corpus_harvester import HFCorpusHarvester
+        return HFCorpusHarvester().handle_hf_webhook_event(payload)
+    except Exception as e:  # noqa: BLE001 — handler module may be absent in prod
+        logger.warning("hf webhook handler failed: %s", repr(e)[:120])
+        raise HTTPException(status_code=503, detail="handler unavailable")
 
 
 def _background_scheduler_daemon():
@@ -1898,7 +1924,12 @@ def auth_login(ctx: str = ""):
 
 @app.get("/auth/meet/connect")
 def auth_meet_connect(request: Request):
-    """Google Meet Media API OAuth authorization endpoint."""
+    """Google Meet Media API OAuth authorization endpoint. Signed-in users only
+    (parity with /auth/calendar/connect — an anonymous visitor has no account
+    to attach the grant to)."""
+    p = auth.get_principal(request)
+    if p is None or p.kind != "user":
+        return RedirectResponse("/console", status_code=302)
     state = auth.make_state("meet")
     resp = RedirectResponse(auth.meet_login_url(state), status_code=302)
     resp.set_cookie(auth.STATE_COOKIE, state, max_age=auth.STATE_TTL,

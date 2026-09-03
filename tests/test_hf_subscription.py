@@ -26,7 +26,7 @@ def test_hf_webhook_event_handling():
     assert res["model_id"] == "test-org/new-flow-matching-voice"
 
 
-def test_hf_api_endpoints():
+def test_hf_api_endpoints(monkeypatch):
     import sys
     _RAILWAY = Path(__file__).resolve().parent.parent / "railway"
     if str(_RAILWAY) not in sys.path:
@@ -42,8 +42,13 @@ def test_hf_api_endpoints():
     assert "discovered_models" in data
     assert len(data["discovered_models"]) > 0
 
-    # 2. POST /api/webhooks/hf-model-update
+    # 2. POST /api/webhooks/hf-model-update — secret-gated (CASA hardening):
+    #    unconfigured -> 404, wrong/missing secret -> 403, correct secret -> 200
     wh_payload = {"event": "repo.updated", "repo_id": "community/ultra-tts-v2"}
-    r_wh = client.post("/api/webhooks/hf-model-update", json=wh_payload)
+    assert client.post("/api/webhooks/hf-model-update", json=wh_payload).status_code == 404
+    monkeypatch.setenv("SONAVE_HF_WEBHOOK_SECRET", "hf-test-secret")
+    assert client.post("/api/webhooks/hf-model-update", json=wh_payload).status_code == 403
+    r_wh = client.post("/api/webhooks/hf-model-update", json=wh_payload,
+                       headers={"X-Webhook-Secret": "hf-test-secret"})
     assert r_wh.status_code == 200
     assert r_wh.json()["ok"] is True
