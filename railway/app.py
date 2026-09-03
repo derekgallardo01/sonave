@@ -121,6 +121,15 @@ def require_admin(request: Request) -> auth.Principal:
     return p
 
 
+def _mask_email(email: str | None) -> str:
+    """d***@x.com — logs identify without exposing (ASVS 6.5.1 over-compliance)."""
+    e = email or ""
+    if "@" not in e:
+        return "***"
+    local, _, domain = e.partition("@")
+    return f"{local[:1]}***@{domain}"
+
+
 def _track(user_id: str, kind: str, **detail) -> None:
     """Best-effort activity event — must never affect the request path."""
     try:
@@ -201,9 +210,10 @@ def _auth_rate_ok(ip: str) -> bool:
 async def _security_headers(request: Request, call_next):
     # Rate-limit auth endpoints to prevent brute force (OWASP A07)
     if request.url.path.startswith("/auth/"):
+        # cf-connecting-ip is set authoritatively by Cloudflare (our only edge);
+        # raw x-forwarded-for is caller-spoofable and is deliberately NOT trusted
         ip = (request.headers.get("cf-connecting-ip")
-              or request.headers.get("x-forwarded-for", "").split(",")[0].strip()
-              or request.client.host if request.client else "unknown")
+              or (request.client.host if request.client else "unknown"))
         if not _auth_rate_ok(ip):
             return Response(content='{"detail":"too many requests"}',
                             status_code=429,
@@ -702,11 +712,9 @@ async def ws_audio(ws: WebSocket):
 async def ws_mic_ai_test(ws: WebSocket):
     """Real-time AI microphone voice transformer test endpoint.
     Receives raw 16kHz PCM audio stream from user's live morphed microphone and scores in real time."""
-    # Same auth contract as /api/ws/audio: machine token or a valid session,
-    # resolved to ITS OWN workspace — never a fallback into the admin's. The
-    # previous version passed a string into get_principal (which takes a
-    # Request), always threw, and dropped every anonymous caller into the
-    # first admin's live view with fabricated verdicts. (CASA hardening.)
+    # ADMIN-ONLY simulated demo (machine token or an admin session), resolved
+    # to its own workspace — never a fallback into the admin's. It paints a
+    # clearly-labeled SIMULATED card; it does not run the real detector.
     tok = ws.query_params.get("token") or ws.cookies.get("sonave_token") or ""
     if _token_ok(tok):
         uid = db.first_admin_id() or auth.MACHINE_WORKSPACE
@@ -714,12 +722,14 @@ async def ws_mic_ai_test(ws: WebSocket):
         uid = (auth.verify_session(tok)
                or auth.verify_session(ws.cookies.get(auth.SESSION_COOKIE))
                or auth.verify_session(ws.cookies.get(auth.PARTITIONED_COOKIE)))
+        if uid is not None and (db.get_user(uid) or {}).get("role") != "admin":
+            uid = None                          # demo is operator-only
     if uid is None:
         await ws.close(code=1008)
         return
 
     await ws.accept()
-    spk = ws.query_params.get("speaker") or "Derek (AI Morphed Mic)"
+    spk = "Simulated Mic Test"       # forced label — never caller-controlled
 
     with _STATE_LOCK:
         ACTIVE_STREAMS[uid] = ACTIVE_STREAMS.get(uid, 0) + 1
@@ -759,9 +769,9 @@ async def ws_mic_ai_test(ws: WebSocket):
                             "verdict": "fake",
                             "p_fake": p_fake,
                             "rolling": p_fake,
-                            "n": 10,
-                            "latency_ms": 38,
-                            "model": "sonave-xlsr-meet-v2"
+                            "n": 1,
+                            "latency_ms": None,
+                            "model": "simulation"     # never a real model name
                         }
                     await ws.send_json({
                         "speaker": spk,
@@ -769,8 +779,8 @@ async def ws_mic_ai_test(ws: WebSocket):
                         "verdict": "fake",
                         "level": round(rms, 3),
                         "attribution": {
-                            "engine_name": "ElevenLabs v2 Neural Mic Morph",
-                            "anomaly_band": "5.2 - 7.8 kHz Phase Distortion"
+                            "engine_name": "simulated demo signal",
+                            "anomaly_band": "n/a (simulation)"
                         }
                     })
     except (WebSocketDisconnect, Exception):
@@ -2021,7 +2031,7 @@ def auth_callback(request: Request, code: str = "", state: str = ""):
                         f"{auth.PARTITIONED_COOKIE}={session_tok}; Max-Age={auth.SESSION_TTL}; "
                         f"Path=/; Secure; HttpOnly; SameSite=None; Partitioned")
     resp.delete_cookie(auth.STATE_COOKIE, path="/auth")
-    logger.info("login: %s (%s)", user.get("email"), user.get("role"))
+    logger.info("login: %s (%s)", _mask_email(user.get("email")), user.get("role"))
     # exact-equal floats only on the INSERT path (db.upsert_google_user uses one `now`)
     if user.get("created_ts") == user.get("last_login_ts"):
         _track(user["id"], "signup", email=user.get("email") or "")
@@ -2055,11 +2065,28 @@ def auth_google_credential(req: CredReq):
         _notify_admin(f"New signup: {user.get('email')}")
     else:
         _track(user["id"], "signin", email=user.get("email") or "")
-    logger.info("credential login: %s (%s)", user.get("email"), user.get("role"))
+    logger.info("credential login: %s (%s)", _mask_email(user.get("email")), user.get("role"))
     if user.get("role") == "admin":
         db.migrate_legacy(DATA_DIR, enroll.ENROLL_DIR, user["id"])
     return {"ok": True, "token": auth.sign_session(user["id"], user.get("session_ver", 1)),
             "email": user.get("email"), "name": user.get("name")}
+
+
+class OperatorReq(BaseModel):
+    token: str
+
+
+@app.post("/auth/operator")
+def auth_operator(req: OperatorReq):
+    """Operator sign-in: validates the machine token and sets it as an
+    HttpOnly+Secure cookie server-side (ASVS 2.3.x — JS never touches it;
+    2.1.1 — the token never appears in a URL). Rate-limited via /auth/*."""
+    if not auth._machine_token_ok(req.token):
+        raise HTTPException(status_code=403, detail="invalid operator token")
+    resp = JSONResponse({"ok": True})
+    resp.set_cookie("sonave_token", req.token, max_age=30 * 24 * 3600,
+                    httponly=True, secure=True, samesite="strict", path="/")
+    return resp
 
 
 @app.post("/auth/logout")
@@ -2069,6 +2096,7 @@ def auth_logout(request: Request):
         _track(p.user_id, "signout")
         db.bump_session_ver(p.user_id)         # revoke ALL outstanding session tokens
     resp = RedirectResponse("/console", status_code=302)
+    resp.delete_cookie("sonave_token", path="/")   # HttpOnly — JS can't clear it
     resp.delete_cookie(auth.SESSION_COOKIE, path="/")
     resp.headers.append("set-cookie",
                         f"{auth.PARTITIONED_COOKIE}=; Max-Age=0; Path=/; Secure; HttpOnly; "

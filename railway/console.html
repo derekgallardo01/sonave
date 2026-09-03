@@ -400,9 +400,9 @@ a:hover{color:var(--green-hover)}
        </div>
        <div class="hint" style="margin-top:6px">Speak any phrase into your mic — the selected real neural voice (ElevenLabs, OpenAI, etc.) will immediately speak your exact words in that voice!</div>
       </div>
-      <div style="border-top:1px solid var(--line); margin-top:10px; padding-top:10px;">
+      <div id="micMorphCard" style="display:none;border-top:1px solid var(--line); margin-top:10px; padding-top:10px;">
        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-        <span style="font-size:10.5px; font-weight:700; color:var(--ink);">REAL-TIME LIVE MIC AI MORPH</span>
+        <span style="font-size:10.5px; font-weight:700; color:var(--ink);">LIVE MIC MORPH &#183; <span style="color:var(--amber)">SIMULATION</span></span>
         <span id="liveMicStatus" style="font-size:9.5px; font-family:var(--mono); color:var(--muted)">OFF</span>
        </div>
        <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:8px;">
@@ -420,7 +420,7 @@ a:hover{color:var(--green-hover)}
         <input type="checkbox" id="chkHearSelf" style="accent-color:var(--green)">
         <span>Hear morphed audio in headphones (Headphones required)</span>
        </label>
-       <div class="hint" style="margin-top:6px">Morphs your microphone live as you talk and streams the converted synthetic voice into Sonave's detector in real time.</div>
+       <div class="hint" style="margin-top:6px">Operator-only demo: morphs your mic live and paints a clearly-labeled SIMULATED verdict card — it does not run the real detector.</div>
       </div>
      </div>
      <div class="hint" style="margin-top:8px">Generates neural synthetic speech and immediately injects it into Sonave's live detection pipeline to verify real-time alert triggers.</div>
@@ -667,16 +667,9 @@ a:hover{color:var(--green-hover)}
 </div>
 
 <script>
-(function(){
- try{
-  var u=new URLSearchParams(window.location.search);
-  var tok=u.get('tok');
-  if(tok){
-   document.cookie='sonave_token='+encodeURIComponent(tok)+';path=/;SameSite=Lax;Max-Age=2592000';
-   history.replaceState(null,'',window.location.pathname);
-  }
- }catch(x){}
-})();
+/* Tokens never travel in URLs (ASVS 2.1.1): the old ?tok= bootstrap is gone;
+   operator sign-in posts the token to /auth/operator, which sets an
+   HttpOnly cookie server-side. */
 var SKIP=/HealthCheck|FIXCHECK|WSTEST|deploycheck/i,AUTH='__AUTH__'==='1',GOOGLE='__GOOGLE__'==='1',lastAudio=null,openSess={};
 function cookie(n){return(document.cookie.match('(^|;)\\s*'+n+'\\s*=\\s*([^;]+)')||[])[2]}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -689,7 +682,10 @@ async function me(){
   var el=document.getElementById('userChip');if(el&&d.email)el.textContent=d.email;
   var ah=document.getElementById('alertHook');if(ah&&d.alert_webhook)ah.value=d.alert_webhook;
   var ic=document.getElementById('icalUrl');if(ic&&d.ical_url)ic.value=d.ical_url;
-  if(d.role==='admin'){document.getElementById('nav-admin').style.display='flex';adminStart()}
+  if(d.role==='admin'){
+   document.getElementById('nav-admin').style.display='flex';adminStart();
+   var mm=document.getElementById('micMorphCard');if(mm)mm.style.display='block';
+  }
   calRender(d);
   window._me=d;renderPlan(d);return true}catch(e){return false}
 }
@@ -850,9 +846,16 @@ function calRender(d){
  }
 }
 async function portal(){var r=await fetch('/api/billing/portal',{method:'POST'});var d=await r.json();if(d.ok&&d.url)location=d.url;else toast('✕ '+(d.detail||'portal unavailable'),'err')}
-function signout(){fetch('/auth/logout',{method:'POST'}).finally(function(){document.cookie='sonave_token=;path=/;Max-Age=0';location.reload()})}
+function signout(){fetch('/auth/logout',{method:'POST'}).finally(function(){location.reload()})}
 async function jget(u){var r=await fetch(u);if(r.status===401){needlogin();throw'auth'}return r.json()}
-function dologin(){var t=document.getElementById('tok').value.trim();if(!t)return;document.cookie='sonave_token='+t+';path=/;SameSite=Strict;Max-Age=2592000';document.getElementById('login').style.display='none';start();me()}
+async function dologin(){
+ var t=document.getElementById('tok').value.trim();if(!t)return;
+ try{
+  var r=await fetch('/auth/operator',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:t})});
+  if(!r.ok){toast('✕ Invalid operator token','err');return}
+  document.getElementById('login').style.display='none';start();me();
+ }catch(e){toast('✕ Sign-in failed: '+e,'err')}
+}
 function toast(msg,type){var el=document.getElementById('toast');clearTimeout(el._t1);clearTimeout(el._t2);el.textContent=msg;el.className='toast '+(type||'');el._t1=setTimeout(function(){el.classList.add('show')},10);el._t2=setTimeout(function(){el.classList.remove('show')},3500)}
 
 /* ---- admin observability (role=admin only; nav item hidden otherwise) ---- */

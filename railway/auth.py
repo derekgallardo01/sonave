@@ -310,8 +310,11 @@ def _machine_token_ok(tok: str | None) -> bool:
 def get_principal(request) -> Principal | None:
     auth_hdr = request.headers.get("authorization", "")
     bearer = auth_hdr[7:] if auth_hdr.lower().startswith("bearer ") else ""
+    # Headers and cookies ONLY — never URL query params (ASVS 2.1.1: tokens in
+    # query strings leak via logs, referrers and history). WebSocket handlers
+    # manage their own token channel separately.
     tok = (request.headers.get("x-sonave-token") or bearer
-           or request.cookies.get("sonave_token") or request.query_params.get("token"))
+           or request.cookies.get("sonave_token"))
     if _machine_token_ok(tok):
         uid = db.first_admin_id() or MACHINE_WORKSPACE
         return Principal("machine", uid, "admin", email="operator")
