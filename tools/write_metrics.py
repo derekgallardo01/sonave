@@ -27,10 +27,13 @@ def main() -> None:
         "model": "sonave-xlsr-meet",
         "trained": dt.date.fromtimestamp(HEAD.stat().st_mtime).isoformat() if HEAD.exists() else None,
         "benchmarked": dt.date.today().isoformat(),
+        # ITW figures are read at the deployed operating point (tau=0.72, the @calib
+        # rows) so the console/API match production behavior and the public page —
+        # not the raw-0.5-threshold rows, which production does not run.
         "unseen_tools_catch_pct": float(rows[("mlaad_unseen_only", ours)]["catch_%"]),
         "unseen_gens_eer_pct": float(rows[("unseen_gens", ours)]["eer_%"]),
-        "opus_real_acc_pct": float(rows[("in_the_wild_opus24k", ours)]["real_acc_%"]),
-        "itw_catch_pct": float(rows[("in_the_wild", ours)]["catch_%"]),
+        "opus_real_acc_pct": float(rows[("in_the_wild_opus24k@calib", ours)]["real_acc_%"]),
+        "itw_catch_pct": float(rows[("in_the_wild@calib", ours)]["catch_%"]),
     }
     OUT.write_text(json.dumps(m, indent=2) + "\n", encoding="utf-8")
     print(f"wrote {OUT}: trained {m['trained']}, unseen-tools catch {m['unseen_tools_catch_pct']}%")

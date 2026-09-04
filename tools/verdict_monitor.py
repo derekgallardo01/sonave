@@ -57,7 +57,7 @@ def _get(url: str) -> bytes:
 
 
 def _verdict(p: float) -> str:
-    return "fake" if p >= 0.7 else "suspect" if p >= 0.4 else "real"
+    return "fake" if p >= 0.72 else "suspect" if p >= 0.5 else "real"
 
 
 def _post_clip(remote: str, path: Path):

@@ -50,7 +50,7 @@ footer a{color:var(--muted)}
  <li><b>The generator gap.</b> Detectors ace the synthesis tools in their training set. Fraudsters use this year's commercial tools, which weren't. The only number that predicts field performance is catch rate on tools <i>excluded</i> from training.</li>
  <li><b>The threshold gap.</b> Any detector can "catch everything" if it also flags real speakers constantly — and a system that cries wolf gets muted within a week. Catch rate is meaningless without the real-voice accuracy it was measured at.</li>
 </ol>
-<p>The size of these gaps is not subtle. In our published testing, a widely-used open-source detector with strong advertised lab numbers catches <b>1.9%</b> of clips from 27 unseen commercial voice-clone tools played through meeting audio. A model trained specifically for that environment catches <b>95.2%</b> of the identical clips. Ninety-seven points of difference, on the same audio, from training choices alone.</p>
+<p>The size of these gaps is not subtle. In our published testing, a widely-used open-source detector with strong advertised lab numbers catches <b>1.9%</b> of clips from 27 unseen commercial voice-clone tools played through meeting audio. A model trained specifically for that environment catches <b>97.2%</b> of the identical clips. Ninety-five points of difference, on the same audio, from training choices alone.</p>
 
 <h2>Four questions that expose any vendor (including us)</h2>
 <ol>
@@ -61,7 +61,7 @@ footer a{color:var(--muted)}
 </ol>
 
 <h2>What honest numbers look like</h2>
-<p>Here are ours, from the exact model checkpoint serving production, with <a href="/benchmarks">methodology published</a>: <b>95.2%</b> catch on 27 unseen commercial tools through meeting audio (commodity detector: 1.9% on the same clips); <b>94.0%</b> real-voice accuracy through the Opus codec; and on In-the-Wild — the hardest public real-world deepfake benchmark — <b>58.7%</b> catch at 93.3% real-voice accuracy.</p>
+<p>Here are ours, from the exact model checkpoint serving production, with <a href="/benchmarks">methodology published</a>: <b>97.2%</b> catch on 27 unseen commercial tools through meeting audio (commodity detector: 1.9% on the same clips); <b>94.7%</b> real-voice accuracy through the Opus codec; and on In-the-Wild — the hardest public real-world deepfake benchmark — <b>57.3%</b> catch at 94.0% real-voice accuracy.</p>
 <p>That last number is the one a marketing department would hide, and it's the most important one on the page. Adversarial, real-world deepfakes are genuinely hard; roughly 6-in-10 at a sub-7% false-alarm rate is the current honest state of a specialized detector, and near-zero is the honest state of a generic one. Anyone quoting 99%+ against <i>that</i> class of audio is describing their lab, not your risk.</p>
 
 <div class="note"><b>The design consequence:</b> because no detector is certain, detection should never be the last line of defense. It belongs where a probabilistic signal is valuable — watching every speaker on every call, and converting sustained suspicion into automatic action: an on-screen verdict, a wire-hold webhook that pauses the payment, a forensic report for the follow-up. Verification (callbacks, dual approval) stays in the loop; detection decides when the loop must run.</div>

@@ -861,7 +861,7 @@ def _write(user_id: str, spk: str, pcm: bytes, session: int, idx: int):
 
 
 def _av(p: float) -> str:
-    return "fake" if p >= 0.7 else "suspect" if p >= 0.4 else "real"
+    return "fake" if p >= 0.72 else "suspect" if p >= 0.5 else "real"
 
 
 def _pcm_to_wav(pcm: bytes) -> bytes:

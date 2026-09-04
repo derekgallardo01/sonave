@@ -48,34 +48,34 @@ footer a{color:var(--muted)}
 
 <h1>Benchmarks. Including the hard ones.</h1>
 <p class="lede">Most detection vendors publish one big lab number. We publish what our deployed production model actually measures — on real meeting audio, on tools it has never seen, with the weak spots stated in the same table.</p>
-<p class="stamp">Deployed checkpoint <span class="g">sonave-xlsr-meet</span> &middot; benchmarked 2026-08-12 &middot; evaluation code: <code>src/eval_xlsr.py</code></p>
+<p class="stamp">Deployed checkpoint <span class="g">sonave-xlsr-meet</span> &middot; benchmarked 2026-09-04 &middot; evaluation code: <code>src/eval_xlsr.py</code></p>
 
 <h2>Headline results</h2>
 <table>
  <tr><th>Test</th><th>Sonave</th><th>Commodity detector*</th><th>What it measures</th></tr>
  <tr>
   <td><b>27 unseen commercial voice-clone tools</b><br><span class="m" style="font-size:12px">MLAAD subset, all tools absent from training, played through meeting audio</span></td>
-  <td class="num g">95.2%</td>
+  <td class="num g">97.2%</td>
   <td class="num m">1.9%</td>
   <td>Catch rate on the clone tools an attacker would actually use today, in call-quality audio. Same clips for both models.</td>
  </tr>
  <tr>
   <td><b>Real voices through the Opus meeting codec</b><br><span class="m" style="font-size:12px">Unseen real-speech corpus, Opus-24k pipeline</span></td>
-  <td class="num g">94.0%</td>
+  <td class="num g">94.7%</td>
   <td class="num m">&mdash;</td>
   <td>Accuracy on genuine speakers — how rarely we cry wolf on the audio meetings actually produce.</td>
  </tr>
  <tr>
   <td><b>In-the-Wild (hard public deepfakes)</b><br><span class="m" style="font-size:12px">The hardest public real-world benchmark</span></td>
-  <td class="num a">58.7%</td>
+  <td class="num a">57.3%</td>
   <td class="num m">4.0%</td>
-  <td>Catch rate at 93.3% real-voice accuracy. <b class="a">This is our honest ceiling</b> — see below.</td>
+  <td>Catch rate at 94.0% real-voice accuracy. <b class="a">This is our honest ceiling</b> — see below.</td>
  </tr>
  <tr>
   <td><b>In-the-Wild through Opus-24k</b><br><span class="m" style="font-size:12px">Same benchmark, through the meeting pipeline</span></td>
-  <td class="num a">59.3%</td>
+  <td class="num a">56.7%</td>
   <td class="num m">&mdash;</td>
-  <td>Catch rate at 94.0% real-voice accuracy — the model holds through the codec it was built for.</td>
+  <td>Catch rate at 94.7% real-voice accuracy — the model holds through the codec it was built for.</td>
  </tr>
 </table>
 <p class="m" style="font-size:12px">*A widely-used open-source deepfake detector, evaluated on the identical clips. It advertises strong lab numbers; on unseen commercial tools through meeting audio it collapses — which is why "99% accurate" marketing tells you nothing about your next call.</p>

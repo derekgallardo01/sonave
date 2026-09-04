@@ -14,10 +14,10 @@ import play_into_meet as pim
 # --- verdict_monitor -------------------------------------------------------
 def test_verdict_thresholds():
     assert vm._verdict(0.0) == "real"
-    assert vm._verdict(0.39) == "real"
-    assert vm._verdict(0.4) == "suspect"
-    assert vm._verdict(0.69) == "suspect"
-    assert vm._verdict(0.7) == "fake"
+    assert vm._verdict(0.49) == "real"
+    assert vm._verdict(0.5) == "suspect"
+    assert vm._verdict(0.71) == "suspect"
+    assert vm._verdict(0.72) == "fake"
 
 
 def test_post_clip_builds_multipart_and_returns_pfake(tmp_path, monkeypatch):

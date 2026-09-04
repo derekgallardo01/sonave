@@ -142,7 +142,7 @@ a:hover{color:var(--green-hover)}
 
   <section class="stats" id="results">
     <div>
-      <div class="stat-num v-real">95%</div>
+      <div class="stat-num v-real">97%</div>
       <div class="stat-sub">catch rate on 27 unseen commercial voice-clone tools</div>
     </div>
     <div>
@@ -167,7 +167,7 @@ a:hover{color:var(--green-hover)}
       <div class="step">
         <div class="step-num">99% &ne; 95%</div>
         <h3>Same tools, same audio, different story</h3>
-        <p>Generic detectors advertise 99%+ lab numbers — yet on the same 27 unseen commercial voice-clone tools, played through real meeting audio, a commodity detector catches <b>2%</b>. Sonave catches <b>95%</b>. The difference is what the model was trained to hear.</p>
+        <p>Generic detectors advertise 99%+ lab numbers — yet on the same 27 unseen commercial voice-clone tools, played through real meeting audio, a commodity detector catches <b>2%</b>. Sonave catches <b>97%</b>. The difference is what the model was trained to hear.</p>
       </div>
       <div class="step">
         <div class="step-num">LIVE</div>
@@ -278,7 +278,7 @@ a:hover{color:var(--green-hover)}
       </div>
       <div style="border:1px solid var(--line);border-radius:12px;padding:18px 20px">
         <h3 style="font-size:15px;margin-bottom:6px">How accurate is deepfake voice detection, really?</h3>
-        <p style="color:var(--ink2);font-size:14px;margin:0">On 27 unseen commercial voice-clone tools played through meeting audio, Sonave catches 95% where a commodity detector catches 2%. On the hardest public real-world deepfakes (In-the-Wild), it catches about 59% at a 93%+ real-voice accuracy — which is why verdicts are designed as a second factor next to callbacks, not a replacement. Full methodology at <a href="/benchmarks">usesonave.com/benchmarks</a>.</p>
+        <p style="color:var(--ink2);font-size:14px;margin:0">On 27 unseen commercial voice-clone tools played through meeting audio, Sonave catches 97% where a commodity detector catches 2%. On the hardest public real-world deepfakes (In-the-Wild), it catches about 57% at a 94%+ real-voice accuracy — which is why verdicts are designed as a second factor next to callbacks, not a replacement. Full methodology at <a href="/benchmarks">usesonave.com/benchmarks</a>.</p>
       </div>
       <div style="border:1px solid var(--line);border-radius:12px;padding:18px 20px">
         <h3 style="font-size:15px;margin-bottom:6px">Does everyone on the call need to install something?</h3>
@@ -302,7 +302,7 @@ a:hover{color:var(--green-hover)}
   <script type="application/ld+json">
   {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
    {"@type":"Question","name":"Can a deepfake voice be detected on a live Google Meet, Zoom or Teams call?","acceptedAnswer":{"@type":"Answer","text":"Yes. Sonave sends a visible bot into the meeting that streams each speaker's audio to a detection model trained on meeting-codec audio. Every speaker gets a REAL / SUSPECT / FAKE verdict about 4 seconds after they start talking, re-scored every 4 seconds for the rest of the call."}},
-   {"@type":"Question","name":"How accurate is deepfake voice detection, really?","acceptedAnswer":{"@type":"Answer","text":"On 27 unseen commercial voice-clone tools played through meeting audio, Sonave catches 95% where a commodity detector catches 2%. On the hardest public real-world deepfakes (In-the-Wild), it catches about 59% at a 93%+ real-voice accuracy — which is why verdicts are designed as a second factor next to callbacks, not a replacement. Full methodology at usesonave.com/benchmarks."}},
+   {"@type":"Question","name":"How accurate is deepfake voice detection, really?","acceptedAnswer":{"@type":"Answer","text":"On 27 unseen commercial voice-clone tools played through meeting audio, Sonave catches 97% where a commodity detector catches 2%. On the hardest public real-world deepfakes (In-the-Wild), it catches about 57% at a 94%+ real-voice accuracy — which is why verdicts are designed as a second factor next to callbacks, not a replacement. Full methodology at usesonave.com/benchmarks."}},
    {"@type":"Question","name":"Does everyone on the call need to install something?","acceptedAnswer":{"@type":"Answer","text":"No. Only the person protecting the meeting signs in; the bot joins as a normal, visible participant. Nobody else installs, clicks or configures anything."}},
    {"@type":"Question","name":"What is a wire hold?","acceptedAnswer":{"@type":"Answer","text":"When a voice scores in the red band for three consecutive windows, Sonave fires a webhook your payment-approval flow can use to pause a wire transfer pending re-authentication, and produces an exportable forensic report of the incident — scores, timestamps and audio evidence."}},
    {"@type":"Question","name":"What happens to my meeting audio?","acceptedAnswer":{"@type":"Answer","text":"Audio is processed to produce verdicts and may be used to improve the detection models, with an opt-out available. Voiceprints are stored as embeddings you can delete in one click. We never sell data or share meeting audio between customers — details at usesonave.com/privacy."}},

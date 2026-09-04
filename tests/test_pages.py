@@ -15,7 +15,7 @@ def mod(monkeypatch, tmp_path):
 
 def test_public_pages_render(mod):
     c = TestClient(mod.app)
-    for path, marker in (("/", "FAQPage"), ("/benchmarks", "95.2%"),
+    for path, marker in (("/", "FAQPage"), ("/benchmarks", "97.2%"),
                          ("/guides", "Guides"), ("/privacy", "Privacy"),
                          ("/llms.txt", "Sonave"), ("/robots.txt", "Sitemap:")):
         r = c.get(path)

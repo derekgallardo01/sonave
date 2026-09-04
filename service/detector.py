@@ -8,8 +8,9 @@ product can be cautious rather than binary —
     p < TAU_REAL      -> "real"
     TAU_REAL..TAU_FAKE-> "suspect"   (watch / escalate)
     p >= TAU_FAKE     -> "fake"
-Defaults come from the calibrated operating point in results/detector_v2_progress.md
-(~64% catch / ~92% real-acc on real-world at tau~0.4). Override via env or config.
+Defaults are the calibrated operating point of the sonave-xlsr-meet checkpoint:
+the fake band τ=0.72 was chosen on unseen generators and lands In-the-Wild at
+~57% catch / ~94% real-acc (results/benchmark_baseline.json). Override via env or config.
 """
 from __future__ import annotations
 
@@ -43,8 +44,8 @@ _load_dotenv()
 
 MODEL_DIR = Path(os.environ.get("SONAVE_MODEL", ROOT / "models" / "sonave_xlsr_rw"))
 MODEL_VERSION = MODEL_DIR.name
-TAU_REAL = float(os.environ.get("SONAVE_TAU_REAL", "0.40"))
-TAU_FAKE = float(os.environ.get("SONAVE_TAU_FAKE", "0.70"))
+TAU_REAL = float(os.environ.get("SONAVE_TAU_REAL", "0.50"))
+TAU_FAKE = float(os.environ.get("SONAVE_TAU_FAKE", "0.72"))
 
 _MODEL = None
 _DEVICE = None

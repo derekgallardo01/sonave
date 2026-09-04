@@ -11,10 +11,10 @@ WAV = b"RIFFxxxxWAVEfmt "   # opaque bytes; the scorer is mocked, so contents do
 
 def test_av_thresholds(railway_mod):
     assert railway_mod._av(0.0) == "real"
-    assert railway_mod._av(0.39) == "real"
-    assert railway_mod._av(0.4) == "suspect"
-    assert railway_mod._av(0.69) == "suspect"
-    assert railway_mod._av(0.7) == "fake"
+    assert railway_mod._av(0.49) == "real"
+    assert railway_mod._av(0.5) == "suspect"
+    assert railway_mod._av(0.71) == "suspect"
+    assert railway_mod._av(0.72) == "fake"
     assert railway_mod._av(1.0) == "fake"
 
 

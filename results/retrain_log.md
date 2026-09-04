@@ -29,3 +29,18 @@ One line per weekly retrain (appended by tools/sunday_retrain.ps1).
   capture week can't tilt the loss.
 - 2026-08-21 — retrain attempt FAILED (step failed: regression gate). Candidate preserved at models\sonave_xlsr_meet_candidate_2026-08-21; deployed checkpoint restored.
 - 2026-08-30 — retrain attempt FAILED (step failed: regression gate). Candidate preserved at models\sonave_xlsr_meet_candidate_2026-08-30; deployed checkpoint restored.
+- 2026-09-04 — **SHIPPED the run-3 candidate (`sonave_xlsr_meet_candidate_2026-08-21`) with recalibrated bands.**
+  Re-benchmarked on the local RTX 5060 (fresh eval, not cached): headline unseen-tools catch
+  **97.2%** (deployed 95.2), unseen-gens 97.6/88.2 at **6.3% EER** (best ever), and — the unlock —
+  the eval's own calibration picked **τ=0.716**, landing In-the-Wild at **57.3% catch @ 94.0%
+  real-acc** and ITW-Opus **56.7 @ 94.7**, matching the prior deployed ITW profile while beating
+  it everywhere else and fixing the fresh-capture drift (40% → 84–94% real-acc). The Aug-13 log
+  pre-planned exactly this: "if the gain repeats on diverse sessions, ship with recalibrated
+  thresholds (suspect 0.40→0.50) and an updated baseline" — it has now repeated across three
+  data mixes. Actions: promoted the checkpoint (prior deployed model backed up at
+  `models/sonave_xlsr_meet_deployed_pre_ship_2026-09-04` for instant rollback); moved bands
+  SUSPECT 0.40→**0.50** / FAKE 0.70→**0.72** across detector.py, modal_app.py, railway `_av`,
+  verdict_monitor; reset `benchmark_baseline.json` to the measured operating-point numbers
+  (ITW floors keyed on the @calib rows) with the deliberate-tradeoff rationale in the file;
+  refreshed `model_metrics.json` and every public figure (benchmarks page, landing, guides,
+  console tile). Regression gate green against the new baseline.

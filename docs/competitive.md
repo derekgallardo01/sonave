@@ -20,7 +20,7 @@ the weak numbers included.
 
 1. **Meeting reality vs lab accuracy.** Same 27 unseen commercial voice tools,
    played through real meeting audio: commodity detector 1.9% catch, Sonave
-   95.2%. Lab numbers evaporate on Opus-compressed, processed call audio —
+   97.2%. Lab numbers evaporate on Opus-compressed, processed call audio —
    that is the entire reason Sonave exists. (results/benchmark_baseline.json)
 2. **The verdict does something.** Wire-hold webhook into the approval flow +
    3-consecutive-window discipline + exportable forensic report. Everyone else

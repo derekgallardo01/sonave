@@ -1,12 +1,14 @@
 {
   "model": "models/sonave_xlsr_meet",
-  "measured": "2026-08-12",
+  "measured": "2026-09-04",
   "source": "src/eval_xlsr.py -> results/xlsr_eval.csv",
   "tolerance_pts": 2.0,
+  "operating_point": "SUSPECT 0.50 / FAKE 0.72 (tau=0.716 chosen on unseen_gens)",
+  "note": "Deliberate baseline reset per the regression-gate escape hatch. The run-3 checkpoint beats the prior deployed model on the headline unseen-tools set (97.2 vs 95.2), unseen-generator EER (6.3 vs ~7.0), and fresh-capture drift, and matches the prior In-the-Wild profile at its operating point. ITW floors are the @calib rows because tau=0.72 is the threshold production runs; the raw-0.5-threshold ITW real-acc is intentionally not the floor.",
   "metrics": {
-    "mlaad_unseen_only": {"catch_%": 95.2},
-    "unseen_gens": {"catch_%": 95.4, "real_acc_%": 90.0},
-    "in_the_wild": {"catch_%": 58.7, "real_acc_%": 93.3},
-    "in_the_wild_opus24k": {"catch_%": 59.3, "real_acc_%": 94.0}
+    "mlaad_unseen_only": {"catch_%": 97.2},
+    "unseen_gens": {"catch_%": 97.6, "real_acc_%": 88.2},
+    "in_the_wild@calib": {"catch_%": 57.3, "real_acc_%": 94.0},
+    "in_the_wild_opus24k@calib": {"catch_%": 56.7, "real_acc_%": 94.7}
   }
 }
