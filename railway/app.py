@@ -1197,6 +1197,33 @@ def api_bots(p: auth.Principal = Depends(require_principal)):
     return {"bots": rows}
 
 
+# --- Kinetic Helix metrics pull ----------------------------------------------
+@app.get("/api/kh/metrics")
+def api_kh_metrics(request: Request):
+    """Durable aggregate counts for the Kinetic Helix command center.
+
+    Auth: X-KH-Key header vs KH_METRICS_KEY env (constant-time). Same contract
+    as the other portfolio products' /kh/metrics endpoints. Counts live in the
+    /data volume SQLite, so they reset only if that volume is recreated.
+    """
+    expected = os.environ.get("KH_METRICS_KEY", "")
+    provided = request.headers.get("X-KH-Key", "")
+    if not expected or not secrets.compare_digest(provided, expected):
+        raise HTTPException(status_code=401, detail="unauthorized")
+    c = db._conn()
+    try:
+        detections = c.execute("SELECT COUNT(*) FROM scores").fetchone()[0]
+        flagged = c.execute("SELECT COUNT(*) FROM scores "
+                            "WHERE LOWER(verdict)='fake'").fetchone()[0]
+        minutes = c.execute("SELECT COALESCE(SUM(minutes),0) FROM usage").fetchone()[0]
+        meetings = c.execute("SELECT COUNT(*) FROM bots").fetchone()[0]
+    finally:
+        c.close()
+    return {"detections": int(detections), "flagged": int(flagged),
+            "minutesProtected": round(float(minutes or 0.0), 1),
+            "meetings": int(meetings)}
+
+
 # --- admin observability ------------------------------------------------------
 @app.get("/api/admin/overview")
 def api_admin_overview(p: auth.Principal = Depends(require_admin)):
