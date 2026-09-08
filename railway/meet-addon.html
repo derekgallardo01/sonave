@@ -193,8 +193,8 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
  document.head.appendChild(s);
 })();
 
-function vcolor(p){return p>=0.7?'var(--red)':p>=0.4?'var(--amber)':'var(--green)'}
-function vname(p){return p>=0.7?'FAKE':p>=0.4?'SUSPECT':'REAL'}
+function vcolor(p){return p>=0.72?'var(--red)':p>=0.5?'var(--amber)':'var(--green)'}
+function vname(p){return p>=0.72?'FAKE':p>=0.5?'SUSPECT':'REAL'}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 
 // Cookie-less auth (works with third-party cookies disabled, per Marketplace

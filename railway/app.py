@@ -238,15 +238,24 @@ async def _security_headers(request: Request, call_next):
     )
     # Prevent cross-origin window attacks (OWASP A05)
     response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
-    # Content-Security-Policy — restrict scripts/styles/media sources (OWASP A03)
+    # Content-Security-Policy — restrict scripts/styles/media sources (OWASP A03).
+    # The Meet add-on (/meet-addon only) must load the Google Meet Add-ons SDK from
+    # www.gstatic.com; without it createAddonSession() never runs and Meet's host
+    # keeps showing "Loading Sonave" forever. That host is whitelisted for that one
+    # route only — every other page keeps the stricter allowlist.
+    _script_src = "script-src 'self' 'unsafe-inline' https://accounts.google.com https://cdn.jsdelivr.net"
+    _connect_src = "connect-src 'self' wss: https://accounts.google.com https://oauth2.googleapis.com https://openidconnect.googleapis.com"
+    if request.url.path == "/meet-addon":
+        _script_src += " https://www.gstatic.com"
+        _connect_src += " https://www.gstatic.com"
     response.headers["Content-Security-Policy"] = "; ".join([
         "default-src 'self'",
-        "script-src 'self' 'unsafe-inline' https://accounts.google.com https://cdn.jsdelivr.net",
+        _script_src,
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src 'self' https://fonts.gstatic.com",
         "img-src 'self' data: https: blob:",
         "media-src 'self' blob:",
-        "connect-src 'self' wss: https://accounts.google.com https://oauth2.googleapis.com https://openidconnect.googleapis.com",
+        _connect_src,
         "frame-src 'self' https://accounts.google.com https://meet.google.com",
         "frame-ancestors 'self' https://meet.google.com https://workspace.google.com",
         "object-src 'none'",
@@ -2223,21 +2232,12 @@ def meet_addon():
     content = (html.replace("__FAVICON__", _FAVICON_B64)
                    .replace("__MEET_PROJECT__", os.environ.get("SONAVE_MEET_PROJECT_NUMBER", ""))
                    .replace("__GOOGLE_CID__", os.environ.get("SONAVE_GOOGLE_CLIENT_ID", "")))
-    # Override framing policy: the Meet add-on MUST be embeddable in Google Meet's iframe.
-    # The global middleware sets X-Frame-Options: SAMEORIGIN; we relax it for this route only.
-    resp = HTMLResponse(content=content)
-    resp.headers["X-Frame-Options"] = "ALLOW-FROM https://meet.google.com"
-    resp.headers["Content-Security-Policy"] = "; ".join([
-        "default-src 'self'",
-        "script-src 'self' 'unsafe-inline' https://accounts.google.com",
-        "style-src 'self' 'unsafe-inline'",
-        "img-src 'self' data: https: blob:",
-        "media-src 'self' blob:",
-        "connect-src 'self' wss: https://accounts.google.com https://oauth2.googleapis.com",
-        "frame-ancestors https://meet.google.com https://workspace.google.com 'self'",
-        "object-src 'none'",
-    ])
-    return resp
+    # Framing + CSP for this route are handled by the global security-header
+    # middleware, which allows embedding in Google Meet via frame-ancestors and
+    # whitelists the Meet Add-ons SDK host (www.gstatic.com) for /meet-addon.
+    # (Modern browsers honor CSP frame-ancestors over the obsolete X-Frame-Options
+    # ALLOW-FROM, so no per-route header override is needed here.)
+    return HTMLResponse(content=content)
 
 
 @app.get("/og.png")

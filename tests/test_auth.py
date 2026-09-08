@@ -168,6 +168,21 @@ def test_meet_addon_page_renders(mod):
     assert "createAddonSession" in r.text and "__FAVICON__" not in r.text
 
 
+def _script_src(csp: str) -> str:
+    return next(d for d in csp.split(";") if d.strip().startswith("script-src"))
+
+
+def test_meet_addon_csp_allows_meet_sdk_host(mod):
+    # The Google Meet Add-ons SDK loads from www.gstatic.com. If the CSP script-src
+    # drops that host, createAddonSession() is blocked and Meet stalls forever on
+    # its "Loading Sonave" host spinner. Lock the host in — for this route only.
+    r = client(mod).get("/meet-addon")
+    assert "https://www.gstatic.com" in _script_src(r.headers["content-security-policy"])
+    # Scoped: the marketing surface keeps the stricter allowlist (no gstatic scripts).
+    home = client(mod).get("/")
+    assert "https://www.gstatic.com" not in _script_src(home.headers["content-security-policy"])
+
+
 # --- GIS credential login (Meet panel: One Tap / official button) -------------
 CLAIMS = {"aud": "cid", "iss": "accounts.google.com", "email_verified": "true",
           "sub": "gsub-gis", "email": "gis@example.com", "name": "Gis User", "picture": ""}
