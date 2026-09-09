@@ -26,21 +26,26 @@ def test_hf_webhook_event_handling():
     assert res["model_id"] == "test-org/new-flow-matching-voice"
 
 
-def test_hf_api_endpoints(monkeypatch):
+def test_hf_api_endpoints(monkeypatch, tmp_path):
     import sys
     _RAILWAY = Path(__file__).resolve().parent.parent / "railway"
     if str(_RAILWAY) not in sys.path:
         sys.path.insert(0, str(_RAILWAY))
 
+    # Redirect the discovered-model registry to a temp file so the webhook's
+    # record path never pollutes the real models/ registry.
+    reg = tmp_path / "hf_discovered.json"
+    reg.write_text(json.dumps({"discovered_models": [
+        {"model_id": "seed/existing", "author": "seed"}], "total_tracked": 1}))
+    monkeypatch.setenv("SONAVE_HF_REGISTRY", str(reg))
+
     from app import app
     client = TestClient(app)
 
-    # 1. GET /api/hf/trending
+    # 1. GET /api/hf/trending reads the (seeded) registry
     r = client.get("/api/hf/trending")
     assert r.status_code == 200
-    data = r.json()
-    assert "discovered_models" in data
-    assert len(data["discovered_models"]) > 0
+    assert len(r.json()["discovered_models"]) > 0
 
     # 2. POST /api/webhooks/hf-model-update — secret-gated (CASA hardening):
     #    unconfigured -> 404, wrong/missing secret -> 403, correct secret -> 200
@@ -48,7 +53,15 @@ def test_hf_api_endpoints(monkeypatch):
     assert client.post("/api/webhooks/hf-model-update", json=wh_payload).status_code == 404
     monkeypatch.setenv("SONAVE_HF_WEBHOOK_SECRET", "hf-test-secret")
     assert client.post("/api/webhooks/hf-model-update", json=wh_payload).status_code == 403
-    r_wh = client.post("/api/webhooks/hf-model-update", json=wh_payload,
-                       headers={"X-Webhook-Secret": "hf-test-secret"})
-    assert r_wh.status_code == 200
-    assert r_wh.json()["ok"] is True
+    hdr = {"X-Webhook-Secret": "hf-test-secret"}
+
+    # HF verification ping is acknowledged (lets the webhook be enabled)
+    r_ping = client.post("/api/webhooks/hf-model-update", json={"event": "ping"}, headers=hdr)
+    assert r_ping.status_code == 200 and r_ping.json()["status"] == "ping_received"
+
+    # a real model event is RECORDED (never 503) and surfaces via /api/hf/trending
+    r_wh = client.post("/api/webhooks/hf-model-update", json=wh_payload, headers=hdr)
+    assert r_wh.status_code == 200 and r_wh.json()["status"] == "recorded"
+    assert r_wh.json()["model"] == "community/ultra-tts-v2"
+    listed = client.get("/api/hf/trending").json()["discovered_models"]
+    assert any(m["model_id"] == "community/ultra-tts-v2" for m in listed)

@@ -1407,7 +1407,7 @@ def api_training_set_schedule(req: ScheduleReq, p: auth.Principal = Depends(requ
 
 @app.get("/api/hf/trending")
 def api_hf_trending(p: auth.Principal = Depends(require_principal)):
-    registry_file = Path("models/hf_discovered_models.json")
+    registry_file = _hf_registry_path()
     if registry_file.exists():
         try:
             return json.loads(registry_file.read_text(encoding="utf-8"))
@@ -1436,12 +1436,55 @@ def api_hf_sync(p: auth.Principal = Depends(require_principal)):
     }
 
 
+def _hf_registry_path() -> Path:
+    """Where webhook-discovered HF models are recorded. Overridable via env so it
+    can live on Railway's persistent /data volume (survives restarts) and be
+    redirected in tests. /api/hf/trending reads the same path."""
+    return Path(os.environ.get("SONAVE_HF_REGISTRY", "models/hf_discovered_models.json"))
+
+
+def _record_discovered_model(model_id: str, event_type: str) -> None:
+    """Append a webhook-discovered model to the registry /api/hf/trending serves
+    (and the console renders). Best-effort, self-contained, never raises into the
+    request path — the training-side harvester is NOT imported here."""
+    try:
+        reg = _hf_registry_path()
+        data = {"discovered_models": [], "total_tracked": 0}
+        if reg.exists():
+            try:
+                data = json.loads(reg.read_text(encoding="utf-8"))
+            except Exception:
+                data = {"discovered_models": [], "total_tracked": 0}
+        models = data.get("discovered_models", [])
+        if not any(m.get("model_id") == model_id for m in models):
+            models.insert(0, {
+                "model_id": model_id,
+                "author": model_id.split("/")[0] if "/" in model_id else "hf_webhook",
+                "downloads": 0,
+                "tags": [event_type],
+                "source": "hf_webhook",
+                "discovered_ts": time.time(),
+            })
+        data["discovered_models"] = models[:200]
+        data["total_tracked"] = len(data["discovered_models"])
+        reg.parent.mkdir(parents=True, exist_ok=True)
+        reg.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    except Exception as e:  # noqa: BLE001
+        logger.warning("record discovered model failed: %s", repr(e)[:80])
+
+
 @app.post("/api/webhooks/hf-model-update")
 async def api_hf_webhook(request: Request):
-    """Hugging Face Hub webhook receiver for model release notifications.
+    """Hugging Face Hub webhook receiver for model-release notifications.
+
     Secret-gated (X-Webhook-Secret vs SONAVE_HF_WEBHOOK_SECRET) and fail-closed:
-    an unconfigured or unauthorized caller can never reach the handler or
-    produce a 500 (the open version 500'd at the CASA scanner)."""
+    an unconfigured or unauthorized caller gets 404/403 and never reaches the body
+    (the pre-hardening open version 500'd at the CASA scanner).
+
+    Railway-safe by design: corpus harvesting + retraining run on the training box,
+    not this capture service — so here we only RECORD the discovered model (surfaced
+    by /api/hf/trending and the console) and NOTIFY the operator, who pulls it into
+    the test set. No dependency on the training-side harvester module."""
     hook_secret = os.environ.get("SONAVE_HF_WEBHOOK_SECRET", "")
     if not hook_secret:
         raise HTTPException(status_code=404, detail="not configured")
@@ -1452,12 +1495,32 @@ async def api_hf_webhook(request: Request):
         payload = await request.json()
     except Exception:
         raise HTTPException(status_code=400, detail="invalid JSON")
-    try:
-        from src.pipeline.hf_corpus_harvester import HFCorpusHarvester
-        return HFCorpusHarvester().handle_hf_webhook_event(payload)
-    except Exception as e:  # noqa: BLE001 — handler module may be absent in prod
-        logger.warning("hf webhook handler failed: %s", repr(e)[:120])
-        raise HTTPException(status_code=503, detail="handler unavailable")
+
+    # HF's event shape: `event` is a str or {scope, action}; `repo` a str or {name,id}.
+    raw_event = payload.get("event", "update")
+    if isinstance(raw_event, dict):
+        event_type = f"{raw_event.get('scope', 'repo')}.{raw_event.get('action', 'update')}"
+    else:
+        event_type = str(raw_event)
+    repo = payload.get("repo", {})
+    if isinstance(repo, dict):
+        repo_id = repo.get("name") or repo.get("id") or payload.get("repo_id", "")
+    elif isinstance(repo, str):
+        repo_id = repo
+    else:
+        repo_id = payload.get("repo_id", "")
+
+    # HF's verification ping — acknowledge so the webhook can be (re-)enabled.
+    if "ping" in event_type.lower() or not repo_id:
+        return {"ok": True, "status": "ping_received",
+                "message": "Sonave HF webhook active & verified."}
+
+    _record_discovered_model(repo_id, event_type)
+    _track(db.first_admin_id() or "system", "hf_model_discovered",
+           model=repo_id, event=event_type)
+    _notify_admin(f"New model on Hugging Face: {repo_id} ({event_type}) — "
+                  f"consider adding it to the Sonave test set.")
+    return {"ok": True, "status": "recorded", "model": repo_id}
 
 
 def _background_scheduler_daemon():
