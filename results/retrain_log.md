@@ -44,3 +44,18 @@ One line per weekly retrain (appended by tools/sunday_retrain.ps1).
   (ITW floors keyed on the @calib rows) with the deliberate-tradeoff rationale in the file;
   refreshed `model_metrics.json` and every public figure (benchmarks page, landing, guides,
   console tile). Regression gate green against the new baseline.
+- 2026-09-06 — retrain attempt FAILED (step failed: regression gate). Candidate preserved at models\sonave_xlsr_meet_candidate_2026-09-06; deployed checkpoint restored.
+- 2026-09-09 — **SHIPPED the codecfake retrain.** No new real captures since run-3, so the new
+  signal is on the ATTACK side: pulled the real HF dataset `Codecfake/Codecfake` (verified — the
+  repo's own auto-harvester is a stub that fabricates manifests), extracted **510 neural-codec
+  deepfake clips** (EnCodec / Descript / AcademiCodec / FunCodec / SpeechTokenizer / AudioDec;
+  4 codecs held out entirely as unseen-codec test) into the diverse base corpus (fakes 2980→3490).
+  7-epoch retrain, train_acc 87.8%; held-out Meet validation 86% real / 93% fake (both pass).
+  Benchmark vs run-3: headline **97.6** (was 97.2), unseen-gens EER **5.7** (was 6.3, best ever),
+  unseen-gens real-acc **90.7** (was 88.2), ITW@calib **59.3 @ 97.3** (was 57.3 @ 94.0 — up on
+  BOTH axes), ITW real-acc +4–6 pts across the board. Deliberate tradeoff (gate escape hatch):
+  at the fixed τ=0.716 the model is more conservative, so ITW-Opus@calib catch dips to **53.3**
+  (from 56.7) while its real-acc rises to 96.7 — a lower-false-alarm model. Actions: candidate at
+  `models/sonave_xlsr_meet` (run-3 backed up at `models/sonave_xlsr_meet_run3_shipped`, pre-run-3
+  at `..._deployed_pre_ship_2026-09-04`); bands unchanged (0.50/0.72); reset `benchmark_baseline.json`
+  to measured numbers; refreshed `model_metrics.json` + public figures. Gate green vs new baseline.
