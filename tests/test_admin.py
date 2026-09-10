@@ -295,3 +295,38 @@ def test_notify_admin_silent_when_unconfigured(mod, monkeypatch):
     mod._notify_admin("quiet test")
     time.sleep(0.05)
     assert called["n"] == 0                                          # no env -> no push
+
+
+def test_track_pushes_founder_alert_for_high_signal_kinds(mod, monkeypatch):
+    """Whitelisted activity (deepfake incident, meeting lifecycle, sign-in) fires a
+    founder alert via _notify_admin; everything else stays dashboard-only. Every
+    kind still lands in the DB events feed regardless."""
+    ua = _mk_user(mod, "s-nk", "nk@x.com")
+    seen = []
+    monkeypatch.setattr(mod, "_notify_admin", lambda summary: seen.append(summary))
+
+    # deepfake incident -> pushes, with speaker + email in the summary
+    mod._track(ua["id"], "incident_open", speaker="Caller")
+    assert seen and "Caller" in seen[-1] and "nk@x.com" in seen[-1]
+
+    # sign-in -> pushes
+    mod._track(ua["id"], "signin", email="nk@x.com")
+    assert seen[-1].startswith("Sign-in") and "nk@x.com" in seen[-1]
+
+    # non-whitelisted kind -> DB only, no push
+    before = len(seen)
+    mod._track(ua["id"], "settings_changed", ical_url="set")
+    assert len(seen) == before
+
+    # every kind still written to the events feed
+    assert {"incident_open", "signin", "settings_changed"} <= set(_kinds(mod, ua["id"]))
+
+
+def test_signup_does_not_double_push(mod, monkeypatch):
+    """signup pushes via its own direct _notify_admin; _track('signup') is NOT
+    whitelisted, so a new-user login fires exactly one founder alert, not two."""
+    calls = {"n": 0}
+    monkeypatch.setattr(mod, "_notify_admin", lambda summary: calls.__setitem__("n", calls["n"] + 1))
+    c = TestClient(mod.app, base_url="https://testserver")
+    _google_login(mod, c, dict(USERINFO, sub="gsub-solo", email="solo@x.com"))
+    assert calls["n"] == 1

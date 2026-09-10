@@ -130,10 +130,52 @@ def _mask_email(email: str | None) -> str:
     return f"{local[:1]}***@{domain}"
 
 
+# High-signal activity that also pushes a founder alert (email/Slack via _notify_admin),
+# on top of the DB dashboard feed every _track event already lands in. Signup/subscription
+# push via their own direct _notify_admin calls, so they're intentionally NOT here (no double).
+_NOTIFY_KINDS = {"incident_open", "bot_created", "meeting_started",
+                 "meeting_ended", "host_left", "host_rejoined", "signin"}
+
+
+def _now_et() -> str:
+    """Human timestamp in Eastern time (Derek's zone), UTC fallback if tzdata is absent."""
+    import datetime
+    try:
+        from zoneinfo import ZoneInfo
+        return datetime.datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d %I:%M %p ET")
+    except Exception:  # noqa: BLE001 — no tzdata -> plain UTC
+        return datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+
+
+def _format_activity(user_id: str, kind: str, detail: dict) -> str:
+    """One-line founder-alert summary for a whitelisted activity event."""
+    email = detail.get("email") or (db.get_user(user_id) or {}).get("email") or user_id
+    ts = _now_et()
+    if kind == "incident_open":
+        return f"⚠️ Deepfake flagged: speaker '{detail.get('speaker', '?')}' — {email} · {ts}"
+    if kind == "bot_created":
+        return f"Bot deployed — {email} → {detail.get('meeting_url', '(url n/a)')} · {ts}"
+    if kind == "meeting_started":
+        return f"Monitoring started — {email} · {ts}"
+    if kind == "meeting_ended":
+        return (f"Meeting ended — {email} · {detail.get('metered_min', '?')} min"
+                f" · {detail.get('cause', '')} · {ts}")
+    if kind == "host_left":
+        return f"Host left the meeting — {email} · {ts}"
+    if kind == "host_rejoined":
+        return f"Host rejoined — {email} · {ts}"
+    if kind == "signin":
+        return f"Sign-in: {email} · {ts}"
+    return f"{kind}: {email} · {ts}"
+
+
 def _track(user_id: str, kind: str, **detail) -> None:
-    """Best-effort activity event — must never affect the request path."""
+    """Best-effort activity event — must never affect the request path.
+    Whitelisted high-signal kinds also fire a founder alert via _notify_admin."""
     try:
         db.add_event(user_id, kind, json.dumps(detail) if detail else "")
+        if kind in _NOTIFY_KINDS:
+            _notify_admin(_format_activity(user_id, kind, detail))
     except Exception:
         pass
 
