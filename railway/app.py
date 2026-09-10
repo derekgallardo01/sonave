@@ -201,7 +201,11 @@ def _notify_admin(summary: str) -> None:
                 from email.message import EmailMessage
                 msg = EmailMessage()
                 msg["Subject"] = f"Sonave: {summary[:120]}"
-                msg["From"] = os.environ.get("SONAVE_SMTP_USER", "")
+                # From is the verified sender address; for providers like Resend the SMTP
+                # login user ("resend") differs from it, so allow a separate SONAVE_SMTP_FROM
+                # (falls back to the login user, which is correct for Gmail-style setups).
+                msg["From"] = (os.environ.get("SONAVE_SMTP_FROM")
+                               or os.environ.get("SONAVE_SMTP_USER", ""))
                 msg["To"] = to
                 msg.set_content(summary)
                 with smtplib.SMTP(host, int(os.environ.get("SONAVE_SMTP_PORT", "587")),
