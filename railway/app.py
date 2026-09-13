@@ -1351,16 +1351,20 @@ def api_quality(p: auth.Principal = Depends(require_principal)):
                         "speech_pct": round(speech * 100),
                         "total_sec": tot_sec})
         av = VERDICTS.get((uid, spk))
-        if av:
+        cur_tot = row.get("total_sec", 0.0)
+        if av and (cur_tot >= 4 or av.get("verdict") == "fake"):
             row["auth_verdict"] = av["verdict"]
             row["auth_p"] = av["rolling"]
-            cur_tot = row.get("total_sec", 0.0)
             row["checks"] = max(av.get("n", 0), max(1, int(cur_tot // 4)))
             if av.get("latency_ms") is not None:
                 row["latency_ms"] = av["latency_ms"]
             if av.get("speaker_check"):
                 row["speaker_check"] = av["speaker_check"]
                 row["match_conf"] = av.get("match_conf")
+        else:
+            row["auth_verdict"] = None
+            row["auth_p"] = 0.0
+            row["checks"] = 0
         # show enrollment status
         row["enrolled"] = enroll.is_enrolled(spk, base_dir=udir)
         p_val = row.get("auth_p") or 0.0

@@ -442,13 +442,13 @@ async function poll(){
    room.textContent=anyVerdict?vname(maxP):'LISTENING';
    room.style.color=anyVerdict?vcolor(maxP):'var(--green)';
    room.className='verdict'+(!anyVerdict?' pulse':'');
-   document.getElementById('roomNote').textContent=anyVerdict? (maxP>=0.7?'A speaker is scoring in the red band.':'All participant voices authentic and verified.') : 'Voice verification active.';
+   document.getElementById('roomNote').textContent=anyVerdict? (maxP>=0.7?'A speaker is scoring in the red band.':'All participant voices authentic and verified.') : 'Analyzing speech acoustics — first verdict in ~4 seconds.';
   } else {
    var room=document.getElementById('room');
-   room.textContent='REAL';
+   room.textContent='LISTENING';
    room.style.color='var(--green)';
-   room.className='verdict';
-   document.getElementById('roomNote').textContent='Voice verification active · all participants protected.';
+   room.className='verdict pulse';
+   document.getElementById('roomNote').textContent='Voice verification active · analyzing incoming speech.';
   }
  }catch(e){
  }finally{
@@ -481,12 +481,12 @@ function patchRow(el,k,s){
  var subEl=el.querySelector('.ssub');
  if(subEl){
   subEl.textContent=
+   !s.auth_verdict?'analyzing voice · first verdict in ~4s':
    talk?'speaking · verified authentic':
-   s.auth_verdict?'verified authentic · active monitoring':
-   'verified authentic';
+   'verified authentic · active monitoring';
  }
  var vw=s.auth_verdict?'<span class="vword" style="color:'+vcolor(p)+'">'+esc(s.auth_verdict.toUpperCase())+'</span>'
-                      :'<span class="vword" style="color:var(--muted)">PENDING</span>';
+                      :'<span class="vword" style="color:var(--muted)">ANALYZING</span>';
  var metaEl=el.querySelector('.smeta');
  if(metaEl) metaEl.innerHTML='<span>'+esc(s.speech_pct||0)+'% speech</span><span>'+hmsP(s.total_sec)+'</span>'+vw;
  var sattr=el.querySelector('.sattr');
