@@ -216,6 +216,10 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
 
     <!-- Collapsible Custom Speech Drawer -->
     <div id="customSpeechDrawer" style="display:none; flex-direction:column; gap:6px; margin-top:8px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.06);">
+     <div style="display:flex; justify-content:space-between; align-items:center;">
+      <span style="font-size:9.5px; font-family:var(--mono); color:var(--green); font-weight:700; letter-spacing:0.04em;">CUSTOM VOICE SYNTHESIS</span>
+      <button onclick="toggleCustomSpeechDrawer()" style="background:none; border:none; outline:none; color:var(--muted); font-size:12px; font-weight:700; cursor:pointer; padding:2px 6px;" title="Close drawer">✕</button>
+     </div>
      <div style="display:flex; gap:6px;">
       <select id="demoVoiceSel" style="flex:1.2; background:var(--bg); color:var(--ink); border:1px solid var(--line2); border-radius:6px; font-size:10.5px; padding:5px 7px;">
        <optgroup label="🌟 Neural AI Voice Clones">
@@ -237,10 +241,15 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
       </select>
      </div>
      <textarea id="demoCustomText" rows="2" placeholder="Type custom speech for AI..." style="width:100%; background:var(--bg); color:var(--ink); border:1px solid var(--line2); border-radius:7px; font-size:10.5px; padding:6px 8px; resize:none; box-sizing:border-box; font-family:var(--font); line-height:1.4;">Please authorize the $250,000 vendor wire transfer immediately.</textarea>
-     <button class="btn" id="btnCustomSpeak" onclick="runCustomDemoSpeech()" style="width:100%; padding:7px 10px; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:5px; cursor:pointer;">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
-      <span>Speak AI into Call</span>
-     </button>
+     <div style="display:flex; gap:6px;">
+      <button class="btn" id="btnCustomSpeak" onclick="runCustomDemoSpeech()" style="flex:1.4; padding:8px 10px; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:5px; cursor:pointer;">
+       <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+       <span>Speak AI into Call</span>
+      </button>
+      <button class="btn-soft" onclick="toggleCustomSpeechDrawer()" style="flex:0.6; padding:8px 10px; font-size:11px; font-weight:600; border-color:var(--line2); color:var(--muted); display:flex; align-items:center; justify-content:center; gap:4px; cursor:pointer;" title="Close custom speech drawer">
+       <span>✕ Close</span>
+      </button>
+     </div>
     </div>
 
     <!-- Active Indicator (Visible only while speaking/threat active) -->
