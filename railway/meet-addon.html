@@ -322,6 +322,7 @@ async function protectMeeting(){
  }
  deployTo('https://meet.google.com/'+code,btn,st);
 }
+var _connected = false;
 async function deployTo(url,btn,st){
  try{
   var rMeet = await fetch('/api/meet/sessions/connect', {
@@ -330,50 +331,42 @@ async function deployTo(url,btn,st){
    body: JSON.stringify({space_id: url})
   });
   var dMeet = await rMeet.json();
-  st.textContent='✓ Google Meet Media API active (Botless)';
-  deployWait();
- }catch(e){
-  st.textContent='Connecting media session…';
-  deployWait();
- }
+ }catch(e){}
+ _connected = true;
+ deployDone();
+ poll();
 }
 function protectManual(){
  var v=(document.getElementById('codeInp').value||'');
  var m=v.match(/[a-z]{3}-[a-z]{4}-[a-z]{3}/);
  var st=document.getElementById('protectStatus');
  if(!m){st.textContent='That doesn’t look like a Meet link (abc-defg-hij).';return}
- st.textContent='Connecting audio session…';
  deployTo('https://meet.google.com/'+m[0],document.getElementById('protectBtn'),st);
 }
 var WAITING=false;
 function isVet(){try{return !!localStorage.getItem('sonave_vet')}catch(x){return false}}
-function deployWait(){
- try{localStorage.setItem('sonave_vet','1')}catch(x){}
- WAITING=true;
+function deployDone(){
+ WAITING=false;
+ document.getElementById('admitWait').style.display='none';
  document.getElementById('protectHero').style.display='none';
  document.getElementById('protectSteps').style.display='none';
  document.getElementById('protectBtn').style.display='none';
  document.getElementById('protectStatus').style.display='none';
- document.getElementById('admitWait').style.display='block';
- document.getElementById('waitHint').innerHTML='<span class="up">▲</span> Live audio stream connected (Botless) — scoring active.';
-}
-function deployDone(){
- WAITING=false;
+ document.getElementById('protect').style.display='none';
+ document.getElementById('banner').style.display='block';
+ document.getElementById('sstats').style.display='grid';
 }
 function deployReset(){
- deployDone();
+ WAITING=false;
+ _connected=false;
  document.getElementById('admitWait').style.display='none';
+ document.getElementById('protect').style.display='block';
  document.getElementById('protectHero').style.display='';
  document.getElementById('protectSteps').style.display='';
  var b=document.getElementById('protectBtn');b.style.display='';b.disabled=false;
  var st=document.getElementById('protectStatus');st.style.display='';
  st.textContent='Session ended or disconnected. Click to start voice verification again.';
 }
-
-try{
- var _dt=+sessionStorage.getItem('sonave_deploy_t');
- if(_dt&&Date.now()-_dt<180000)deployWait();
-}catch(x){}
 
 var _inPoll = false;
 async function poll(){
@@ -400,38 +393,56 @@ async function poll(){
   show('live');
   if(!ME){try{ME=await (await fetch('/api/me',{headers:authHeaders()})).json()}catch(e){ME={}}}
   var ks=Object.keys(d).filter(function(k){return k[0]!=='_'});
-  var list=document.getElementById('speakers');
-  var keys=ks.join('|');
-  if(list._keys!==keys){list.innerHTML=ks.map(rowHTML).join('');list._keys=keys}
-  var maxP=0, anyTalk=false, anyVerdict=false, checks=0, sess=0;
-  ks.forEach(function(k,i){
-   var s=d[k], p=s.auth_p!=null?s.auth_p:0;
-   if(p>maxP)maxP=p;
-   if(s.state==='speaking')anyTalk=true;
-   if(s.auth_verdict)anyVerdict=true;
-   checks+=s.checks||0;
-   if((s.total_sec||0)>sess)sess=s.total_sec;
-   patchRow(list.children[i],k,s);
-  });
   var hasAudio=ks.length>0;
-  if(hasAudio)deployDone();
+  var isProtected=_connected||hasAudio;
+  
   var prot=document.getElementById('protect');
-  prot.style.display=hasAudio?'none':'block';
+  prot.style.display=isProtected?'none':'block';
   prot.className=isVet()?'compact':'';
+  
+  document.getElementById('banner').style.display=isProtected?'block':'none';
+  document.getElementById('sstats').style.display=isProtected?'grid':'none';
+  
+  var list=document.getElementById('speakers');
   list.style.display='flex';
-  document.getElementById('banner').style.display=hasAudio?'block':'none';
-  document.getElementById('sstats').style.display=hasAudio?'grid':'none';
-  if(hasAudio){
+  
+  if(isProtected && !hasAudio){
+   list.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 14px;text-align:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;gap:10px;">' +
+    '<div class="eq on" style="display:inline-flex;height:16px;gap:4px;"><i style="width:3px;background:var(--green)"></i><i style="width:3px;background:var(--green);animation-delay:.2s"></i><i style="width:3px;background:var(--green);animation-delay:.4s"></i><i style="width:3px;background:var(--green);animation-delay:.6s"></i></div>' +
+    '<div style="font-size:12.5px;font-weight:700;color:var(--ink);">Active &amp; Monitoring Call</div>' +
+    '<div style="font-size:11px;color:var(--muted);max-width:210px;line-height:1.5;">Speak into your microphone or wait for participants to talk. Real-time authenticity scores appear instantly.</div>' +
+   '</div>';
+   list._keys='__idle__';
+  } else if(hasAudio){
+   var keys=ks.join('|');
+   if(list._keys!==keys){list.innerHTML=ks.map(rowHTML).join('');list._keys=keys}
+   var maxP=0, anyTalk=false, anyVerdict=false, checks=0, sess=0;
+   ks.forEach(function(k,i){
+    var s=d[k], p=s.auth_p!=null?s.auth_p:0;
+    if(p>maxP)maxP=p;
+    if(s.state==='speaking')anyTalk=true;
+    if(s.auth_verdict)anyVerdict=true;
+    checks+=s.checks||0;
+    if((s.total_sec||0)>sess)sess=s.total_sec;
+    patchRow(list.children[i],k,s);
+   });
    _peak=Math.max(_peak,maxP);
    document.getElementById('stWin').textContent=checks;
    document.getElementById('stSess').textContent=hmsP(sess);
    var pk=document.getElementById('stPeak');pk.textContent=Math.round(_peak*100)+'%';pk.style.color=vcolor(_peak);
-  }else{_peak=0}
-  var room=document.getElementById('room');
-  room.textContent=hasAudio?(anyVerdict?vname(maxP):'LISTENING'):'—';
-  room.style.color=anyVerdict?vcolor(maxP):'var(--green)';
-  room.className='verdict'+(hasAudio&&!anyVerdict?' pulse':'');
-  document.getElementById('roomNote').textContent=hasAudio? (anyVerdict? (maxP>=0.7?'A speaker is scoring in the red band.':anyTalk?'All speakers within normal range.':'No one is speaking right now.') : 'First verdict lands in a few seconds — just talk.') :'';
+   
+   var room=document.getElementById('room');
+   room.textContent=anyVerdict?vname(maxP):'LISTENING';
+   room.style.color=anyVerdict?vcolor(maxP):'var(--green)';
+   room.className='verdict'+(!anyVerdict?' pulse':'');
+   document.getElementById('roomNote').textContent=anyVerdict? (maxP>=0.7?'A speaker is scoring in the red band.':anyTalk?'All speakers within normal range.':'No one is speaking right now.') : 'First verdict lands in a few seconds — just talk.';
+  } else {
+   var room=document.getElementById('room');
+   room.textContent='LISTENING';
+   room.style.color='var(--green)';
+   room.className='verdict pulse';
+   document.getElementById('roomNote').textContent='Speak into microphone to verify.';
+  }
  }catch(e){
  }finally{
   _inPoll = false;
