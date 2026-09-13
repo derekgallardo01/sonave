@@ -938,13 +938,18 @@ async def ws_mic_stream(ws: WebSocket):
                 samples = np.frombuffer(data, dtype=np.int16).astype(np.float32) / 32768.0
                 rms = float(np.sqrt(np.mean(samples**2))) if len(samples) > 0 else 0.0
                 peak = float(np.max(np.abs(samples))) if len(samples) > 0 else 0.0
+                is_speech = rms > 0.012
                 speech_dur = round(seen / (2 * SR), 1)
                 with _STATE_LOCK:
+                    prev_q = QUALITY.get((uid, spk), {})
+                    last_spk_t = now if is_speech else prev_q.get("last_speech_ts", now)
+                    quiet_elapsed = 0.0 if is_speech else round(now - last_spk_t, 1)
                     QUALITY[(uid, spk)] = {
-                        "state": "speaking" if rms > 0.012 else "quiet",
+                        "state": "speaking" if is_speech else ("muted" if quiet_elapsed >= 1.2 else "quiet"),
                         "total_sec": max(1.0, speech_dur),
                         "speech_sec": round(speech_dur * 0.9, 1),
-                        "quiet_sec": 0.0 if rms > 0.012 else round(now - last_audio_ts, 1),
+                        "quiet_sec": quiet_elapsed,
+                        "last_speech_ts": last_spk_t,
                         "level": round(rms, 3),
                         "peak": round(peak, 3),
                         "clips": clip_idx,
@@ -1341,15 +1346,15 @@ def api_quality(request: Request, p: auth.Principal = Depends(require_principal)
             speaking = pr["speaking"]
             quiet_sec = 0 if speaking else time.time() - pr["ts"]
         elif q:
-            speaking = q["level"] > 0.02 and idle < 2 and silent < 1
-            quiet_sec = 0 if speaking else min(max(silent, idle), 1e6)
+            speaking = q.get("state") == "speaking" or (q.get("level", 0) > 0.015 and idle < 1.5)
+            quiet_sec = 0 if speaking else (q.get("quiet_sec", 0.0) or idle)
         else:               # verdict-only row (no audio stats yet): no timing to age on
             speaking, quiet_sec = False, 0.0
         # ghost guard: an ended meeting's speakers age out of the live view
         # (presence-tracked speakers stay until 'leave', capped at 4 h stale)
         if quiet_sec > (4 * 3600 if pr else 900):
             continue
-        row["state"] = "speaking" if speaking else "quiet"
+        row["state"] = "speaking" if speaking else ("muted" if quiet_sec >= 1.2 else "quiet")
         row["quiet_sec"] = round(quiet_sec)
         if q:
             start_t = q.get("start_ts") or q.get("last_audio_ts") or time.time()

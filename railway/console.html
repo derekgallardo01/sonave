@@ -97,9 +97,9 @@ a:hover{color:var(--green-hover)}
 .spk-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:16px 20px 20px}
 .spk-card{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:var(--bg);transition:all .3s ease;opacity:1}
 .spk-card.fake{border-color:rgba(255,77,94,.45);animation:redPulse 1.6s infinite}
-.spk-card.quiet{opacity:1}
 .eq{display:none;gap:2px;align-items:flex-end;height:11px;margin-left:7px;vertical-align:-1px}
 .eq.on{display:inline-flex}
+.eq.muted{display:inline-flex;color:var(--muted);vertical-align:-1px}
 .eq i{width:3px;background:var(--green);border-radius:1px;animation:eqb .9s ease-in-out infinite}
 .eq i:nth-child(2){animation-delay:.25s}.eq i:nth-child(3){animation-delay:.5s}
 @keyframes eqb{0%,100%{height:3px}50%{height:11px}}
@@ -1135,9 +1135,14 @@ setInterval(tickClock,1000);tickClock();
 
 /* ---- shared render pipeline (real + demo feed the same functions) ---- */
 function fmtIdle(s){return s<60?s+'s':Math.floor(s/60)+'m'}
-function spkQuiet(s){return s.state==='quiet'&&(s.quiet||0)>3}
-function spkSub(s){return spkQuiet(s)?'verified voice · active monitoring':s.sub}
-function spkTalking(s){return s.state==='speaking'||(!spkQuiet(s)&&(s.level||0)>0.02)}
+function spkQuiet(s){return s.state==='quiet'||s.state==='muted'||(s.quiet||0)>=1.2||(s.level||0)<0.012}
+function spkTalking(s){return !spkQuiet(s)&&(s.state==='speaking'||(s.level||0)>=0.012)}
+function spkSub(s){return spkQuiet(s)?'muted · verified authentic':(spkTalking(s)?'speaking · verified authentic':(s.sub||'verified voice · active monitoring'))}
+function eqHTML(s){
+ return spkTalking(s)
+  ? '<span class="eq on"><i></i><i></i><i></i></span>'
+  : '<span class="eq muted" title="Microphone muted"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-left:4px;opacity:0.75"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg></span>';
+}
 function sparkHTML(s){
  var bars=s.bars.slice(-22);while(bars.length<22)bars.unshift(null);
  return bars.map(function(b){
@@ -1160,7 +1165,7 @@ function cardHTML(s){
  return '<div class="spk-card'+(s.verdict=='fake'?' fake':'')+(spkQuiet(s)?' quiet':'')+'" data-spk="'+esc(s.name)+'">'+
   '<div class="spk-top"><div class="spk-who">'+
    '<div class="avatar">'+esc(s.name.charAt(0).toUpperCase())+'</div>'+
-   '<div style="min-width:0"><div class="spk-name">'+esc(s.name)+you+'<span class="eq'+(spkTalking(s)?' on':'')+'"><i></i><i></i><i></i></span></div><div class="spk-sub">'+esc(spkSub(s))+'</div></div>'+
+   '<div style="min-width:0"><div class="spk-name">'+esc(s.name)+you+eqHTML(s)+'</div><div class="spk-sub">'+esc(spkSub(s))+'</div></div>'+
   '</div><span class="badge '+bcls(s.verdict)+'">'+esc(s.verdict.toUpperCase())+'</span></div>'+
   '<div class="risk-row"><span class="risk-lbl">DEEPFAKE RISK</span><span class="risk-pct" style="color:'+c+'">'+pct+'%</span></div>'+
   '<div class="risk-track"><div class="risk-fill" style="width:'+pct+'%;background:'+c+'"></div></div>'+
@@ -1169,12 +1174,16 @@ function cardHTML(s){
  '</div>';
 }
 function patchCard(el,s){
- // In-place update: discrete parts patch here; the risk bar + % glide via the
- // 60 fps lerp loop below instead of stepping once per poll.
  el.className='spk-card'+(s.verdict=='fake'?' fake':'')+(spkQuiet(s)?' quiet':'');
  var badge=el.querySelector('.badge');badge.className='badge '+bcls(s.verdict);badge.textContent=s.verdict.toUpperCase();
  el.querySelector('.spk-sub').textContent=spkSub(s);
- el.querySelector('.eq').className='eq'+(spkTalking(s)?' on':'');
+ var me=window._me, you='';
+ if(me&&me.name){
+  var a=String(s.name).replace(/_/g,' ').toLowerCase(), b=me.name.toLowerCase();
+  if(a===b||a.split(' ')[0]===b.split(' ')[0])you=' <span style="color:var(--muted);font-weight:500">· you</span>';
+ }
+ var nameEl=el.querySelector('.spk-name');
+ if(nameEl) nameEl.innerHTML=esc(s.name)+you+eqHTML(s);
  el.querySelector('.spark').innerHTML=sparkHTML(s);
  el.querySelector('.spk-meta').innerHTML=metaHTML(s);
 }

@@ -48,9 +48,9 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
 #sstats span{font-family:var(--mono);font-size:13.5px;font-weight:600}
 .pulse{animation:lp 1.6s ease-in-out infinite}
 @keyframes lp{50%{opacity:.5}}
-.dim{color:var(--muted);font-weight:500}
 .eq{display:none;gap:2.5px;align-items:flex-end;height:12px;margin-left:8px;vertical-align:-1px}
 .eq.on{display:inline-flex}
+.eq.muted{display:inline-flex;color:var(--muted);vertical-align:-1px}
 .eq i{width:2.5px;background:var(--green);border-radius:1.5px;min-height:3px;animation:eqb 1s ease-in-out infinite}
 .eq i:nth-child(2){animation-delay:.25s;animation-duration:0.8s}
 .eq i:nth-child(3){animation-delay:.5s;animation-duration:1.1s}
@@ -456,12 +456,17 @@ async function poll(){
     var s=d[k], p=s.auth_p!=null?s.auth_p:0;
     if(p>maxP)maxP=p;
     if(k.indexOf('Clone')!==-1 || k.indexOf('Test')!==-1 || k.indexOf('Simulate')!==-1) hasSim=true;
-    if(s.state==='speaking')anyTalk=true;
-    if(s.auth_verdict)anyVerdict=true;
-    checks+=s.checks||0;
-    if((s.total_sec||0)>sess)sess=s.total_sec;
-    patchRow(list.children[i],k,s);
+    var quiet = s.state === 'quiet' || s.state === 'muted' || (s.quiet_sec || 0) >= 1.2 || (s.level || 0) < 0.012;
+    var talk = !quiet && (s.state === 'speaking' || (s.level || 0) >= 0.012);
+    if(talk) anyTalk = true;
+    if(s.auth_verdict) anyVerdict = true;
+    checks += s.checks || 0;
+    if((s.total_sec || 0) > sess) sess = s.total_sec;
+    patchRow(list.children[i], k, s);
    });
+   _anySpeaking = anyTalk;
+   var specStatus = document.getElementById('specStatus');
+   if(specStatus) specStatus.innerHTML = anyTalk ? '<span style="color:var(--green)">● live speaking</span>' : '<span style="color:var(--muted)">○ live monitoring (muted)</span>';
    _peak=Math.max(_peak,maxP);
    var btnDismiss = document.getElementById('btnDismiss');
    if(btnDismiss) btnDismiss.style.display = (hasSim || _simActive) ? 'inline-flex' : 'none';
@@ -523,22 +528,24 @@ function patchRow(el,k,s){
  if(!el) return;
  var p=s.auth_p!=null?s.auth_p:0;
  _pt[k]=p;
- var quiet=s.state==='quiet'&&(s.quiet_sec||0)>3;
- var talk=s.state==='speaking'||(!quiet&&(s.level||0)>0.02);
+ var quiet = s.state === 'quiet' || s.state === 'muted' || (s.quiet_sec || 0) >= 1.2 || (s.level || 0) < 0.012;
+ var talk = !quiet && (s.state === 'speaking' || (s.level || 0) >= 0.012);
  el.className='spk'+(p>=0.7?' fake':'');
  el.style.opacity='1';
  el.setAttribute('data-v',s.auth_verdict?'1':'0');
  var avEl = el.querySelector('.savatar');
  if(avEl) avEl.className = 'savatar' + (talk ? ' speaking' : '');
  var you=isMe(k)?' <span class="dim">· you</span>':'';
- var st=' <span class="eq on"><i></i><i></i><i></i></span>';
+ var st = talk
+  ? ' <span class="eq on"><i></i><i></i><i></i></span>'
+  : ' <span class="eq muted" title="Microphone muted"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-left:4px;opacity:0.75"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg></span>';
  var nameEl=el.querySelector('.sname'); if(nameEl) nameEl.innerHTML=esc(k.replace(/_/g,' '))+you+st;
  var subEl=el.querySelector('.ssub');
  if(subEl){
   subEl.textContent=
    !s.auth_verdict?'analyzing voice · first verdict in ~4s':
    talk?'speaking · verified authentic':
-   'verified authentic · active monitoring';
+   'muted · verified authentic';
  }
  var vw=s.auth_verdict?'<span class="vword" style="color:'+vcolor(p)+'">'+esc(s.auth_verdict.toUpperCase())+'</span>'
                       :'<span class="vword" style="color:var(--muted)">ANALYZING</span>';
@@ -558,7 +565,7 @@ function patchRow(el,k,s){
  }
 }
 
-var _specCanvas = null, _specCtx = null;
+var _specCanvas = null, _specCtx = null, _anySpeaking = false;
 var _miniBins = new Float32Array(28);
 function animMiniSpec(){
  if(!_specCanvas) _specCanvas = document.getElementById('miniSpec');
@@ -569,17 +576,19 @@ function animMiniSpec(){
   var barW = w / _miniBins.length;
   var isFake = _peak >= 0.7;
   for(var i = 0; i < _miniBins.length; i++){
-   var target = 0.05;
-   if(_connected){
+   var target = 0.04;
+   if(_connected && _anySpeaking){
     var freqFactor = 1.0 - (i / _miniBins.length) * 0.45;
-    target = Math.max(0.1, Math.sin(Date.now() * 0.006 + i * 0.3) * 0.4 + 0.45) * freqFactor;
+    target = Math.max(0.12, Math.sin(Date.now() * 0.006 + i * 0.3) * 0.4 + 0.45) * freqFactor;
     if(isFake && i > 14){
      target = Math.min(0.98, target + 0.45);
     }
+   } else if(_connected){
+    target = 0.05 + Math.sin(Date.now() * 0.002 + i * 0.25) * 0.02;
    }
    _miniBins[i] += (target - _miniBins[i]) * 0.25;
    var bh = _miniBins[i] * h * 0.88;
-   _specCtx.fillStyle = isFake && i > 14 ? '#ff4d5e' : (isFake ? '#ffb224' : '#2ee584');
+   _specCtx.fillStyle = isFake && i > 14 ? '#ff4d5e' : (isFake ? '#ffb224' : (_anySpeaking ? '#2ee584' : 'rgba(46,229,132,0.4)'));
    _specCtx.fillRect(i * barW, h - bh, barW - 1.5, bh);
   }
  }
