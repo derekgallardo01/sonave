@@ -539,52 +539,59 @@ async function poll(){
    _anySpeaking = anyTalk;
    var specStatus = document.getElementById('specStatus');
    if(specStatus) specStatus.innerHTML = anyTalk ? '<span style="color:var(--green)">● live speaking</span>' : '<span style="color:var(--muted)">○ live monitoring (muted)</span>';
-   _peak=Math.max(_peak,maxP);
-   var btnDismiss = document.getElementById('btnDismiss');
-   if(btnDismiss) btnDismiss.style.display = (hasSim || _simActive) ? 'inline-flex' : 'none';
-   document.getElementById('stWin').textContent=checks;
-   sess=Math.max(sess, _connectedSince?Math.round((Date.now()-_connectedSince)/1000):0);
-   document.getElementById('stSess').textContent=hmsP(sess);
-    var pk=document.getElementById('stPeak');
-    if(pk){
-     if(anyVerdict){
-      pk.textContent=Math.round(_peak*100)+'%';
-      pk.style.color=vcolor(_peak);
-     } else {
-      pk.textContent='—';
-      pk.style.color='var(--muted)';
+    var hasActiveThreat = ks.some(function(k){
+     var s = d[k];
+     return s && (s.auth_p || 0) >= 0.7;
+    });
+    _peak = hasActiveThreat ? Math.max(_peak, maxP) : maxP;
+    var isFake = anyVerdict && hasActiveThreat;
+    _isCurrentFake = isFake;
+
+    var btnDismiss = document.getElementById('btnDismiss');
+    if(btnDismiss) btnDismiss.style.display = (hasSim || _simActive) ? 'inline-flex' : 'none';
+    document.getElementById('stWin').textContent=checks;
+    sess=Math.max(sess, _connectedSince?Math.round((Date.now()-_connectedSince)/1000):0);
+    document.getElementById('stSess').textContent=hmsP(sess);
+     var pk=document.getElementById('stPeak');
+     if(pk){
+      if(anyVerdict){
+       pk.textContent=Math.round(_peak*100)+'%';
+       pk.style.color=vcolor(_peak);
+      } else {
+       pk.textContent='—';
+       pk.style.color='var(--muted)';
+      }
      }
+    
+    var room=document.getElementById('room');
+    room.textContent=anyVerdict?vname(maxP):'LISTENING';
+    room.style.color=anyVerdict?vcolor(maxP):'var(--green)';
+    room.className='verdict'+(!anyVerdict?' pulse':'');
+    
+    var shield = document.getElementById('shieldIcon');
+    if(shield) shield.setAttribute('stroke', anyVerdict ? vcolor(maxP) : 'var(--green)');
+    
+    var pill = document.getElementById('verdictPill');
+    if(pill){
+     pill.textContent = isFake ? 'THREAT DETECTED' : anyVerdict ? 'AUTHENTIC' : (anyTalk ? 'ANALYZING' : 'MONITORING');
+     pill.style.color = anyVerdict ? vcolor(maxP) : 'var(--green)';
+     pill.style.borderColor = anyVerdict ? (isFake ? 'rgba(255,77,94,0.4)' : 'rgba(46,229,132,0.3)') : 'rgba(46,229,132,0.3)';
+     pill.style.background = anyVerdict ? (isFake ? 'rgba(255,77,94,0.15)' : 'rgba(46,229,132,0.1)') : 'rgba(46,229,132,0.1)';
     }
-   
-   var isFake = anyVerdict && maxP >= 0.7;
-   var room=document.getElementById('room');
-   room.textContent=anyVerdict?vname(maxP):'LISTENING';
-   room.style.color=anyVerdict?vcolor(maxP):'var(--green)';
-   room.className='verdict'+(!anyVerdict?' pulse':'');
-   
-   var shield = document.getElementById('shieldIcon');
-   if(shield) shield.setAttribute('stroke', anyVerdict ? vcolor(maxP) : 'var(--green)');
-   
-   var pill = document.getElementById('verdictPill');
-   if(pill){
-    pill.textContent = isFake ? 'THREAT DETECTED' : anyVerdict ? 'AUTHENTIC' : (anyTalk ? 'ANALYZING' : 'MONITORING');
-    pill.style.color = anyVerdict ? vcolor(maxP) : 'var(--green)';
-    pill.style.borderColor = anyVerdict ? (isFake ? 'rgba(255,77,94,0.4)' : 'rgba(46,229,132,0.3)') : 'rgba(46,229,132,0.3)';
-    pill.style.background = anyVerdict ? (isFake ? 'rgba(255,77,94,0.15)' : 'rgba(46,229,132,0.1)') : 'rgba(46,229,132,0.1)';
-   }
-   
-   var banner = document.getElementById('banner');
-   if(banner) banner.className = 'banner' + (isFake ? ' fake' : '');
-   
-   document.getElementById('roomNote').textContent=anyVerdict
-    ? (maxP>=0.7?'A speaker is scoring in the red band.':'All participant voices authentic and verified.')
-    : (anyTalk ? 'Analyzing speech acoustics — first verdict in ~4 seconds.' : 'Microphone muted — listening for incoming participant speech.');
+    
+    var banner = document.getElementById('banner');
+    if(banner) banner.className = 'banner' + (isFake ? ' fake' : '');
+    
+    document.getElementById('roomNote').textContent=anyVerdict
+     ? (maxP>=0.7?'A speaker is scoring in the red band.':'All participant voices authentic and verified.')
+     : (anyTalk ? 'Analyzing speech acoustics — first verdict in ~4 seconds.' : 'Microphone muted — listening for incoming participant speech.');
   } else {
    var room=document.getElementById('room');
    room.textContent='LISTENING';
    room.style.color='var(--green)';
    room.className='verdict pulse';
    document.getElementById('roomNote').textContent='Voice verification active · analyzing incoming speech.';
+   _isCurrentFake = false;
   }
   var specWrap = document.getElementById('miniSpecWrap');
   if(specWrap) specWrap.style.display = isProtected ? 'block' : 'none';
@@ -597,7 +604,7 @@ async function poll(){
   _inPoll = false;
  }
 }
-var _pt={},_pd={},_peak=0;
+var _pt={},_pd={},_peak=0, _isCurrentFake=false;
 function hmsP(t){t=Math.round(t||0);return Math.floor(t/60)+':'+('0'+t%60).slice(-2)}
 function isSimSpk(k){
  var l = String(k||'').toLowerCase();
@@ -666,7 +673,7 @@ function animMiniSpec(){
   var w = _specCanvas.width, h = _specCanvas.height;
   _specCtx.clearRect(0, 0, w, h);
   var barW = w / _miniBins.length;
-  var isFake = _peak >= 0.7;
+  var isFake = _isCurrentFake;
   var activeSpk = _anySpeaking;
 
   for(var i = 0; i < _miniBins.length; i++){
