@@ -2488,6 +2488,7 @@ def auth_logout(request: Request):
 
 @app.get("/api/me")
 def api_me(p: auth.Principal = Depends(require_principal)):
+    meet_tok = db.get_oauth_token(p.user_id, "google_meet") if p.kind == "user" else None
     out = {"kind": p.kind, "email": p.email or "operator", "name": p.name,
            "picture": p.picture, "role": p.role,
            "google": auth.google_configured(), "billing": billing.configured(),
@@ -2496,7 +2497,9 @@ def api_me(p: auth.Principal = Depends(require_principal)):
            "autojoin_loop": _AUTOJOIN_ALIVE > 0 and time.time() - _AUTOJOIN_ALIVE < 180,
            "calendar_oauth": _cal_oauth_enabled(),
            "calendar_connected": bool(p.kind == "user"
-                                      and db.get_oauth_token(p.user_id, "google_calendar"))}
+                                      and db.get_oauth_token(p.user_id, "google_calendar")),
+           "meet_oauth": True,
+           "meet_connected": bool(meet_tok)}
     out.update(billing.entitlement(p.user_id, p.role))
     return out
 

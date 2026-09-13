@@ -436,6 +436,18 @@ a:hover{color:var(--green-hover)}
     </div>
 
     <div class="card-pad">
+     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <span class="card-lbl">GOOGLE MEET NATIVE VOICE AUTHENTICATION</span>
+      <span id="meetStatusBadge" class="badge" style="font-size:10px;padding:3px 8px;border-radius:6px;border:1px solid var(--line2);font-family:var(--mono);">Checking...</span>
+     </div>
+     <div id="meetRow" style="display:flex;align-items:center;gap:10px;">
+      <button class="btn-soft" id="meetBtn" onclick="location='/auth/meet/connect'">Authorize Google Meet</button>
+      <span class="hint" id="meetHint" style="margin:0">Native bot-free verification using approved Google Meet Media API.</span>
+     </div>
+     <div class="hint" style="margin-top:8px;">Grants OAuth consent for <code>meetings.conference.media.readonly</code> and <code>meetings.space.readonly</code> to stream and verify conference audio directly server-to-server with zero participant bots.</div>
+    </div>
+
+    <div class="card-pad">
      <div class="card-lbl" style="margin-bottom:12px">ALERTS &amp; WEBHOOKS</div>
      <div style="display:flex;gap:8px">
       <input id="alertHook" class="inp" placeholder="Slack / Discord / Teams Webhook URL (https://...)">
@@ -696,6 +708,7 @@ async function me(){
    var mm=document.getElementById('micMorphCard');if(mm)mm.style.display='block';
   }
   calRender(d);
+  meetRender(d);
   window._me=d;renderPlan(d);return true}catch(e){return false}
 }
 function renderPlan(d){
@@ -852,6 +865,29 @@ function calRender(d){
   b.textContent='Connect Google Calendar';
   b.onclick=function(){location='/auth/calendar/connect'};
   h.textContent='One-time read-only calendar consent — no URL pasting needed.';
+ }
+}
+function meetRender(d){
+ var badge=document.getElementById('meetStatusBadge');
+ var btn=document.getElementById('meetBtn');
+ var hint=document.getElementById('meetHint');
+ if(!btn||!hint||!badge)return;
+ if(d.meet_connected){
+  badge.textContent='CONNECTED (APPROVED)';
+  badge.style.color='var(--green)';
+  badge.style.borderColor='rgba(46,229,132,0.4)';
+  badge.style.background='rgba(46,229,132,0.08)';
+  btn.textContent='Re-authorize Permissions';
+  btn.onclick=function(){location='/auth/meet/connect'};
+  hint.textContent='Google Meet Media API is authorized for live conference voice verification.';
+ }else{
+  badge.textContent='ACTION REQUIRED';
+  badge.style.color='var(--amber)';
+  badge.style.borderColor='rgba(255,178,36,0.4)';
+  badge.style.background='rgba(255,178,36,0.08)';
+  btn.textContent='Authorize Google Meet Permissions';
+  btn.onclick=function(){location='/auth/meet/connect'};
+  hint.textContent='Click to grant Google Meet Media API permissions to your account.';
  }
 }
 async function portal(){var r=await fetch('/api/billing/portal',{method:'POST'});var d=await r.json();if(d.ok&&d.url)location=d.url;else toast('✕ '+(d.detail||'portal unavailable'),'err')}
