@@ -1319,9 +1319,8 @@ def api_quality(request: Request, p: auth.Principal = Depends(require_principal)
     req_space = request.query_params.get("space_id")
     if req_space:
         clean_req = _clean_space_id(req_space)
-        act_space = ACTIVE_MEET_SPACES.get(uid)
-        if act_space and clean_req and act_space != clean_req:
-            return {"_scorer": {"configured": bool(SCORER_URL)}, "_v": _BUILD}
+        if clean_req:
+            ACTIVE_MEET_SPACES[uid] = clean_req
 
     # reaper: a kicked bot's socket can linger open, so periodically verify
     # live-looking bots against Recall's authoritative status (off-thread).

@@ -209,10 +209,13 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
    if(!project||!window.meet||!meet.addon)return;
    var session=await meet.addon.createAddonSession({cloudProjectNumber:project});
    window._sideClient=await session.createSidePanelClient();
-   try{ // cache the meeting code early so Protect can't miss it later
-    var mi=await window._sideClient.getMeetingInfo();
-    window._meetCode=(mi&&(mi.meetingCode||mi.meetingId))||'';
-   }catch(e){}
+    try{ // cache the meeting code early so Protect can't miss it later
+     var mi=await window._sideClient.getMeetingInfo();
+     window._meetCode=(mi&&(mi.meetingCode||mi.meetingId))||'';
+     if(window._meetCode && TOK){
+      deployTo('https://meet.google.com/' + window._meetCode);
+     }
+    }catch(e){}
   }catch(e){/* standalone or Meet API change — panel still works via polling */}
  };
  s.onerror=function(){};
