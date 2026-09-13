@@ -2736,6 +2736,13 @@ def meet_addon():
     return HTMLResponse(content=content)
 
 
+@app.get("/cloner", response_class=HTMLResponse)
+def cloner():
+    """Lightweight standalone companion window for real-time voice-to-voice microphone cloning."""
+    html = (_HERE / "cloner.html").read_text(encoding="utf-8")
+    return HTMLResponse(content=html.replace("__FAVICON__", _FAVICON_B64))
+
+
 @app.get("/og.png")
 def og_image():
     return FileResponse(str(_HERE / "og.png"), media_type="image/png")
