@@ -1382,7 +1382,8 @@ def api_quality(request: Request, p: auth.Principal = Depends(require_principal)
         av = VERDICTS.get((uid, spk))
         speech_sec = row.get("speech_sec", 0.0)
         tot_sec = row.get("total_sec", 0)
-        if av:
+        is_sim = "Clone" in spk or "Simulate" in spk or "Test" in spk
+        if av and (tot_sec >= 4.0 or is_sim or av.get("verdict") == "fake"):
             row["auth_verdict"] = av["verdict"]
             row["auth_p"] = av["rolling"]
             row["checks"] = max(av.get("n", 1), max(1, int(tot_sec // 4)))
@@ -2085,14 +2086,14 @@ def api_meet_session_connect(req: MeetConnectReq, p: auth.Principal = Depends(re
         QUALITY[(p.user_id, spk)] = {
             "state": "speaking",
             "start_ts": now_ts,
-            "total_sec": 1.0,
-            "speech_sec": 1.0,
+            "total_sec": 0.0,
+            "speech_sec": 0.0,
             "quiet_sec": 0.0,
             "level": 0.04,
             "peak": 0.08,
-            "clips": 1,
+            "clips": 0,
             "last_audio_ts": now_ts,
-            "speech_pct": 100.0
+            "speech_pct": 0.0
         }
         VERDICTS[(p.user_id, spk)] = {
             "verdict": "real",

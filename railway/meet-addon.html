@@ -476,7 +476,16 @@ async function poll(){
    document.getElementById('stWin').textContent=checks;
    sess=Math.max(sess, _connectedSince?Math.round((Date.now()-_connectedSince)/1000):0);
    document.getElementById('stSess').textContent=hmsP(sess);
-   var pk=document.getElementById('stPeak');pk.textContent=Math.round(_peak*100)+'%';pk.style.color=vcolor(_peak);
+    var pk=document.getElementById('stPeak');
+    if(pk){
+     if(anyVerdict){
+      pk.textContent=Math.round(_peak*100)+'%';
+      pk.style.color=vcolor(_peak);
+     } else {
+      pk.textContent='—';
+      pk.style.color='var(--muted)';
+     }
+    }
    
    var isFake = anyVerdict && maxP >= 0.7;
    var room=document.getElementById('room');
@@ -614,8 +623,13 @@ function panelAnim(){
   var f=el.querySelector('.fill');if(f){f.style.width=(d*100)+'%';f.style.background=c;}
   var pc=el.querySelector('.spct');
   if(pc){
-   pc.style.color=c;
-   if(el.getAttribute('data-v')==='1')pc.textContent=Math.round(d*100)+'%';
+   if(el.getAttribute('data-v')==='1'){
+    pc.textContent=Math.round(d*100)+'%';
+    pc.style.color=c;
+   } else {
+    pc.textContent='—';
+    pc.style.color='var(--muted)';
+   }
   }
  }
  requestAnimationFrame(panelAnim);
