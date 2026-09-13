@@ -501,6 +501,22 @@ a:hover{color:var(--green-hover)}
        <span class="update-note">Neural TTS / Cloner</span>
       </div>
       <div style="display:flex; flex-direction:column; gap:8px;">
+       <!-- Quick 1-Click Demo Presets -->
+       <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+        <button class="btn-soft" onclick="runConsolePreset('ceo_wire')" style="padding:6px 8px; font-size:10.5px; text-align:left; justify-content:flex-start; border-color:rgba(255,77,94,0.3); color:#ff808d; background:rgba(255,77,94,0.06);">
+         <span style="font-weight:700">🔴 CEO $250k Wire</span>
+        </button>
+        <button class="btn-soft" onclick="runConsolePreset('it_mfa')" style="padding:6px 8px; font-size:10.5px; text-align:left; justify-content:flex-start; border-color:rgba(255,77,94,0.3); color:#ff808d; background:rgba(255,77,94,0.06);">
+         <span style="font-weight:700">🔴 IT Security MFA</span>
+        </button>
+        <button class="btn-soft" onclick="runConsolePreset('cfo_payroll')" style="padding:6px 8px; font-size:10.5px; text-align:left; justify-content:flex-start; border-color:rgba(255,77,94,0.3); color:#ff808d; background:rgba(255,77,94,0.06);">
+         <span style="font-weight:700">🔴 CFO Payroll Scam</span>
+        </button>
+        <button class="btn-soft" onclick="runConsolePreset('real_baseline')" style="padding:6px 8px; font-size:10.5px; text-align:left; justify-content:flex-start; border-color:rgba(46,229,132,0.4); color:var(--green); background:rgba(46,229,132,0.06);">
+         <span style="font-weight:700">🟢 Real Voice (Clean)</span>
+        </button>
+       </div>
+
        <select id="synthVoiceSel" class="sel">
         <option value="me_clone">Derek / Meeting Host (Clone)</option>
         <option value="cfo_impersonator">CFO / Treasury Impersonator</option>
@@ -1778,6 +1794,67 @@ function setSynthPrompt(idx){
  var inp = document.getElementById('synthText');
  if(inp && SYNTH_PHRASES[idx]) inp.value = SYNTH_PHRASES[idx];
 }
+
+var CONSOLE_DEMO_PRESETS = {
+ ceo_wire: {
+  text: "Hey team, this is an urgent executive request. Please authorize the $250,000 vendor wire transfer before noon cutoff today. I will sign the paperwork as soon as I land.",
+  voice_id: "ceo_impersonator",
+  speaker_name: "Executive Baritone (AI Clone)",
+  is_real: false
+ },
+ it_mfa: {
+  text: "Hello, this is corporate IT security. We detected an unauthorized login attempt on your account. I just pushed a six-digit verification code to your app — please read that code back to me immediately.",
+  voice_id: "elevenlabs_brian",
+  speaker_name: "IT Security Lead (Clone)",
+  is_real: false
+ },
+ cfo_payroll: {
+  text: "Good morning. We have an urgent update regarding corporate payroll accounts. I need you to update the direct deposit routing numbers for the executive team immediately.",
+  voice_id: "treasury_lead_female",
+  speaker_name: "Senior Treasury Lead (Clone)",
+  is_real: false
+ },
+ real_baseline: {
+  text: "Good morning everyone, thank you for joining the product sync. We're going over the release milestones and deployment checklist for this week.",
+  voice_id: "derek_natural",
+  speaker_name: "Natural Human Speaker (Real)",
+  is_real: true
+ }
+};
+
+async function runConsolePreset(key){
+ var p = CONSOLE_DEMO_PRESETS[key];
+ if(!p) return;
+ var inp = document.getElementById('synthText');
+ if(inp) inp.value = p.text;
+ var sel = document.getElementById('synthVoiceSel');
+ if(sel) sel.value = p.voice_id;
+
+ try {
+  var r = await fetch('/api/generator/inject-test', {
+   method: 'POST',
+   headers: {'Content-Type': 'application/json'},
+   body: JSON.stringify({text: p.text, voice_id: p.voice_id, speaker_name: p.speaker_name, is_real: !!p.is_real})
+  });
+  var d = await r.json();
+  if(d.ok){
+   if(p.is_real){
+    toast('Real Voice Reference Injected · 3.8% Authentic', 'ok');
+   } else {
+    toast('AI Fake Voice Attack Injected · 98.5% Threat Detected!', 'ok');
+   }
+   if(d.audio_base64){
+    var a = new Audio('data:audio/mp3;base64,' + d.audio_base64);
+    a.play().catch(function(){});
+   }
+  } else {
+   toast('Injection failed: ' + (d.detail||d.error), 'err');
+  }
+ } catch(e){
+  toast('Injection failed', 'err');
+ }
+}
+
 async function injectSynthAudio(){
  var btn = document.getElementById('btnInjectSynth');
  var text = (document.getElementById('synthText').value||'').trim();

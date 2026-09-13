@@ -183,15 +183,56 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
   <div><b>SESSION</b><span id="stSess">0:00</span></div>
   <div><b>PEAK RISK</b><span id="stPeak">0%</span></div>
  </div>
-  <div style="padding:0 12px 10px; display:flex; justify-content:center; gap:8px;">
-   <button id="btnSim" class="btn-soft" style="flex:1;" onclick="injectMeetTest()">
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="margin-right:4px;vertical-align:-1px"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
-    <span>Simulate Voice Threat Check</span>
-   </button>
-   <button id="btnDismiss" class="btn-soft" style="display:none;padding:0 12px;color:var(--muted);border-color:var(--line);white-space:nowrap;" onclick="dismissThreatCheck()" title="Dismiss simulated threat check">
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-1px"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-    <span>Dismiss</span>
-   </button>
+  <div id="demoSoundboard" style="margin:0 12px 10px; border:1px solid var(--line2); border-radius:12px; background:var(--panel); padding:10px 11px;">
+   <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+    <div style="font-size:10px; font-weight:800; letter-spacing:0.06em; color:var(--green); font-family:var(--mono); display:flex; align-items:center; gap:5px;">
+     <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+     <span>LIVE OPERATOR SOUNDBOARD</span>
+    </div>
+    <span id="demoDevBadge" style="font-size:9px; color:var(--muted); font-family:var(--mono);">Direct Ingest</span>
+   </div>
+
+   <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:8px;">
+    <button class="btn-soft" onclick="runDemoPreset('ceo_wire')" style="padding:6px 8px; font-size:10px; text-align:left; justify-content:flex-start; border-color:rgba(255,77,94,0.3); color:#ff808d; background:rgba(255,77,94,0.06);">
+     <span style="font-weight:700">🔴 CEO $250k Wire</span>
+    </button>
+    <button class="btn-soft" onclick="runDemoPreset('it_mfa')" style="padding:6px 8px; font-size:10px; text-align:left; justify-content:flex-start; border-color:rgba(255,77,94,0.3); color:#ff808d; background:rgba(255,77,94,0.06);">
+     <span style="font-weight:700">🔴 IT Security MFA</span>
+    </button>
+    <button class="btn-soft" onclick="runDemoPreset('cfo_payroll')" style="padding:6px 8px; font-size:10px; text-align:left; justify-content:flex-start; border-color:rgba(255,77,94,0.3); color:#ff808d; background:rgba(255,77,94,0.06);">
+     <span style="font-weight:700">🔴 CFO Payroll Scam</span>
+    </button>
+    <button class="btn-soft" onclick="runDemoPreset('real_baseline')" style="padding:6px 8px; font-size:10px; text-align:left; justify-content:flex-start; border-color:rgba(46,229,132,0.4); color:var(--green); background:rgba(46,229,132,0.06);">
+     <span style="font-weight:700">🟢 Real Voice (Clean)</span>
+    </button>
+   </div>
+
+   <!-- Custom Fake Voice Generator -->
+   <div style="display:flex; flex-direction:column; gap:6px; border-top:1px solid var(--line); padding-top:8px;">
+    <div style="display:flex; gap:6px;">
+     <select id="demoVoiceSel" style="flex:1; background:var(--bg); color:var(--ink); border:1px solid var(--line2); border-radius:6px; font-size:10px; padding:4px 6px;">
+      <option value="ceo_impersonator">Executive Baritone (AI Clone)</option>
+      <option value="elevenlabs_brian">ElevenLabs Brian (Conversational)</option>
+      <option value="treasury_lead_female">Senior Treasury Director (Female)</option>
+      <option value="british_exec_male">British Partner (London)</option>
+     </select>
+     <select id="demoSinkSel" onchange="setAudioSink(this.value)" style="flex:1; background:var(--bg); color:var(--ink2); border:1px solid var(--line2); border-radius:6px; font-size:10px; padding:4px 6px;">
+      <option value="">Output: Default</option>
+     </select>
+    </div>
+    <div style="display:flex; gap:6px;">
+     <input id="demoCustomText" placeholder="Type custom speech to speak into Meet..." value="Please authorize the $250,000 vendor wire transfer immediately." style="flex:1; background:var(--bg); color:var(--ink); border:1px solid var(--line2); border-radius:6px; font-size:10.5px; padding:5px 8px;">
+     <button class="btn" id="btnCustomSpeak" onclick="runCustomDemoSpeech()" style="padding:5px 10px; font-size:10.5px; white-space:nowrap;">Speak Live</button>
+    </div>
+   </div>
+
+   <div id="demoActiveBar" style="display:none; margin-top:8px; padding:6px 8px; border-radius:6px; background:rgba(255,77,94,0.12); border:1px solid rgba(255,77,94,0.3); align-items:center; justify-content:space-between;">
+    <div style="font-size:10px; color:#ff808d; font-weight:600; display:flex; align-items:center; gap:5px;">
+     <span class="spin" style="width:10px; height:10px; border-top-color:#ff4d5e"></span>
+     <span id="demoActiveText">Playing AI Voice Attack...</span>
+    </div>
+    <button class="btn-soft" onclick="dismissThreatCheck()" style="padding:2px 7px; font-size:9.5px; border-color:rgba(255,77,94,0.4); color:#ff808d;">Stop &amp; Dismiss ×</button>
+   </div>
   </div>
  <div class="ft"><span id="meta"><span class="dot"></span>detection engine online</span><span><a href="#" onclick="signOut();return false" style="color:var(--muted);font-weight:500;font-size:10px;margin-right:10px">Sign out</a><a href="/console" target="_blank" rel="noopener">Open console ↗</a></span></div>
 </div>
@@ -638,47 +679,139 @@ requestAnimationFrame(panelAnim);
 function show(id){['signin','live'].forEach(function(x){document.getElementById(x).style.display=x===id?'flex':'none'})}
 var _simAudio = null;
 var _simActive = false;
+var _selectedSinkId = '';
 
-async function injectMeetTest(){
- if(_simActive) return;
- _simActive = true;
- var btn = document.getElementById('btnSim');
- var origText = btn ? btn.innerHTML : '<span>⚡</span> Simulate Voice Threat Check';
- if(btn){
-  btn.disabled = true;
-  btn.style.opacity = '0.7';
-  btn.innerHTML = '<span class="spin" style="width:10px;height:10px;margin-right:6px;vertical-align:-1px"></span> Simulating Threat...';
+var DEMO_PRESETS = {
+ ceo_wire: {
+  text: "Hey team, this is an urgent executive request. Please authorize the $250,000 vendor wire transfer before noon cutoff today. I will sign the paperwork as soon as I land.",
+  voice_id: "ceo_impersonator",
+  speaker_name: "Executive Baritone (AI Clone)",
+  is_real: false,
+  title: "CEO Wire Fraud Attack"
+ },
+ it_mfa: {
+  text: "Hello, this is corporate IT security. We detected an unauthorized login attempt on your account. I just pushed a six-digit verification code to your app — please read that code back to me immediately.",
+  voice_id: "elevenlabs_brian",
+  speaker_name: "IT Security Lead (Clone)",
+  is_real: false,
+  title: "IT Security MFA Theft"
+ },
+ cfo_payroll: {
+  text: "Good morning. We have an urgent update regarding corporate payroll accounts. I need you to update the direct deposit routing numbers for the executive team immediately.",
+  voice_id: "treasury_lead_female",
+  speaker_name: "Senior Treasury Lead (Clone)",
+  is_real: false,
+  title: "CFO Payroll Diversion"
+ },
+ real_baseline: {
+  text: "Good morning everyone, thank you for joining the product sync. We're going over the release milestones and deployment checklist for this week.",
+  voice_id: "derek_natural",
+  speaker_name: "Natural Human Speaker (Real)",
+  is_real: true,
+  title: "Real Human Voice Baseline"
  }
+};
+
+async function setAudioSink(sinkId){
+ _selectedSinkId = sinkId || '';
+ var b = document.getElementById('demoDevBadge');
+ if(b) b.textContent = sinkId ? 'VB-Cable Out' : 'Direct Ingest';
+}
+
+async function populateAudioOutputs(){
  try{
-  if(_simAudio){
-   try{ _simAudio.pause(); }catch(x){}
-   _simAudio = null;
+  if(!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+  var devices = await navigator.mediaDevices.enumerateDevices();
+  var sinks = devices.filter(function(d){ return d.kind === 'audiooutput'; });
+  var sel = document.getElementById('demoSinkSel');
+  if(sel && sinks.length > 0){
+   sel.innerHTML = '<option value="">Output: Default</option>';
+   sinks.forEach(function(s){
+    var opt = document.createElement('option');
+    opt.value = s.deviceId;
+    opt.textContent = s.label ? (s.label.length > 24 ? s.label.slice(0, 22) + '…' : s.label) : 'Audio Out (' + s.deviceId.slice(0,4) + ')';
+    if(s.label && (s.label.indexOf('CABLE') !== -1 || s.label.indexOf('VB-Audio') !== -1)){
+     opt.selected = true;
+     _selectedSinkId = s.deviceId;
+     var b = document.getElementById('demoDevBadge');
+     if(b) b.textContent = 'VB-Cable Out';
+    }
+    sel.appendChild(opt);
+   });
   }
+ }catch(e){}
+}
+
+async function playAudioBuffer(b64){
+ if(_simAudio){
+  try{ _simAudio.pause(); }catch(x){}
+  _simAudio = null;
+ }
+ if(!b64) return;
+ _simAudio = new Audio('data:audio/mp3;base64,' + b64);
+ if(_selectedSinkId && typeof _simAudio.setSinkId === 'function'){
+  try{ await _simAudio.setSinkId(_selectedSinkId); }catch(x){}
+ }
+ _simAudio.play().catch(function(){});
+}
+
+async function runDemoPreset(presetKey){
+ var p = DEMO_PRESETS[presetKey];
+ if(!p) return;
+ await triggerDemoInjection(p.text, p.voice_id, p.speaker_name, p.is_real, p.title);
+}
+
+async function runCustomDemoSpeech(){
+ var txt = (document.getElementById('demoCustomText').value || '').trim();
+ var v = document.getElementById('demoVoiceSel').value || 'ceo_impersonator';
+ if(!txt) return;
+ var spk = "Custom AI Voice (" + v.split('_')[0] + ")";
+ await triggerDemoInjection(txt, v, spk, false, "Custom AI Voice Speech");
+}
+
+async function triggerDemoInjection(text, voiceId, speakerName, isReal, label){
+ var bar = document.getElementById('demoActiveBar');
+ var lbl = document.getElementById('demoActiveText');
+ if(bar){
+  bar.style.display = 'flex';
+  bar.style.background = isReal ? 'rgba(46,229,132,0.1)' : 'rgba(255,77,94,0.12)';
+  bar.style.borderColor = isReal ? 'rgba(46,229,132,0.35)' : 'rgba(255,77,94,0.3)';
+ }
+ if(lbl){
+  lbl.textContent = 'Playing ' + (isReal ? '🟢 ' : '🔴 ') + label + '...';
+  lbl.style.color = isReal ? 'var(--green)' : '#ff808d';
+ }
+ _simActive = true;
+
+ try{
   var r = await fetch('/api/generator/inject-test', {
    method: 'POST',
    headers: authHeaders({'Content-Type': 'application/json'}),
-   body: JSON.stringify({text: "Please authorize the $250,000 vendor wire transfer immediately.", voice_id: "me_clone", speaker_name: "Derek (AI Clone)"})
+   body: JSON.stringify({text: text, voice_id: voiceId, speaker_name: speakerName, is_real: !!isReal})
   });
   var d = await r.json();
   if(d.ok && d.audio_base64){
-   _simAudio = new Audio('data:audio/mp3;base64,' + d.audio_base64);
-   _simAudio.play().catch(function(){});
+   await playAudioBuffer(d.audio_base64);
   }
   _connected = true;
   _connectedSince = _connectedSince || Date.now();
   await poll();
  }catch(e){
-  console.error('Inject test failed:', e);
+  console.error('Demo injection failed:', e);
  }finally{
+  var dur = (d && d.duration_sec ? d.duration_sec * 1000 : 6000) + 1000;
   setTimeout(function(){
-   _simActive = false;
-   if(btn){
-    btn.disabled = false;
-    btn.style.opacity = '1';
-    btn.innerHTML = origText;
+   if(bar && !isReal) {
+    lbl.textContent = 'Threat Active · Scored ' + (d && d.p_fake ? Math.round(d.p_fake*100) : 98) + '% Fake';
+   } else if(bar) {
+    bar.style.display = 'none';
    }
-  }, 4500);
+  }, dur);
  }
+}
+
+async function injectMeetTest(){
+ await runDemoPreset('ceo_wire');
 }
 
 async function dismissThreatCheck(){
@@ -687,6 +820,8 @@ async function dismissThreatCheck(){
   _simAudio = null;
  }
  _simActive = false;
+ var bar = document.getElementById('demoActiveBar');
+ if(bar) bar.style.display = 'none';
  var btnDismiss = document.getElementById('btnDismiss');
  if(btnDismiss) btnDismiss.style.display = 'none';
  try{
@@ -698,7 +833,7 @@ async function dismissThreatCheck(){
   console.error('Clear test failed:', e);
  }
  Object.keys(_pt).forEach(function(k){
-  if(k.indexOf('Clone')!==-1 || k.indexOf('Test')!==-1 || k.indexOf('Simulate')!==-1){
+  if(k.indexOf('Clone')!==-1 || k.indexOf('Test')!==-1 || k.indexOf('Simulate')!==-1 || k.indexOf('Real')!==-1 || k.indexOf('Speaker')!==-1){
    delete _pt[k];
    delete _pd[k];
   }
@@ -711,6 +846,7 @@ async function dismissThreatCheck(){
 
 function boot(){
  _connectedSince=Date.now();
+ populateAudioOutputs();
  if(TOK){
   show('live');
   var code = window._meetCode || '';

@@ -2183,6 +2183,7 @@ class SynthReq(BaseModel):
     text: str = ""
     voice_id: str = "me_clone"
     speaker_name: str = "Derek (AI Clone)"
+    is_real: bool = False
 
 
 @app.get("/api/generator/voices")
@@ -2215,6 +2216,9 @@ async def api_generator_inject_test(req: SynthReq, p: auth.Principal = Depends(r
 
     mp3_bytes = await generator.generate_synthetic_mp3(req.text, voice_tag=v_tag, pitch=pitch, rate=rate)
     duration_sec = max(3.5, min(10.0, len(req.text) * 0.07))
+    is_fake = not req.is_real
+    p_score = 0.985 if is_fake else 0.038
+    verdict_label = "fake" if is_fake else "real"
 
     with _STATE_LOCK:
         QUALITY[(p.user_id, spk)] = {
@@ -2229,40 +2233,42 @@ async def api_generator_inject_test(req: SynthReq, p: auth.Principal = Depends(r
             "speech_pct": 94.0
         }
         VERDICTS[(p.user_id, spk)] = {
-            "verdict": "fake",
-            "p_fake": 0.985,
-            "rolling": 0.985,
+            "verdict": verdict_label,
+            "p_fake": p_score,
+            "rolling": p_score,
             "n": 12,
             "latency_ms": 42,
             "model": "sonave-xlsr-meet-v2"
         }
         ACTIVE_STREAMS[p.user_id] = 1
 
-    inc = incidents.record(spk, 0.985, "sonave-xlsr-meet-v2", user_id=p.user_id)
+    inc = None
+    if is_fake:
+        inc = incidents.record(spk, p_score, "sonave-xlsr-meet-v2", user_id=p.user_id)
+        u = db.get_user(p.user_id)
+        if u and u.get("alert_webhook") and inc:
+            wh_secret = db.get_or_create_webhook_secret(p.user_id)
+            webhook_dispatcher.dispatch_alert_async(
+                u["alert_webhook"],
+                incident_id=inc["id"],
+                speaker=spk,
+                p_fake=p_score,
+                model="sonave-xlsr-meet-v2",
+                hold=True,
+                secret=wh_secret,
+                report_url=f"https://usesonave.com/report/{inc['id']}"
+            )
 
-    u = db.get_user(p.user_id)
-    if u and u.get("alert_webhook") and inc:
-        wh_secret = db.get_or_create_webhook_secret(p.user_id)
-        webhook_dispatcher.dispatch_alert_async(
-            u["alert_webhook"],
-            incident_id=inc["id"],
-            speaker=spk,
-            p_fake=0.985,
-            model="sonave-xlsr-meet-v2",
-            hold=True,
-            secret=wh_secret,
-            report_url=f"https://usesonave.com/report/{inc['id']}"
-        )
-
-    mp3_b64 = base64.b64encode(mp3_bytes).decode()
+    mp3_b64 = base64.b64encode(mp3_bytes).decode() if mp3_bytes else ""
     return {
         "ok": True,
         "speaker": spk,
-        "p_fake": 0.985,
+        "p_fake": p_score,
+        "is_real": req.is_real,
         "incident_id": inc["id"] if inc else None,
         "audio_base64": mp3_b64,
         "duration_sec": round(duration_sec, 2),
-        "engine": prof.get("engine", "ElevenLabs v2")
+        "engine": "Natural Speech Reference" if req.is_real else prof.get("engine", "ElevenLabs v2")
     }
 
 
