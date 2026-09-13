@@ -1330,12 +1330,31 @@ def api_quality(request: Request, p: auth.Principal = Depends(require_principal)
             and db.unended_bots(uid):
         _REAP_LAST[uid] = time.time()
         threading.Thread(target=_reap_dead_bots, args=(uid,), daemon=True).start()
+    now_t = time.time()
+    last_frame_t = LAST_FRAME.get(uid, 0)
+    last_close_t = LAST_CLOSE.get(uid, 0)
+
     # session over (bot removed / meeting ended, grace elapsed): empty live view,
     # so the panel's Protect button comes back and the console returns to standby
-    if ACTIVE_STREAMS.get(uid, 0) == 0:
-        if uid in LAST_CLOSE and time.time() - LAST_CLOSE[uid] > 2:
+    if last_frame_t and (now_t - last_frame_t) > 10:
+        if not db.unended_bots(uid):
+            ACTIVE_STREAMS[uid] = 0
+            with _STATE_LOCK:
+                for k in list(QUALITY.keys()):
+                    if k[0] == uid:
+                        QUALITY.pop(k, None)
+                for k in list(VERDICTS.keys()):
+                    if k[0] == uid:
+                        VERDICTS.pop(k, None)
+                for k in list(PRESENCE.keys()):
+                    if k[0] == uid:
+                        PRESENCE.pop(k, None)
             return {"_scorer": {"configured": bool(SCORER_URL)}, "_v": _BUILD}
-        if uid in LAST_FRAME and time.time() - LAST_FRAME[uid] > 8:
+
+    if ACTIVE_STREAMS.get(uid, 0) == 0:
+        if last_close_t and now_t - last_close_t > 2:
+            return {"_scorer": {"configured": bool(SCORER_URL)}, "_v": _BUILD}
+        if last_frame_t and now_t - last_frame_t > 8:
             return {"_scorer": {"configured": bool(SCORER_URL)}, "_v": _BUILD}
         if not any(u == uid for (u, s) in QUALITY):
             return {"_scorer": {"configured": bool(SCORER_URL)}, "_v": _BUILD}
