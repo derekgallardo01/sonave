@@ -183,10 +183,14 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
   <div><b>SESSION</b><span id="stSess">0:00</span></div>
   <div><b>PEAK RISK</b><span id="stPeak">0%</span></div>
  </div>
- <div style="padding:0 12px 10px; display:flex; justify-content:center;">
-  <button id="btnSim" class="btn-soft" style="width:100%;" onclick="injectMeetTest()">
+ <div style="padding:0 12px 10px; display:flex; justify-content:center; gap:8px;">
+  <button id="btnSim" class="btn-soft" style="flex:1;" onclick="injectMeetTest()">
    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="margin-right:4px;vertical-align:-1px"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
    <span>Simulate Voice Threat Check</span>
+  </button>
+  <button id="btnDismiss" class="btn-soft" style="display:none;padding:0 12px;color:var(--muted);border-color:var(--line);white-space:nowrap;" onclick="dismissThreatCheck()" title="Dismiss simulated threat check">
+   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-1px"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+   <span>Dismiss</span>
   </button>
  </div>
  <div class="ft"><span id="meta"><span class="dot"></span>detection engine online</span><span><a href="#" onclick="signOut();return false" style="color:var(--muted);font-weight:500;font-size:10px;margin-right:10px">Sign out</a><a href="/console" target="_blank" rel="noopener">Open console ↗</a></span></div>
@@ -447,10 +451,11 @@ async function poll(){
   } else if(hasAudio){
    var keys=ks.join('|');
    if(list._keys!==keys){list.innerHTML=ks.map(rowHTML).join('');list._keys=keys}
-   var maxP=0, anyTalk=false, anyVerdict=false, checks=0, sess=0;
+   var maxP=0, anyTalk=false, anyVerdict=false, checks=0, sess=0, hasSim=false;
    ks.forEach(function(k,i){
     var s=d[k], p=s.auth_p!=null?s.auth_p:0;
     if(p>maxP)maxP=p;
+    if(k.indexOf('Clone')!==-1 || k.indexOf('Test')!==-1 || k.indexOf('Simulate')!==-1) hasSim=true;
     if(s.state==='speaking')anyTalk=true;
     if(s.auth_verdict)anyVerdict=true;
     checks+=s.checks||0;
@@ -458,6 +463,8 @@ async function poll(){
     patchRow(list.children[i],k,s);
    });
    _peak=Math.max(_peak,maxP);
+   var btnDismiss = document.getElementById('btnDismiss');
+   if(btnDismiss) btnDismiss.style.display = (hasSim || _simActive) ? 'inline-flex' : 'none';
    document.getElementById('stWin').textContent=checks;
    sess=Math.max(sess, _connectedSince?Math.round((Date.now()-_connectedSince)/1000):0);
    document.getElementById('stSess').textContent=hmsP(sess);
@@ -501,9 +508,12 @@ async function poll(){
 var _pt={},_pd={},_peak=0;
 function hmsP(t){t=Math.round(t||0);return Math.floor(t/60)+':'+('0'+t%60).slice(-2)}
 function rowHTML(k){
+ var isSim = k.indexOf('Clone')!==-1 || k.indexOf('Test')!==-1 || k.indexOf('Simulate')!==-1;
+ var dismissBtn = isSim ? '<button class="btn-soft" onclick="dismissThreatCheck()" style="padding:2px 7px;font-size:9.5px;margin-left:auto;margin-right:6px;border-color:rgba(255,77,94,0.3);color:var(--red);cursor:pointer;" title="Dismiss test threat">Dismiss ×</button>' : '';
  return '<div class="spk" data-spk="'+esc(k)+'">'+
   '<div class="srow"><div class="savatar">'+esc(k.charAt(0).toUpperCase())+'</div>'+
   '<div class="smain"><div class="sname"></div><div class="ssub"></div></div>'+
+  dismissBtn +
   '<span class="spct">—</span></div>'+
   '<div class="track"><div class="fill" style="width:0%"></div></div>'+
   '<div class="smeta"></div>'+
@@ -639,6 +649,34 @@ async function injectMeetTest(){
    }
   }, 4500);
  }
+}
+
+async function dismissThreatCheck(){
+ if(_simAudio){
+  try{ _simAudio.pause(); }catch(x){}
+  _simAudio = null;
+ }
+ _simActive = false;
+ var btnDismiss = document.getElementById('btnDismiss');
+ if(btnDismiss) btnDismiss.style.display = 'none';
+ try{
+  await fetch('/api/generator/clear-test', {
+   method: 'POST',
+   headers: authHeaders()
+  });
+ }catch(e){
+  console.error('Clear test failed:', e);
+ }
+ Object.keys(_pt).forEach(function(k){
+  if(k.indexOf('Clone')!==-1 || k.indexOf('Test')!==-1 || k.indexOf('Simulate')!==-1){
+   delete _pt[k];
+   delete _pd[k];
+  }
+ });
+ _peak = 0.04;
+ var list = document.getElementById('speakers');
+ if(list) list._keys = '';
+ await poll();
 }
 
 function boot(){

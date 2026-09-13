@@ -2236,6 +2236,24 @@ async def api_generator_inject_test(req: SynthReq, p: auth.Principal = Depends(r
     }
 
 
+@app.post("/api/generator/clear-test")
+def api_generator_clear_test(p: auth.Principal = Depends(require_principal)):
+    """Dismiss simulated voice threat test data and restore clean meeting state."""
+    uid = p.user_id
+    removed = []
+    with _STATE_LOCK:
+        for k in list(QUALITY.keys()):
+            if k[0] == uid and ("Clone" in k[1] or "Simulate" in k[1] or "Test" in k[1]):
+                QUALITY.pop(k, None)
+                removed.append(k[1])
+        for k in list(VERDICTS.keys()):
+            if k[0] == uid and ("Clone" in k[1] or "Simulate" in k[1] or "Test" in k[1]):
+                VERDICTS.pop(k, None)
+                removed.append(k[1])
+    return {"ok": True, "removed": removed}
+
+
+
 
 
 class SettingsReq(BaseModel):
