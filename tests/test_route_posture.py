@@ -19,6 +19,7 @@ PUBLIC_200 = {
     "/llms.txt", "/robots.txt", "/sitemap.xml", "/console", "/meet-addon",
     "/favicon.ico", "/favicon.svg", "/og.png", "/console-shot.png",
     "/icon-120.png", "/icon-128.png",
+    "/shot-meet-panel.png", "/shot-wire-hold.png", "/shot-console.png", "/shot-protect.png",
 }
 
 # Dummy values for parameterized paths.

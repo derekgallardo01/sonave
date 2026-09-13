@@ -2766,6 +2766,26 @@ def console_shot():
     return FileResponse(str(_HERE / "console-shot.png"), media_type="image/png")
 
 
+@app.get("/shot-meet-panel.png")
+def shot_meet_panel():
+    return FileResponse(str(_HERE / "shot-meet-panel.png"), media_type="image/png")
+
+
+@app.get("/shot-wire-hold.png")
+def shot_wire_hold():
+    return FileResponse(str(_HERE / "shot-wire-hold.png"), media_type="image/png")
+
+
+@app.get("/shot-console.png")
+def shot_console():
+    return FileResponse(str(_HERE / "shot-console.png"), media_type="image/png")
+
+
+@app.get("/shot-protect.png")
+def shot_protect():
+    return FileResponse(str(_HERE / "shot-protect.png"), media_type="image/png")
+
+
 @app.get("/robots.txt")
 def robots(request: Request):
     from fastapi.responses import PlainTextResponse
