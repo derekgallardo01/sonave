@@ -323,6 +323,49 @@ async function protectMeeting(){
  deployTo('https://meet.google.com/'+code,btn,st);
 }
 var _connected = false;
+var _micStream = null, _micCtx = null, _micProc = null, _micWs = null;
+
+async function startMicCapture(){
+ try{
+  if(_micStream) return;
+  _micStream = await navigator.mediaDevices.getUserMedia({
+   audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+  });
+  _micCtx = new (window.AudioContext || window.webkitAudioContext)();
+  var nativeSr = _micCtx.sampleRate || 48000;
+  var src = _micCtx.createMediaStreamSource(_micStream);
+  _micProc = _micCtx.createScriptProcessor(2048, 1, 1);
+  var muteNode = _micCtx.createGain();
+  muteNode.gain.value = 0.0;
+  
+  src.connect(_micProc);
+  _micProc.connect(muteNode);
+  muteNode.connect(_micCtx.destination);
+  
+  var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  var spkName = (window.ME && window.ME.name) ? encodeURIComponent(window.ME.name) : 'Meeting%20Host';
+  var tokParam = TOK ? '&token=' + encodeURIComponent(TOK) : '';
+  _micWs = new WebSocket(proto + '//' + location.host + '/api/ws/mic-stream?speaker=' + spkName + tokParam);
+  _micWs.binaryType = 'arraybuffer';
+  
+  _micProc.onaudioprocess = function(e){
+   if(!_micWs || _micWs.readyState !== WebSocket.OPEN) return;
+   var inputData = e.inputBuffer.getChannelData(0);
+   var step = nativeSr / 16000;
+   var outLen = Math.floor(inputData.length / step);
+   var pcm16 = new Int16Array(outLen);
+   for(var p = 0; p < outLen; p++){
+    var srcIdx = Math.floor(p * step);
+    var s = Math.max(-1.0, Math.min(1.0, inputData[srcIdx] || 0));
+    pcm16[p] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+   }
+   _micWs.send(pcm16.buffer);
+  };
+ }catch(e){
+  console.warn('Microphone stream notice:', e);
+ }
+}
+
 async function deployTo(url,btn,st){
  try{
   var rMeet = await fetch('/api/meet/sessions/connect', {
@@ -334,6 +377,7 @@ async function deployTo(url,btn,st){
  }catch(e){}
  _connected = true;
  deployDone();
+ startMicCapture();
  poll();
 }
 function protectManual(){
@@ -355,10 +399,15 @@ function deployDone(){
  document.getElementById('protect').style.display='none';
  document.getElementById('banner').style.display='block';
  document.getElementById('sstats').style.display='grid';
+ startMicCapture();
 }
 function deployReset(){
  WAITING=false;
  _connected=false;
+ if(_micProc){ try{_micProc.disconnect();}catch(x){} _micProc=null; }
+ if(_micStream){ try{_micStream.getTracks().forEach(function(t){t.stop();});}catch(x){} _micStream=null; }
+ if(_micCtx){ try{_micCtx.close();}catch(x){} _micCtx=null; }
+ if(_micWs){ try{_micWs.close();}catch(x){} _micWs=null; }
  document.getElementById('admitWait').style.display='none';
  document.getElementById('protect').style.display='block';
  document.getElementById('protectHero').style.display='';
