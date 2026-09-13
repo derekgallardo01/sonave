@@ -696,6 +696,17 @@ function boot(){
  _connectedSince=Date.now();
  if(TOK){
   show('live');
+  var code = window._meetCode || '';
+  if(!code && window._sideClient && window._sideClient.getMeetingInfo){
+   window._sideClient.getMeetingInfo().then(function(mi){
+    var c = (mi && (mi.meetingCode || mi.meetingId)) || '';
+    deployTo('https://meet.google.com/' + (c || 'this-call'));
+   }).catch(function(){
+    deployTo('https://meet.google.com/this-call');
+   });
+  } else {
+   deployTo('https://meet.google.com/' + (code || 'this-call'));
+  }
  }else{
   show('signin');
  }
