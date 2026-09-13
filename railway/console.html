@@ -364,7 +364,7 @@ a:hover{color:var(--green-hover)}
        </div>
       </div>
       <div class="idle-t1" style="font-size:16px;font-weight:800;color:var(--ink);letter-spacing:-0.01em;">Voice Authenticity Engine Standby</div>
-      <div class="idle-t2" style="font-size:12.5px;color:var(--ink2);max-width:380px;line-height:1.6;">Sonave operates 100% botless. Open Sonave in your Google Meet side panel during any meeting for instant neural verification, or run a live simulation right here.</div>
+      <div class="idle-t2" style="font-size:12.5px;color:var(--ink2);max-width:420px;line-height:1.6;">Sonave operates 100% botless. Open Sonave in your Google Meet side panel during any meeting for instant neural verification, or run a live simulation right here.</div>
       <div style="display:flex;gap:10px;margin-top:4px">
        <button class="btn-primary" onclick="demoToggle()" style="display:inline-flex;align-items:center;gap:6px">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
@@ -374,7 +374,24 @@ a:hover{color:var(--green-hover)}
         <span>Google Meet Panel ↗</span>
        </a>
       </div>
-      <div style="display:flex;gap:16px;margin-top:8px;font-size:10px;font-family:var(--mono);color:var(--muted)">
+      
+      <!-- Engine Readiness Checklist -->
+      <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; width:100%; max-width:440px; margin-top:14px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.06)">
+       <div style="background:var(--panel); border:1px solid var(--line2); border-radius:8px; padding:8px 10px; text-align:left">
+        <div style="font-size:9.5px; font-family:var(--mono); color:var(--muted)">SCORER CHECKPOINT</div>
+        <div style="font-size:11px; font-weight:700; color:var(--green); margin-top:2px">XLSR-53 v2.4 (Active)</div>
+       </div>
+       <div style="background:var(--panel); border:1px solid var(--line2); border-radius:8px; padding:8px 10px; text-align:left">
+        <div style="font-size:9.5px; font-family:var(--mono); color:var(--muted)">WEBRTC GATEWAY</div>
+        <div style="font-size:11px; font-weight:700; color:var(--green); margin-top:2px">Meet Media API (Ready)</div>
+       </div>
+       <div style="background:var(--panel); border:1px solid var(--line2); border-radius:8px; padding:8px 10px; text-align:left">
+        <div style="font-size:9.5px; font-family:var(--mono); color:var(--muted)">ACOUSTIC GATE</div>
+        <div style="font-size:11px; font-weight:700; color:var(--green); margin-top:2px">4.0s Calibration</div>
+       </div>
+      </div>
+
+      <div style="display:flex;gap:16px;margin-top:6px;font-size:10px;font-family:var(--mono);color:var(--muted)">
        <span>🛡️ BOTLESS WEBRTC</span>
        <span>⚡ 38ms LATENCY</span>
        <span>🔒 TAMPER-EVIDENT AUDIT</span>
@@ -554,31 +571,39 @@ a:hover{color:var(--green-hover)}
     <!-- Panel 3: API & Alerts -->
     <div class="side-tab-panel" id="side-panel-api">
      <div class="card-pad">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
        <span class="card-lbl">GOOGLE MEET NATIVE VOICE AUTHENTICATION</span>
        <span id="meetStatusBadge" class="badge" style="font-size:10px;padding:3px 8px;border-radius:6px;border:1px solid var(--line2);font-family:var(--mono);">Checking...</span>
       </div>
-      <div id="meetRow" style="display:flex;align-items:center;gap:10px;">
-       <button class="btn-soft" id="meetBtn" onclick="location='/auth/meet/connect'">Authorize Google Meet</button>
-       <span class="hint" id="meetHint" style="margin:0">Native bot-free verification using approved Google Meet Media API.</span>
+      <div id="meetHint" class="hint" style="margin:0 0 10px 0; color:var(--ink2); line-height:1.5">Native bot-free voice verification using approved Google Meet Media API.</div>
+      <div id="meetRow" style="display:flex; flex-direction:column; gap:8px;">
+       <button class="btn-primary" id="meetBtn" onclick="location='/auth/meet/connect'" style="width:100%; display:inline-flex; align-items:center; justify-content:center; gap:6px">Authorize Google Meet Permissions</button>
       </div>
-      <div class="hint" style="margin-top:8px;">Grants OAuth consent for <code>meetings.conference.media.readonly</code> and <code>meetings.space.readonly</code> to stream and verify conference audio directly server-to-server with zero participant bots.</div>
+      <div style="display:flex; gap:6px; margin-top:10px; flex-wrap:wrap">
+       <span class="tag" style="font-size:10px; padding:3px 8px"><span class="dot"></span><span class="name">meetings.conference.media.readonly</span></span>
+       <span class="tag" style="font-size:10px; padding:3px 8px"><span class="dot"></span><span class="name">meetings.space.readonly</span></span>
+      </div>
      </div>
 
      <div class="card-pad">
-      <div class="card-lbl" style="margin-bottom:12px">ALERTS &amp; WEBHOOKS</div>
-      <div style="display:flex;gap:8px">
-       <input id="alertHook" class="inp" placeholder="Slack / Discord / Teams Webhook URL (https://...)">
-       <button class="btn-soft" onclick="saveAlerts()">Save</button>
-       <button class="btn-soft" onclick="testAlerts()">Test</button>
+      <div class="card-lbl" style="margin-bottom:10px">ALERTS &amp; WEBHOOKS</div>
+      <div style="display:flex; flex-direction:column; gap:8px">
+       <input id="alertHook" class="inp" placeholder="https://hooks.slack.com/services/..." style="width:100%">
+       <div style="display:flex; gap:8px">
+        <button class="btn-primary" onclick="saveAlerts()" style="flex:1">Save Webhook</button>
+        <button class="btn-soft" onclick="testAlerts()">Send Test Alert</button>
+       </div>
       </div>
-      <div class="hint">Instant multi-platform alerts (Slack, Discord, MS Teams, SIEM) fire the moment a synthetic voice is flagged.</div>
-      <div class="card-lbl" style="margin:18px 0 12px">AUTO-PROTECT &#183; BETA</div>
-      <div style="display:flex;gap:8px">
-       <input id="icalUrl" class="inp" placeholder="Secret iCal address (https://calendar.google.com/calendar/ical/.../basic.ics)">
-       <button class="btn-soft" onclick="saveAlerts()">Save</button>
+      <div class="hint" style="margin-top:8px">Instant multi-platform alerts (Slack, Discord, MS Teams, SIEM) fire the moment a synthetic voice is flagged.</div>
+      
+      <div class="card-lbl" style="margin:18px 0 10px">AUTO-PROTECT &#183; BETA</div>
+      <div style="display:flex; flex-direction:column; gap:8px">
+       <input id="icalUrl" class="inp" placeholder="https://calendar.google.com/calendar/ical/.../basic.ics" style="width:100%">
+       <div style="display:flex; gap:8px">
+        <button class="btn-soft" onclick="saveAlerts()" style="flex:1">Save Calendar URL</button>
+       </div>
       </div>
-      <div class="hint">Sonave watches this calendar and automatically activates protection for upcoming Google Meet meetings &#8212; no calendar permissions needed. Google Calendar &#8594; Settings &#8594; your calendar &#8594; &#8220;Secret address in iCal format&#8221;. Clear the field to turn off.</div>
+      <div class="hint" style="margin-top:8px">Sonave automatically activates protection for upcoming Google Meet events. Clear the field to turn off.</div>
       <div id="calRow" style="display:none;align-items:center;gap:10px;margin-top:12px">
        <button class="btn-soft" id="calBtn"></button>
        <span class="hint" id="calHint" style="margin:0"></span>
@@ -1102,10 +1127,13 @@ function animateSpectrogram(){
     if(isAnomaly && i > 32){
      target=Math.min(0.98, target + 0.42 + Math.random()*0.25);
     }
+   } else {
+    // Gentle ambient breathing wave in standby so spectrogram looks alive
+    target=0.06 + Math.sin(Date.now()*0.002 + i*0.18)*0.04;
    }
    _specBins[i]+=(target-_specBins[i])*0.25;
    var bh=_specBins[i]*h*0.9;
-   var col=isAnomaly && i>32 ? '#ff4d5e' : (isAnomaly ? '#ffb224' : '#2ee584');
+   var col=isAnomaly && i>32 ? '#ff4d5e' : (isAnomaly ? '#ffb224' : (isLive ? '#2ee584' : 'rgba(46,229,132,0.45)'));
    _specCtx.fillStyle=col;
    _specCtx.fillRect(i*barW, h-bh, barW-1.5, bh);
   }
@@ -1137,7 +1165,7 @@ function meetRender(d){
   badge.style.color='var(--green)';
   badge.style.borderColor='rgba(46,229,132,0.4)';
   badge.style.background='rgba(46,229,132,0.08)';
-  btn.textContent='Re-authorize Permissions';
+  btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg><span>Re-authorize Permissions</span>';
   btn.onclick=function(){location='/auth/meet/connect'};
   hint.textContent='Google Meet Media API is authorized for live conference voice verification.';
  }else{
@@ -1145,7 +1173,7 @@ function meetRender(d){
   badge.style.color='var(--amber)';
   badge.style.borderColor='rgba(255,178,36,0.4)';
   badge.style.background='rgba(255,178,36,0.08)';
-  btn.textContent='Authorize Google Meet Permissions';
+  btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9v-2h2v2zm0-4H9V7h2v5z"></path></svg><span>Authorize Google Meet Permissions</span>';
   btn.onclick=function(){location='/auth/meet/connect'};
   hint.textContent='Click to grant Google Meet Media API permissions to your account.';
  }
