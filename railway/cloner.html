@@ -457,9 +457,18 @@ async function synthesizeFullSentence(sentenceText){
     var d = await r.json();
     if(d.ok && d.audio_base64){
       enqueueAudio(d.audio_base64, trimmed);
+    } else {
+      if(st && _active && !_isPlayingAudio){
+        st.textContent = 'LISTENING (SPEAK)';
+        st.style.color = 'var(--green)';
+      }
     }
   } catch(err){
     console.error('Synthesis error:', err);
+    if(st && _active && !_isPlayingAudio){
+      st.textContent = 'LISTENING (SPEAK)';
+      st.style.color = 'var(--green)';
+    }
   }
 }
 
