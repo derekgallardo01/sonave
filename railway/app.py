@@ -2250,6 +2250,13 @@ def api_generator_clear_test(p: auth.Principal = Depends(require_principal)):
             if k[0] == uid and ("Clone" in k[1] or "Simulate" in k[1] or "Test" in k[1]):
                 VERDICTS.pop(k, None)
                 removed.append(k[1])
+    try:
+        c = incidents._conn()
+        c.execute("UPDATE incidents SET status='acknowledged', hold=0 WHERE user_id=? AND (speaker LIKE '%Clone%' OR speaker LIKE '%Simulate%' OR speaker LIKE '%Test%')", (uid,))
+        c.commit()
+        c.close()
+    except Exception:
+        pass
     return {"ok": True, "removed": removed}
 
 
