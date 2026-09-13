@@ -26,8 +26,8 @@ a{color:#2ee584;text-decoration:none;transition:color .15s}a:hover{color:#4deda0
   <div style="border-bottom:1px solid rgba(22,30,37,.7);background:rgba(10,14,18,.85);backdrop-filter:blur(14px);position:sticky;top:0;z-index:50">
     <div style="max-width:1120px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:68px">
       <div style="display:flex;align-items:center;gap:12px">
-        <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#2ee584,#0d9e56);display:flex;align-items:center;justify-content:center;box-shadow:0 0 16px rgba(46,229,132,.25)">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 8h1.5M5 4.5v7M8 2v12M11 4.5v7M14 8h-1.5" stroke="#06130b" stroke-width="1.8" stroke-linecap="round"></path></svg>
+        <div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M12 3.4v17.2M3.4 12h17.2" stroke="#2ee584" stroke-width=".7" opacity=".55"></path><circle cx="12" cy="12" r="5.6" stroke="#2ee584" stroke-width=".7" opacity=".55"></circle><circle cx="12" cy="12" r="8.6" stroke="#2ee584" stroke-width="2.2"></circle><path d="M6.9 12h.9l.6-1.4.7 2.9.8-4.1.9 5.4.9-7.2.9 8.3.8-6.9.7 4.8.7-2.9.6 1.6.5-.5h1.2" stroke="#2ee584" stroke-width="1.15" stroke-linejoin="round" stroke-linecap="round"></path><circle cx="18.1" cy="5.9" r="2.6" fill="#0a0e12"></circle><circle cx="18.1" cy="5.9" r="1.8" fill="#2ee584"></circle></svg>
         </div>
         <span style="font-size:17px;font-weight:700;letter-spacing:-.01em">Sonave</span>
         <div style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:rgba(46,229,132,.07);border:1px solid rgba(46,229,132,.2);font-size:11px;font-family:'IBM Plex Mono',monospace;color:#2ee584;margin-left:8px">
@@ -47,23 +47,45 @@ a{color:#2ee584;text-decoration:none;transition:color .15s}a:hover{color:#4deda0
 
   <div style="max-width:1120px;margin:0 auto;padding:0 24px">
     <!-- Hero -->
-    <div style="padding:74px 0 54px;max-width:760px">
-      <div style="display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;border:1px solid rgba(46,229,132,.3);background:rgba(46,229,132,.06);font-size:12px;color:#2ee584;font-weight:600;margin-bottom:24px">
-        <span style="width:7px;height:7px;border-radius:50%;background:#2ee584"></span>Live on Google Meet, Zoom &amp; Teams
+    <div style="padding:68px 0 54px;display:grid;grid-template-columns:1.08fr 0.92fr;gap:44px;align-items:center">
+      <div>
+        <div style="display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;border:1px solid rgba(46,229,132,.3);background:rgba(46,229,132,.06);font-size:12px;color:#2ee584;font-weight:600;margin-bottom:24px">
+          <span style="width:7px;height:7px;border-radius:50%;background:#2ee584"></span>Live on Google Meet, Zoom &amp; Teams
+        </div>
+        <div style="font-size:50px;font-weight:800;letter-spacing:-.035em;line-height:1.08;color:#ffffff">Catch cloned voices on the calls that move money.</div>
+        <div style="font-size:16.5px;color:#8a99a5;line-height:1.65;margin-top:20px;max-width:580px">Real-time deepfake-voice detection for video meetings — engineered to work on the compressed, processed audio real calls actually produce. Every speaker gets a live <b style="color:#2ee584">REAL</b> / <b style="color:#ffb224">SUSPECT</b> / <b style="color:#ff4d5e">FAKE</b> verdict, and a wire hold fires before the fraud clears.</div>
+        <div style="display:flex;gap:12px;margin-top:30px;flex-wrap:wrap">
+          <a href="Sonave Console.dc.html" style="padding:13px 24px;border-radius:10px;background:#2ee584;color:#06130b;font-weight:700;font-size:13.5px;box-shadow:0 0 24px rgba(46,229,132,.25)">See the live console</a>
+          <a href="#screenshots" style="padding:12px 20px;border-radius:10px;border:1px solid #1e2830;color:#c7d2da;font-weight:600;font-size:13.5px;background:rgba(19,27,34,.5)">Explore screenshots &amp; demo</a>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px;margin-top:32px;padding-top:22px;border-top:1px solid rgba(22,30,37,.7);font-size:12px;color:#5d6d79;flex-wrap:wrap">
+          <span style="font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#3d4a54">Integrations:</span>
+          <span style="padding:4px 9px;border-radius:6px;background:#10171f;border:1px solid #1a232c;color:#8a99a5">Google Meet</span>
+          <span style="padding:4px 9px;border-radius:6px;background:#10171f;border:1px solid #1a232c;color:#8a99a5">Zoom</span>
+          <span style="padding:4px 9px;border-radius:6px;background:#10171f;border:1px solid #1a232c;color:#8a99a5">Microsoft Teams</span>
+          <span style="padding:4px 9px;border-radius:6px;background:#10171f;border:1px solid #1a232c;color:#8a99a5">Slack Webhooks</span>
+          <span style="padding:4px 9px;border-radius:6px;background:#10171f;border:1px solid rgba(46,229,132,.3);color:#2ee584">IC3 / SOC2 Ready</span>
+        </div>
       </div>
-      <div style="font-size:54px;font-weight:800;letter-spacing:-.035em;line-height:1.06;color:#ffffff">Catch cloned voices on the calls that move money.</div>
-      <div style="font-size:18px;color:#8a99a5;line-height:1.65;margin-top:22px;max-width:640px">Real-time deepfake-voice detection for video meetings — engineered to work on the compressed, processed audio real calls actually produce. Every speaker gets a live <b style="color:#2ee584">REAL</b> / <b style="color:#ffb224">SUSPECT</b> / <b style="color:#ff4d5e">FAKE</b> verdict, and a wire hold fires before the fraud clears.</div>
-      <div style="display:flex;gap:14px;margin-top:34px;flex-wrap:wrap">
-        <a href="Sonave Console.dc.html" style="padding:14px 26px;border-radius:10px;background:#2ee584;color:#06130b;font-weight:700;font-size:14px;box-shadow:0 0 24px rgba(46,229,132,.25)">See the live console</a>
-        <a href="#screenshots" style="padding:13px 22px;border-radius:10px;border:1px solid #1e2830;color:#c7d2da;font-weight:600;font-size:14px;background:rgba(19,27,34,.5)">Explore screenshots &amp; demo</a>
-      </div>
-      <div style="display:flex;align-items:center;gap:14px;margin-top:36px;padding-top:22px;border-top:1px solid rgba(22,30,37,.7);font-size:12px;color:#5d6d79;flex-wrap:wrap">
-        <span style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#3d4a54">Integrations:</span>
-        <span style="padding:4px 10px;border-radius:6px;background:#10171f;border:1px solid #1a232c;color:#8a99a5">Google Meet</span>
-        <span style="padding:4px 10px;border-radius:6px;background:#10171f;border:1px solid #1a232c;color:#8a99a5">Zoom</span>
-        <span style="padding:4px 10px;border-radius:6px;background:#10171f;border:1px solid #1a232c;color:#8a99a5">Microsoft Teams</span>
-        <span style="padding:4px 10px;border-radius:6px;background:#10171f;border:1px solid #1a232c;color:#8a99a5">Slack Webhooks</span>
-        <span style="padding:4px 10px;border-radius:6px;background:#10171f;border:1px solid rgba(46,229,132,.3);color:#2ee584">IC3 / SOC2 Ready</span>
+
+      <div>
+        <div style="border-radius:14px;overflow:hidden;border:1px solid #1e2830;background:#0d1319;box-shadow:0 24px 60px rgba(0,0,0,0.6),0 0 40px rgba(46,229,132,0.08)">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#0a0f14;border-bottom:1px solid #161e25">
+            <div style="display:flex;gap:6px">
+              <span style="width:10px;height:10px;border-radius:50%;background:#ff5f56"></span>
+              <span style="width:10px;height:10px;border-radius:50%;background:#ffbd2e"></span>
+              <span style="width:10px;height:10px;border-radius:50%;background:#27c93f"></span>
+            </div>
+            <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:#5d6d79">meet.google.com/wire-approval-q3</div>
+            <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:#2ee584;font-weight:700">● LIVE GUARD</span>
+          </div>
+          <div style="position:relative">
+            <img src="marketplace/shot-meet-panel.png" alt="Google Meet live protection" style="width:100%;height:auto;display:block;aspect-ratio:16/10;object-fit:cover;object-position:top">
+            <div style="position:absolute;bottom:14px;left:14px;padding:7px 12px;border-radius:8px;background:rgba(10,14,18,0.88);border:1px solid #1e2830;color:#e8eef2;font-size:11px;font-weight:600">
+              <span style="color:#2ee584">●</span> Real-time per-speaker authenticity score
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 

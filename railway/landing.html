@@ -42,7 +42,7 @@ a:hover{color:var(--green-hover)}
 .nav-header{position:sticky;top:0;background:rgba(10,14,18,0.85);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid rgba(22,30,37,0.7);z-index:100}
 .nav{display:flex;align-items:center;justify-content:space-between;padding:18px 0}
 .brand{display:flex;align-items:center;gap:10px}
-.brand-tile{width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:linear-gradient(135deg,#2ee584,#0d9e56);box-shadow:0 0 16px rgba(46,229,132,.25)}
+.brand-tile{width:32px;height:32px;display:flex;align-items:center;justify-content:center}
 .brand-name{font-size:17px;font-weight:700;color:var(--ink);letter-spacing:-.01em}
 .nav-status{display:inline-flex;align-items:center;gap:7px;padding:4px 10px;border-radius:999px;background:rgba(46,229,132,.07);border:1px solid rgba(46,229,132,.2);font-size:11px;font-family:var(--mono);color:var(--green);margin-left:14px}
 .nav-status .dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s infinite}
@@ -53,27 +53,40 @@ a:hover{color:var(--green-hover)}
 .btn-console:hover{background:var(--green-hover);color:var(--on-green);transform:translateY(-1px);box-shadow:0 0 20px rgba(46,229,132,.35)}
 
 /* Hero */
-.hero{padding:72px 0 60px;position:relative}
-.hero-content{max-width:760px}
+.hero{padding:68px 0 54px;display:grid;grid-template-columns:1.08fr 0.92fr;gap:44px;align-items:center;position:relative}
+.hero-content{max-width:100%}
 .hero-badge{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;border:1px solid rgba(46,229,132,.3);background:rgba(46,229,132,.06);font-size:12px;color:var(--green);font-weight:600;margin-bottom:24px;box-shadow:0 0 20px rgba(46,229,132,.08)}
 .dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
-.hero h1{font-size:54px;font-weight:800;letter-spacing:-.035em;line-height:1.06;text-wrap:balance;color:#ffffff}
-.hero-sub{font-size:18px;color:var(--ink2);line-height:1.65;margin-top:22px;max-width:640px;text-wrap:pretty}
+.hero h1{font-size:50px;font-weight:800;letter-spacing:-.035em;line-height:1.08;text-wrap:balance;color:#ffffff}
+.hero-sub{font-size:16.5px;color:var(--ink2);line-height:1.65;margin-top:20px;max-width:580px;text-wrap:pretty}
 .v-real{color:var(--green);font-weight:700}
 .v-suspect{color:var(--amber);font-weight:700}
 .v-fake{color:var(--red);font-weight:700}
-.hero-ctas{display:flex;align-items:center;flex-wrap:wrap;gap:14px;margin-top:34px}
-.btn-primary{padding:14px 26px;border-radius:10px;background:var(--green);color:var(--on-green);font-weight:700;font-size:14px;display:inline-flex;align-items:center;gap:8px;transition:all .18s ease;box-shadow:0 0 24px rgba(46,229,132,.25)}
+.hero-ctas{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-top:30px}
+.btn-primary{padding:13px 24px;border-radius:10px;background:var(--green);color:var(--on-green);font-weight:700;font-size:13.5px;display:inline-flex;align-items:center;gap:8px;transition:all .18s ease;box-shadow:0 0 24px rgba(46,229,132,.25)}
 .btn-primary:hover{background:var(--green-hover);color:var(--on-green);transform:translateY(-1px);box-shadow:0 0 30px rgba(46,229,132,.4)}
-.btn-ghost{padding:13px 22px;border-radius:10px;border:1px solid var(--line2);color:#c7d2da;font-weight:600;font-size:14px;display:inline-flex;align-items:center;gap:8px;background:rgba(19,27,34,0.5);transition:all .18s ease}
+.btn-ghost{padding:12px 20px;border-radius:10px;border:1px solid var(--line2);color:#c7d2da;font-weight:600;font-size:13.5px;display:inline-flex;align-items:center;gap:8px;background:rgba(19,27,34,0.5);transition:all .18s ease}
 .btn-ghost:hover{border-color:var(--green);color:var(--green);background:rgba(46,229,132,0.05)}
 
+/* Hero Visual Mockup */
+.hero-visual{position:relative;cursor:pointer}
+.hero-window{border-radius:14px;overflow:hidden;border:1px solid #1e2830;background:#0d1319;box-shadow:0 24px 60px rgba(0,0,0,0.6),0 0 40px rgba(46,229,132,0.08);transition:transform .25s ease,box-shadow .25s ease}
+.hero-window:hover{transform:translateY(-3px);box-shadow:0 30px 70px rgba(0,0,0,0.7),0 0 50px rgba(46,229,132,0.15)}
+.hero-window-top{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#0a0f14;border-bottom:1px solid #161e25}
+.hero-window-title{font-size:11px;font-family:var(--mono);color:var(--muted);display:flex;align-items:center;gap:6px}
+.hero-window-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:6px;background:rgba(46,229,132,.1);border:1px solid rgba(46,229,132,.25);font-size:10px;font-family:var(--mono);color:var(--green);font-weight:700}
+.hero-window-badge .dot{width:5px;height:5px;background:var(--green);border-radius:50%;animation:pulse 1.8s infinite}
+.hero-img-wrap{position:relative;overflow:hidden;background:#050709}
+.hero-img-wrap img{width:100%;height:auto;display:block;aspect-ratio:16/10;object-fit:cover;object-position:top}
+.hero-floating-tag{position:absolute;bottom:14px;left:14px;padding:7px 12px;border-radius:8px;background:rgba(10,14,18,0.88);border:1px solid #1e2830;color:#e8eef2;font-size:11px;font-weight:600;display:flex;align-items:center;gap:7px;backdrop-filter:blur(8px);box-shadow:0 8px 20px rgba(0,0,0,0.4)}
+.hero-floating-tag-right{position:absolute;top:14px;right:14px;padding:6px 10px;border-radius:8px;background:rgba(10,14,18,0.88);border:1px solid rgba(46,229,132,0.3);color:var(--green);font-size:10.5px;font-weight:700;font-family:var(--mono);display:flex;align-items:center;gap:6px;backdrop-filter:blur(8px)}
+
 /* Compatibility Bar */
-.compat-bar{display:flex;align-items:center;gap:20px;margin-top:38px;padding-top:24px;border-top:1px solid rgba(22,30,37,0.7);color:var(--muted);font-size:12px;flex-wrap:wrap}
-.compat-label{text-transform:uppercase;letter-spacing:.08em;font-weight:700;font-size:11px;color:var(--dim)}
-.compat-pills{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.compat-pill{padding:4px 10px;border-radius:6px;background:#10171f;border:1px solid #1a232c;font-size:11.5px;color:var(--ink2);display:inline-flex;align-items:center;gap:6px}
-.compat-pill svg{width:13px;height:13px}
+.compat-bar{display:flex;align-items:center;gap:16px;margin-top:32px;padding-top:22px;border-top:1px solid rgba(22,30,37,0.7);color:var(--muted);font-size:12px;flex-wrap:wrap}
+.compat-label{text-transform:uppercase;letter-spacing:.08em;font-weight:700;font-size:10.5px;color:var(--dim)}
+.compat-pills{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.compat-pill{padding:4px 9px;border-radius:6px;background:#10171f;border:1px solid #1a232c;font-size:11px;color:var(--ink2);display:inline-flex;align-items:center;gap:5px}
+.compat-pill svg{width:12px;height:12px}
 
 /* Stats */
 .stats{border:1px solid var(--line);border-radius:16px;background:linear-gradient(180deg,#0d1319 0%,#090d11 100%);padding:28px 32px;display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-top:20px;box-shadow:0 12px 36px rgba(0,0,0,.4)}
@@ -215,10 +228,11 @@ a:hover{color:var(--green-hover)}
   .desk-card{grid-template-columns:1fr;gap:28px}
   .stats{grid-template-columns:repeat(2,1fr);padding:24px}
   .comparison-grid{grid-template-columns:1fr}
+  .hero{grid-template-columns:1fr;gap:36px}
 }
 @media (max-width:840px){
   .hero h1{font-size:38px}
-  .hero{padding:48px 0 36px}
+  .hero{padding:42px 0 32px}
   .steps{grid-template-columns:1fr}
   .pricing-grid{grid-template-columns:1fr}
   .nav-links a.plain{display:none}
@@ -233,9 +247,9 @@ a:hover{color:var(--green-hover)}
   <div class="wrap">
     <nav class="nav">
       <div class="brand">
-        <a href="/" style="display:flex;align-items:center;gap:10px">
+        <a href="/" style="display:flex;align-items:center;gap:11px">
           <div class="brand-tile">
-            <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M2 8h1.5M5 4.5v7M8 2v12M11 4.5v7M14 8h-1.5" stroke="#06130b" stroke-width="1.8" stroke-linecap="round"></path></svg>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M12 3.4v17.2M3.4 12h17.2" stroke="var(--green)" stroke-width=".7" opacity=".55"></path><circle cx="12" cy="12" r="5.6" stroke="var(--green)" stroke-width=".7" opacity=".55"></circle><circle cx="12" cy="12" r="8.6" stroke="var(--green)" stroke-width="2.2"></circle><path d="M6.9 12h.9l.6-1.4.7 2.9.8-4.1.9 5.4.9-7.2.9 8.3.8-6.9.7 4.8.7-2.9.6 1.6.5-.5h1.2" stroke="var(--green)" stroke-width="1.15" stroke-linejoin="round" stroke-linecap="round"></path><circle cx="18.1" cy="5.9" r="2.6" fill="var(--bg)"></circle><circle cx="18.1" cy="5.9" r="1.8" fill="var(--green)"></circle></svg>
           </div>
           <span class="brand-name">Sonave</span>
         </a>
@@ -291,6 +305,36 @@ a:hover{color:var(--green-hover)}
           <span class="compat-pill">Slack Alerts</span>
           <span class="compat-pill">Wire-Hold Webhooks</span>
           <span class="compat-pill" style="border-color:rgba(46,229,132,0.3);color:var(--green)">IC3 / Audit Ready</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-visual" onclick="openHeroLightbox()" title="Click to view live in-call protection full size">
+      <div class="hero-window">
+        <div class="hero-window-top">
+          <div class="browser-dots">
+            <span class="b-dot red"></span>
+            <span class="b-dot yellow"></span>
+            <span class="b-dot green"></span>
+          </div>
+          <div class="hero-window-title">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            meet.google.com/wire-approval-q3
+          </div>
+          <span class="hero-window-badge">
+            <span class="dot"></span>
+            LIVE PROTECTION
+          </span>
+        </div>
+        <div class="hero-img-wrap">
+          <img src="/shot-meet-panel.png" alt="Sonave live Google Meet voice authenticity protection">
+          <div class="hero-floating-tag">
+            <span style="color:var(--green)">●</span>
+            <span>Real-time per-speaker authenticity score</span>
+          </div>
+          <div class="hero-floating-tag-right">
+            ⚡ 4s Rolling Windows
+          </div>
         </div>
       </div>
     </div>
@@ -753,6 +797,18 @@ function switchShowcase(index) {
 }
 
 // Lightbox Modal
+function openHeroLightbox() {
+  const modal = document.getElementById('lightboxModal');
+  const img = document.getElementById('lightboxImg');
+  const title = document.getElementById('lightboxTitle');
+
+  img.src = '/shot-meet-panel.png';
+  img.alt = 'Google Meet Live Protection with Sonave Authenticity Engine';
+  title.textContent = 'Google Meet Live Protection';
+  modal.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
 function openActiveLightbox() {
   const data = showcaseData[currentIndex];
   const modal = document.getElementById('lightboxModal');
