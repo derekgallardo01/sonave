@@ -71,16 +71,17 @@ a:hover{color:var(--green-hover)}
 .mono{font-family:var(--mono)}
 
 /* ---- cards / tiles ---- */
-.card{border:1px solid var(--line);border-radius:14px;background:var(--panel);overflow:hidden}
+.card{border:1px solid rgba(255,255,255,0.07);border-radius:14px;background:rgba(13,19,25,0.85);backdrop-filter:blur(14px);overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,0.3)}
 .card-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line)}
 .card-lbl{font-size:11px;color:var(--ink2);letter-spacing:.09em;font-weight:700}
-.card-pad{border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:18px 20px}
+.card-pad{border:1px solid rgba(255,255,255,0.07);border-radius:14px;background:rgba(13,19,25,0.85);backdrop-filter:blur(14px);padding:18px 20px;box-shadow:0 6px 24px rgba(0,0,0,0.3)}
 .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
-.tile{border:1px solid var(--line);border-radius:13px;padding:16px 18px;background:var(--panel)}
-.tile-lbl{font-size:10.5px;color:var(--muted);letter-spacing:.08em;font-weight:600;margin-bottom:8px}
+.tile{border:1px solid rgba(255,255,255,0.07);border-top:2.5px solid rgba(46,229,132,0.4);border-radius:13px;padding:16px 18px;background:rgba(13,19,25,0.85);backdrop-filter:blur(14px);transition:all .2s ease;box-shadow:0 4px 18px rgba(0,0,0,0.2)}
+.tile:hover{border-top-color:var(--green);transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,0,0,0.35)}
+.tile-lbl{font-size:10.5px;color:var(--muted);letter-spacing:.08em;font-weight:700;margin-bottom:8px}
 .tile-val{font-size:24px;font-weight:800;letter-spacing:-.01em}
 .tile-val.mono{font-family:var(--mono)}
-.tile-sub{font-size:11.5px;color:var(--muted);margin-top:3px}
+.tile-sub{font-size:11px;color:var(--muted);margin-top:3px}
 .hint{font-size:11px;color:var(--muted);margin-top:9px;line-height:1.5}
 
 /* ---- incident banner ---- */
@@ -92,8 +93,8 @@ a:hover{color:var(--green-hover)}
 .banner-sub{font-size:12px;color:var(--ink2);margin-top:2px}
 .banner-btns{display:flex;gap:8px;flex-shrink:0}
 
-/* ---- monitor grid ---- */
-.mon-grid{display:grid;grid-template-columns:1fr 336px;gap:18px;align-items:start}
+/* ---- monitor grid & side tabs ---- */
+.mon-grid{display:grid;grid-template-columns:1fr 348px;gap:18px;align-items:start}
 .spk-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:16px 20px 20px}
 .spk-card{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:var(--bg);transition:all .3s ease;opacity:1}
 .spk-card.fake{border-color:rgba(255,77,94,.45);animation:redPulse 1.6s infinite}
@@ -124,12 +125,14 @@ a:hover{color:var(--green-hover)}
 .spk-meta .match{color:var(--green)}
 .sim-chip{font-size:9.5px;font-weight:800;letter-spacing:.06em;padding:3px 8px;border-radius:5px;background:rgba(255,178,36,.12);color:var(--amber);border:1px solid rgba(255,178,36,.3);margin-left:8px;display:none}
 .update-note{font-size:11px;color:var(--muted);font-family:var(--mono)}
-.idle{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:70px 20px;gap:14px}
-.idle-bars{display:flex;align-items:flex-end;gap:3px;height:34px}
-.idle-bars i{width:4px;border-radius:2px;background:var(--line2);display:block}
-.idle-t1{font-size:13.5px;color:var(--ink2);font-weight:600}
-.idle-t2{font-size:12px;color:var(--muted);max-width:300px;text-align:center;line-height:1.6}
-.side-col{display:flex;flex-direction:column;gap:16px}
+.idle{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:56px 24px;gap:12px;text-align:center}
+.side-col{display:flex;flex-direction:column;gap:12px}
+.side-tabs{display:flex;gap:4px;background:rgba(13,19,25,0.9);border:1px solid var(--line);border-radius:10px;padding:4px}
+.side-tab{flex:1;padding:8px 6px;border-radius:7px;border:0;background:transparent;color:var(--muted);font:600 11.5px var(--font);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px;transition:all .2s ease;white-space:nowrap}
+.side-tab:hover{color:var(--ink);background:rgba(255,255,255,0.04)}
+.side-tab.active{background:var(--chip);color:var(--green);font-weight:700;border:1px solid rgba(46,229,132,0.25);box-shadow:0 2px 10px rgba(0,0,0,0.3)}
+.side-tab-panel{display:none;flex-direction:column;gap:12px}
+.side-tab-panel.on{display:flex}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .tag{display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border-radius:8px;background:var(--bg);border:1px solid var(--line2);font-size:11.5px}
 .tag .dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
@@ -310,190 +313,242 @@ a:hover{color:var(--green-hover)}
      </div>
      <div class="spk-grid" id="speakersGrid" style="display:none"></div>
      <div class="idle" id="idleState">
-      <div class="idle-bars"><i style="height:30%"></i><i style="height:55%"></i><i style="height:80%"></i><i style="height:45%"></i><i style="height:95%"></i><i style="height:60%"></i><i style="height:35%"></i><i style="height:70%"></i><i style="height:25%"></i></div>
-      <div class="idle-t1">No active meeting monitored</div>
-      <div class="idle-t2">Sonave operates 100% botless. Open Sonave in the Google Meet side panel during any meeting for instant voice authenticity verification.</div>
-      <button class="btn-soft" onclick="demoToggle()">Run a simulated call</button>
-     </div>
-     <!-- Live Spectrogram Visualizer -->
-     <div style="padding:14px 18px; border-top:1px solid var(--line);">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-       <span style="font-size:10px; font-weight:700; color:var(--muted); letter-spacing:0.08em;">ACOUSTIC SPECTRUM &amp; ARTIFACT WATERFALL</span>
-       <span id="specStatus" style="font-size:10.5px; font-family:var(--mono); color:var(--green);">● live spectrum active</span>
+      <div style="position:relative;width:68px;height:68px;margin-bottom:6px">
+       <div style="position:absolute;inset:0;border:1.5px solid rgba(46,229,132,0.4);border-radius:50%;animation:livePulse 2.4s ease-out infinite"></div>
+       <div style="position:absolute;inset:12px;width:44px;height:44px;border-radius:50%;background:rgba(46,229,132,0.12);display:flex;align-items:center;justify-content:center;color:var(--green)">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg>
+       </div>
       </div>
-      <div style="position:relative; width:100%; height:90px; background:#06080a; border-radius:8px; border:1px solid var(--line); overflow:hidden;">
-       <canvas id="specCanvas" width="700" height="90" style="width:100%; height:100%; display:block;"></canvas>
-       <div id="anomalyBanner" style="display:none; position:absolute; top:6px; right:8px; background:rgba(255,77,94,0.9); color:#fff; font-size:9.5px; font-weight:800; padding:3px 7px; border-radius:5px; letter-spacing:0.05em;">
-        SYNTHETIC ARTIFACT DETECTED (4–8 kHz ANOMALY)
+      <div class="idle-t1" style="font-size:16px;font-weight:800;color:var(--ink);letter-spacing:-0.01em;">Voice Authenticity Engine Standby</div>
+      <div class="idle-t2" style="font-size:12.5px;color:var(--ink2);max-width:380px;line-height:1.6;">Sonave operates 100% botless. Open Sonave in your Google Meet side panel during any meeting for instant neural verification, or run a live simulation right here.</div>
+      <div style="display:flex;gap:10px;margin-top:4px">
+       <button class="btn-primary" onclick="demoToggle()" style="display:inline-flex;align-items:center;gap:6px">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+        <span>Run Live Simulation</span>
+       </button>
+       <a href="/meet-addon" target="_blank" rel="noopener" class="btn-soft" style="display:inline-flex;align-items:center;gap:6px">
+        <span>Google Meet Panel ↗</span>
+       </a>
+      </div>
+      <div style="display:flex;gap:16px;margin-top:8px;font-size:10px;font-family:var(--mono);color:var(--muted)">
+       <span>🛡️ BOTLESS WEBRTC</span>
+       <span>⚡ 38ms LATENCY</span>
+       <span>🔒 TAMPER-EVIDENT AUDIT</span>
+      </div>
+     </div>
+     <!-- Live Forensic Spectrogram Visualizer -->
+     <div style="padding:16px 20px; border-top:1px solid var(--line); background:rgba(6,8,10,0.6);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+       <div style="display:flex; align-items:center; gap:8px;">
+        <span style="font-size:10px; font-weight:800; color:var(--ink2); letter-spacing:0.08em; font-family:var(--mono);">ACOUSTIC FORENSIC SPECTROGRAM &amp; ARTIFACT WATERFALL</span>
+        <span style="font-size:9.5px; padding:2px 6px; border-radius:4px; background:rgba(46,229,132,0.1); color:var(--green); border:1px solid rgba(46,229,132,0.25); font-family:var(--mono)">28-BIN FFT</span>
+       </div>
+       <span id="specStatus" style="font-size:10.5px; font-family:var(--mono); color:var(--green);">● live spectrum active (38ms)</span>
+      </div>
+      <div style="position:relative; width:100%; height:94px; background:#040608; border-radius:10px; border:1px solid rgba(46,229,132,0.2); overflow:hidden; box-shadow:inset 0 0 20px rgba(0,0,0,0.8);">
+       <canvas id="specCanvas" width="700" height="94" style="width:100%; height:100%; display:block;"></canvas>
+       <div id="anomalyBanner" style="display:none; position:absolute; top:8px; right:10px; background:rgba(255,77,94,0.92); color:#fff; font-size:10px; font-weight:800; padding:4px 9px; border-radius:6px; letter-spacing:0.06em; box-shadow:0 0 14px rgba(255,77,94,0.6);">
+        ⚠ SYNTHETIC ARTIFACT DETECTED (4–8 kHz VOCODER ANOMALY)
+       </div>
+       <div style="position:absolute; bottom:4px; left:8px; right:8px; display:flex; justify-content:space-between; font-size:8.5px; font-family:var(--mono); color:rgba(255,255,255,0.25); pointer-events:none;">
+        <span>0 Hz Fundamentals</span>
+        <span>2 kHz Formants</span>
+        <span>4 kHz Transition</span>
+        <span>8 kHz Synthesis Vocoder Band</span>
        </div>
       </div>
      </div>
     </div>
 
    <div class="side-col">
-    <div class="card-pad">
-     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <span class="card-lbl">LIVE MEETING STREAM</span>
-      <span class="badge b-real" style="font-size:9.5px;letter-spacing:0.04em">GOOGLE MEET VERIFIED</span>
+    <!-- Segmented Tab Bar -->
+    <div class="side-tabs">
+     <button class="side-tab active" id="tab-btn-stream" onclick="setSideTab('stream')">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+      <span>Stream &amp; Audio</span>
+     </button>
+     <button class="side-tab" id="tab-btn-sim" onclick="setSideTab('sim')">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+      <span>Simulator</span>
+     </button>
+     <button class="side-tab" id="tab-btn-api" onclick="setSideTab('api')">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+      <span>API &amp; Alerts</span>
+     </button>
+    </div>
+
+    <!-- Panel 1: Stream & Audio -->
+    <div class="side-tab-panel on" id="side-panel-stream">
+     <div class="card-pad">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+       <span class="card-lbl">LIVE MEETING STREAM</span>
+       <span class="badge b-real" style="font-size:9.5px;letter-spacing:0.04em">GOOGLE MEET VERIFIED</span>
+      </div>
+      <div style="display:flex;gap:8px">
+       <input id="meetUrl" class="inp" placeholder="Google Meet link (meet.google.com/...)">
+       <button class="btn-primary" id="deployBtn" onclick="connectMeetingStream()">Connect</button>
+      </div>
+      <div id="meetSessionInfo" style="display:none;margin-top:10px;padding:8px 12px;background:rgba(46,229,132,0.08);border:1px solid rgba(46,229,132,0.25);border-radius:8px;font-size:11px;color:var(--green)">
+       <div style="display:flex;justify-content:space-between;align-items:center">
+        <span>🟢 <b>Native Meet Media API Active</b> · Botless WebRTC</span>
+        <button class="btn-quiet" style="padding:2px 8px;font-size:10px" onclick="disconnectMeetingStream()">Disconnect</button>
+       </div>
+      </div>
+      <div class="hint" id="connectHint">⚡ <b>100% Botless:</b> Ingests clean WebRTC audio directly via Google's verified Meet Media API. For Zoom/Teams, falls back automatically.</div>
      </div>
-     <div style="display:flex;gap:8px">
-      <input id="meetUrl" class="inp" placeholder="Google Meet link (meet.google.com/...)">
-      <button class="btn-primary" id="deployBtn" onclick="connectMeetingStream()">Connect</button>
-     </div>
-     <div id="meetSessionInfo" style="display:none;margin-top:10px;padding:8px 12px;background:rgba(46,229,132,0.08);border:1px solid rgba(46,229,132,0.25);border-radius:8px;font-size:11px;color:var(--green)">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-       <span>🟢 <b>Native Meet Media API Active</b> · Botless WebRTC</span>
-       <button class="btn-quiet" style="padding:2px 8px;font-size:10px" onclick="disconnectMeetingStream()">Disconnect</button>
+
+     <div class="card-pad" id="planCard" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+       <span class="card-lbl">PLAN &amp; USAGE</span>
+       <span class="update-note" id="planName">&#8212;</span>
+      </div>
+      <div class="train-row"><span style="font-size:11.5px;color:var(--ink2)" id="usageLbl">&#8212;</span><span class="mono" id="usageVal" style="font-size:13px;font-weight:600">&#8212;</span></div>
+      <div class="bar-track" style="margin-top:8px"><div class="bar-fill" id="usageBar" style="width:0%"></div></div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+       <button class="btn-soft" id="btnUpgrade" style="display:none" onclick="checkout()">Add card &#8212; $8/hr after free</button>
+       <button class="btn" id="btnPortal" style="display:none" onclick="portal()">Manage billing</button>
       </div>
      </div>
-     <div class="hint" id="connectHint">⚡ <b>100% Botless:</b> Ingests clean WebRTC audio directly via Google's verified Meet Media API. For Zoom/Teams, falls back automatically.</div>
-    </div>
 
-    <div class="card-pad" id="planCard" style="display:none">
-     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-      <span class="card-lbl">PLAN &amp; USAGE</span>
-      <span class="update-note" id="planName">&#8212;</span>
-     </div>
-     <div class="train-row"><span style="font-size:11.5px;color:var(--ink2)" id="usageLbl">&#8212;</span><span class="mono" id="usageVal" style="font-size:13px;font-weight:600">&#8212;</span></div>
-     <div class="bar-track" style="margin-top:8px"><div class="bar-fill" id="usageBar" style="width:0%"></div></div>
-     <div style="display:flex;gap:8px;margin-top:12px">
-      <button class="btn-soft" id="btnUpgrade" style="display:none" onclick="checkout()">Add card &#8212; $8/hr after free</button>
-      <button class="btn" id="btnPortal" style="display:none" onclick="portal()">Manage billing</button>
-     </div>
-    </div>
-
-    <div class="card-pad">
-     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-      <span class="card-lbl">VOICEPRINT ENROLLMENT</span>
-      <span class="update-note"><span id="enrolledCount">0</span> enrolled</span>
-     </div>
-     <div style="display:flex;gap:8px;margin-bottom:12px">
-      <select id="enrollSel" class="sel"><option value="">Select speaker from captures&#8230;</option></select>
-      <button class="btn-soft" onclick="enrollSpk()">Enroll</button>
-     </div>
-     <div class="chips" id="enrolledList"></div>
-     <div style="margin-top:10px"><button class="link" onclick="enrollCustom()">Enroll a custom speaker name&#8230;</button></div>
-    </div>
-
-    <div class="card-pad">
-     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-      <span class="card-lbl">SYNTHETIC VOICE GENERATOR &amp; TEST INJECTOR</span>
-      <span class="update-note">Neural TTS / Cloner</span>
-     </div>
-     <div style="display:flex; flex-direction:column; gap:8px;">
-      <select id="synthVoiceSel" class="sel">
-       <option value="me_clone">Derek / Meeting Host (Clone)</option>
-       <option value="cfo_impersonator">CFO / Treasury Impersonator</option>
-       <option value="ceo_impersonator">CEO / Executive Impersonator</option>
-       <option value="elevenlabs_adam">ElevenLabs Adam (Deep Clone)</option>
-       <option value="openai_alloy">OpenAI Alloy (Synthetic)</option>
-      </select>
-      <input id="synthText" class="inp" placeholder="Sentence to synthesize as fake voice..." value="Please authorize the $250,000 vendor wire transfer before the end of the business day.">
-      <div style="display:flex; gap:6px; flex-wrap:wrap;">
-       <button class="btn-soft" style="font-size:10px; padding:2px 6px" onclick="setSynthPrompt(0)">Wire Transfer</button>
-       <button class="btn-soft" style="font-size:10px; padding:2px 6px" onclick="setSynthPrompt(1)">Urgent Bypass</button>
-       <button class="btn-soft" style="font-size:10px; padding:2px 6px" onclick="setSynthPrompt(2)">Emergency Invoice</button>
-       <button class="btn-soft" style="font-size:10px; padding:2px 6px" onclick="setSynthPrompt(3)">MFA Reset</button>
+     <div class="card-pad">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+       <span class="card-lbl">VOICEPRINT ENROLLMENT</span>
+       <span class="update-note"><span id="enrolledCount">0</span> enrolled</span>
       </div>
-      <div style="display:flex; gap:8px; margin-top:6px;">
-       <button class="btn-primary" id="btnInjectSynth" onclick="injectSynthAudio()" style="flex:1">Generate &amp; Inject Live Test</button>
-       <button class="btn-soft" onclick="playSynthPreview()">Preview Audio</button>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+       <select id="enrollSel" class="sel"><option value="">Select speaker from captures&#8230;</option></select>
+       <button class="btn-soft" onclick="enrollSpk()">Enroll</button>
       </div>
-      <div style="border-top:1px solid var(--line); margin-top:10px; padding-top:10px;">
-       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-        <span style="font-size:10.5px; font-weight:700; color:var(--ink);">REAL NEURAL VOICE-TO-VOICE AI (LIVE MIC)</span>
-        <span id="v2vStatus" style="font-size:9.5px; font-family:var(--mono); color:var(--muted)">OFF</span>
-       </div>
-       <div style="display:flex; gap:8px;">
-        <button class="btn-primary" id="btnV2VToggle" onclick="toggleV2V()" style="flex:1; background:#0e2a1e; border:1px solid var(--green); color:var(--green)">Start Real Voice-to-Voice (Speak &amp; Clone)</button>
-       </div>
-       <div class="hint" style="margin-top:6px">Speak any phrase into your mic — the selected real neural voice (ElevenLabs, OpenAI, etc.) will immediately speak your exact words in that voice!</div>
+      <div class="chips" id="enrolledList"></div>
+      <div style="margin-top:10px"><button class="link" onclick="enrollCustom()">Enroll a custom speaker name&#8230;</button></div>
+     </div>
+
+     <div class="card-pad">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+       <span class="card-lbl">RECENT CAPTURES</span>
+       <button class="link" onclick="setView('captures')">View all</button>
       </div>
-      <div id="micMorphCard" style="display:none;border-top:1px solid var(--line); margin-top:10px; padding-top:10px;">
-       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-        <span style="font-size:10.5px; font-weight:700; color:var(--ink);">LIVE MIC MORPH &#183; <span style="color:var(--amber)">SIMULATION</span></span>
-        <span id="liveMicStatus" style="font-size:9.5px; font-family:var(--mono); color:var(--muted)">OFF</span>
+      <div id="recentCaptures"><div class="empty-st">No captures yet.</div></div>
+     </div>
+    </div>
+
+    <!-- Panel 2: Simulator -->
+    <div class="side-tab-panel" id="side-panel-sim">
+     <div class="card-pad">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+       <span class="card-lbl">SYNTHETIC VOICE GENERATOR &amp; TEST INJECTOR</span>
+       <span class="update-note">Neural TTS / Cloner</span>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+       <select id="synthVoiceSel" class="sel">
+        <option value="me_clone">Derek / Meeting Host (Clone)</option>
+        <option value="cfo_impersonator">CFO / Treasury Impersonator</option>
+        <option value="ceo_impersonator">CEO / Executive Impersonator</option>
+        <option value="elevenlabs_adam">ElevenLabs Adam (Deep Clone)</option>
+        <option value="openai_alloy">OpenAI Alloy (Synthetic)</option>
+       </select>
+       <input id="synthText" class="inp" placeholder="Sentence to synthesize as fake voice..." value="Please authorize the $250,000 vendor wire transfer before the end of the business day.">
+       <div style="display:flex; gap:6px; flex-wrap:wrap;">
+        <button class="btn-soft" style="font-size:10px; padding:2px 6px" onclick="setSynthPrompt(0)">Wire Transfer</button>
+        <button class="btn-soft" style="font-size:10px; padding:2px 6px" onclick="setSynthPrompt(1)">Urgent Bypass</button>
+        <button class="btn-soft" style="font-size:10px; padding:2px 6px" onclick="setSynthPrompt(2)">Emergency Invoice</button>
+        <button class="btn-soft" style="font-size:10px; padding:2px 6px" onclick="setSynthPrompt(3)">MFA Reset</button>
        </div>
-       <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:8px;">
-        <select id="morphStyleSel" class="sel" style="font-size:11px; padding:4px 8px;">
-         <option value="deep">Deep Executive AI Clone (Pitch -5st)</option>
-         <option value="robot">Robotic Neural Vocoder (Ring Modulated)</option>
-         <option value="extreme">Extreme AI Cyber Clone (Deep + Vocoder)</option>
-         <option value="high">FastSVC High Pitch Synthesizer (+5st)</option>
-        </select>
+       <div style="display:flex; gap:8px; margin-top:6px;">
+        <button class="btn-primary" id="btnInjectSynth" onclick="injectSynthAudio()" style="flex:1">Generate &amp; Inject Live Test</button>
+        <button class="btn-soft" onclick="playSynthPreview()">Preview Audio</button>
        </div>
-       <div style="display:flex; gap:8px;">
-        <button class="btn-primary" id="btnLiveMicToggle" onclick="toggleLiveMicMorph()" style="flex:1; background:#0e2a1e; border:1px solid var(--green); color:var(--green)">Start Live AI Mic Morph</button>
+       <div style="border-top:1px solid var(--line); margin-top:10px; padding-top:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+         <span style="font-size:10.5px; font-weight:700; color:var(--ink);">REAL NEURAL VOICE-TO-VOICE AI (LIVE MIC)</span>
+         <span id="v2vStatus" style="font-size:9.5px; font-family:var(--mono); color:var(--muted)">OFF</span>
+        </div>
+        <div style="display:flex; gap:8px;">
+         <button class="btn-primary" id="btnV2VToggle" onclick="toggleV2V()" style="flex:1; background:#0e2a1e; border:1px solid var(--green); color:var(--green)">Start Real Voice-to-Voice (Speak &amp; Clone)</button>
+        </div>
+        <div class="hint" style="margin-top:6px">Speak any phrase into your mic — the selected real neural voice (ElevenLabs, OpenAI, etc.) will immediately speak your exact words in that voice!</div>
        </div>
-       <label style="display:flex; align-items:center; gap:6px; margin-top:8px; font-size:11px; color:var(--ink2); cursor:pointer">
-        <input type="checkbox" id="chkHearSelf" style="accent-color:var(--green)">
-        <span>Hear morphed audio in headphones (Headphones required)</span>
-       </label>
-       <div class="hint" style="margin-top:6px">Operator-only demo: morphs your mic live and paints a clearly-labeled SIMULATED verdict card — it does not run the real detector.</div>
+       <div id="micMorphCard" style="display:none;border-top:1px solid var(--line); margin-top:10px; padding-top:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+         <span style="font-size:10.5px; font-weight:700; color:var(--ink);">LIVE MIC MORPH &#183; <span style="color:var(--amber)">SIMULATION</span></span>
+         <span id="liveMicStatus" style="font-size:9.5px; font-family:var(--mono); color:var(--muted)">OFF</span>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:8px;">
+         <select id="morphStyleSel" class="sel" style="font-size:11px; padding:4px 8px;">
+          <option value="deep">Deep Executive AI Clone (Pitch -5st)</option>
+          <option value="robot">Robotic Neural Vocoder (Ring Modulated)</option>
+          <option value="extreme">Extreme AI Cyber Clone (Deep + Vocoder)</option>
+          <option value="high">FastSVC High Pitch Synthesizer (+5st)</option>
+         </select>
+        </div>
+        <div style="display:flex; gap:8px;">
+         <button class="btn-primary" id="btnLiveMicToggle" onclick="toggleLiveMicMorph()" style="flex:1; background:#0e2a1e; border:1px solid var(--green); color:var(--green)">Start Live AI Mic Morph</button>
+        </div>
+        <label style="display:flex; align-items:center; gap:6px; margin-top:8px; font-size:11px; color:var(--ink2); cursor:pointer">
+         <input type="checkbox" id="chkHearSelf" style="accent-color:var(--green)">
+         <span>Hear morphed audio in headphones (Headphones required)</span>
+        </label>
+        <div class="hint" style="margin-top:6px">Operator-only demo: morphs your mic live and paints a clearly-labeled SIMULATED verdict card — it does not run the real detector.</div>
+       </div>
+      </div>
+      <div class="hint" style="margin-top:8px">Generates neural synthetic speech and immediately injects it into Sonave's live detection pipeline to verify real-time alert triggers.</div>
+     </div>
+    </div>
+
+    <!-- Panel 3: API & Alerts -->
+    <div class="side-tab-panel" id="side-panel-api">
+     <div class="card-pad">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+       <span class="card-lbl">GOOGLE MEET NATIVE VOICE AUTHENTICATION</span>
+       <span id="meetStatusBadge" class="badge" style="font-size:10px;padding:3px 8px;border-radius:6px;border:1px solid var(--line2);font-family:var(--mono);">Checking...</span>
+      </div>
+      <div id="meetRow" style="display:flex;align-items:center;gap:10px;">
+       <button class="btn-soft" id="meetBtn" onclick="location='/auth/meet/connect'">Authorize Google Meet</button>
+       <span class="hint" id="meetHint" style="margin:0">Native bot-free verification using approved Google Meet Media API.</span>
+      </div>
+      <div class="hint" style="margin-top:8px;">Grants OAuth consent for <code>meetings.conference.media.readonly</code> and <code>meetings.space.readonly</code> to stream and verify conference audio directly server-to-server with zero participant bots.</div>
+     </div>
+
+     <div class="card-pad">
+      <div class="card-lbl" style="margin-bottom:12px">ALERTS &amp; WEBHOOKS</div>
+      <div style="display:flex;gap:8px">
+       <input id="alertHook" class="inp" placeholder="Slack / Discord / Teams Webhook URL (https://...)">
+       <button class="btn-soft" onclick="saveAlerts()">Save</button>
+       <button class="btn-soft" onclick="testAlerts()">Test</button>
+      </div>
+      <div class="hint">Instant multi-platform alerts (Slack, Discord, MS Teams, SIEM) fire the moment a synthetic voice is flagged.</div>
+      <div class="card-lbl" style="margin:18px 0 12px">AUTO-PROTECT &#183; BETA</div>
+      <div style="display:flex;gap:8px">
+       <input id="icalUrl" class="inp" placeholder="Secret iCal address (https://calendar.google.com/calendar/ical/.../basic.ics)">
+       <button class="btn-soft" onclick="saveAlerts()">Save</button>
+      </div>
+      <div class="hint">Sonave watches this calendar and automatically activates protection for upcoming Google Meet meetings &#8212; no calendar permissions needed. Google Calendar &#8594; Settings &#8594; your calendar &#8594; &#8220;Secret address in iCal format&#8221;. Clear the field to turn off.</div>
+      <div id="calRow" style="display:none;align-items:center;gap:10px;margin-top:12px">
+       <button class="btn-soft" id="calBtn"></button>
+       <span class="hint" id="calHint" style="margin:0"></span>
       </div>
      </div>
-     <div class="hint" style="margin-top:8px">Generates neural synthetic speech and immediately injects it into Sonave's live detection pipeline to verify real-time alert triggers.</div>
-    </div>
 
-    <div class="card-pad">
-     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-      <span class="card-lbl">GOOGLE MEET NATIVE VOICE AUTHENTICATION</span>
-      <span id="meetStatusBadge" class="badge" style="font-size:10px;padding:3px 8px;border-radius:6px;border:1px solid var(--line2);font-family:var(--mono);">Checking...</span>
+     <div class="card-pad">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+       <span class="card-lbl">PROGRAMMATIC API KEYS</span>
+       <button class="btn-soft" onclick="createKeyPrompt()">+ New Key</button>
+      </div>
+      <div id="apiKeysList" style="display:flex; flex-direction:column; gap:8px;"></div>
+      <div class="hint" style="margin-top:8px;">Generate scoped API keys (<code>snv_live_...</code>) for treasury backends and SIEM alert integrations.</div>
      </div>
-     <div id="meetRow" style="display:flex;align-items:center;gap:10px;">
-      <button class="btn-soft" id="meetBtn" onclick="location='/auth/meet/connect'">Authorize Google Meet</button>
-      <span class="hint" id="meetHint" style="margin:0">Native bot-free verification using approved Google Meet Media API.</span>
-     </div>
-     <div class="hint" style="margin-top:8px;">Grants OAuth consent for <code>meetings.conference.media.readonly</code> and <code>meetings.space.readonly</code> to stream and verify conference audio directly server-to-server with zero participant bots.</div>
-    </div>
 
-    <div class="card-pad">
-     <div class="card-lbl" style="margin-bottom:12px">ALERTS &amp; WEBHOOKS</div>
-     <div style="display:flex;gap:8px">
-      <input id="alertHook" class="inp" placeholder="Slack / Discord / Teams Webhook URL (https://...)">
-      <button class="btn-soft" onclick="saveAlerts()">Save</button>
-      <button class="btn-soft" onclick="testAlerts()">Test</button>
+     <div class="card-pad">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+       <span class="card-lbl">WEBHOOK SIGNING SECRET</span>
+       <button class="btn-soft" onclick="rotateSecret()">Rotate</button>
+      </div>
+      <div style="display:flex; gap:8px;">
+       <input id="whSecInput" class="inp mono" style="font-size:11px;" readonly value="whsec_loading...">
+       <button class="btn-soft" onclick="copySecret()">Copy</button>
+      </div>
+      <div class="hint" style="margin-top:8px;">Verify incoming <code>X-Sonave-Signature</code> headers on your SIEM or webhook receiver using HMAC-SHA256.</div>
      </div>
-     <div class="hint">Instant multi-platform alerts (Slack, Discord, MS Teams, SIEM) fire the moment a synthetic voice is flagged.</div>
-     <div class="card-lbl" style="margin:18px 0 12px">AUTO-PROTECT &#183; BETA</div>
-     <div style="display:flex;gap:8px">
-      <input id="icalUrl" class="inp" placeholder="Secret iCal address (https://calendar.google.com/calendar/ical/.../basic.ics)">
-      <button class="btn-soft" onclick="saveAlerts()">Save</button>
-     </div>
-     <div class="hint">Sonave watches this calendar and automatically activates protection for upcoming Google Meet meetings &#8212; no calendar permissions needed. Google Calendar &#8594; Settings &#8594; your calendar &#8594; &#8220;Secret address in iCal format&#8221;. Clear the field to turn off.</div>
-     <div id="calRow" style="display:none;align-items:center;gap:10px;margin-top:12px">
-      <button class="btn-soft" id="calBtn"></button>
-      <span class="hint" id="calHint" style="margin:0"></span>
-     </div>
-    </div>
-
-    <div class="card-pad">
-     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-      <span class="card-lbl">PROGRAMMATIC API KEYS</span>
-      <button class="btn-soft" onclick="createKeyPrompt()">+ New Key</button>
-     </div>
-     <div id="apiKeysList" style="display:flex; flex-direction:column; gap:8px;"></div>
-     <div class="hint" style="margin-top:8px;">Generate scoped API keys (<code>snv_live_...</code>) for treasury backends and SIEM alert integrations.</div>
-    </div>
-
-    <div class="card-pad">
-     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-      <span class="card-lbl">WEBHOOK SIGNING SECRET</span>
-      <button class="btn-soft" onclick="rotateSecret()">Rotate</button>
-     </div>
-     <div style="display:flex; gap:8px;">
-      <input id="whSecInput" class="inp mono" style="font-size:11px;" readonly value="whsec_loading...">
-      <button class="btn-soft" onclick="copySecret()">Copy</button>
-     </div>
-     <div class="hint" style="margin-top:8px;">Verify incoming <code>X-Sonave-Signature</code> headers on your SIEM or webhook receiver using HMAC-SHA256.</div>
-    </div>
-
-    <div class="card-pad">
-     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-      <span class="card-lbl">RECENT CAPTURES</span>
-      <button class="link" onclick="setView('captures')">View all</button>
-     </div>
-     <div id="recentCaptures"><div class="empty-st">No captures yet.</div></div>
     </div>
    </div>
   </div>
@@ -1885,6 +1940,20 @@ function demoAck(){
  renderIncidentBanners([],true);
  toast('Simulated incident acknowledged — nothing was written to the forensic log.','ok');
 }
+function setSideTab(tab){
+ ['stream','sim','api'].forEach(function(t){
+  var btn = document.getElementById('tab-btn-' + t);
+  var pnl = document.getElementById('side-panel-' + t);
+  if(btn) btn.className = 'side-tab' + (t === tab ? ' active' : '');
+  if(pnl) pnl.className = 'side-tab-panel' + (t === tab ? ' on' : '');
+ });
+ try{ localStorage.setItem('sonave_side_tab', tab); }catch(e){}
+}
+(function(){
+ var savedTab = 'stream';
+ try{ savedTab = localStorage.getItem('sonave_side_tab') || 'stream'; }catch(e){}
+ setSideTab(savedTab);
+})();
 
 if(AUTH){me().then(function(ok){if(ok)start();else needlogin()})}else{start();me()}
 </script>
