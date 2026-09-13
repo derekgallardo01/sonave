@@ -183,58 +183,74 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
   <div><b>SESSION</b><span id="stSess">0:00</span></div>
   <div><b>PEAK RISK</b><span id="stPeak">0%</span></div>
  </div>
-  <div id="demoSoundboard" style="margin:0 12px 10px; border:1px solid var(--line2); border-radius:12px; background:var(--panel); padding:10px 11px;">
-   <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
-    <div style="font-size:10px; font-weight:800; letter-spacing:0.06em; color:var(--green); font-family:var(--mono); display:flex; align-items:center; gap:5px;">
-     <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
-     <span>LIVE OPERATOR SOUNDBOARD</span>
+  <!-- Real-Time Live AI Voice Generator & Cloner Studio -->
+  <div id="demoSoundboard" style="margin:0 12px 10px; border:1px solid var(--line2); border-radius:12px; background:var(--panel); padding:11px 12px;">
+   <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:9px;">
+    <div style="font-size:10.5px; font-weight:800; letter-spacing:0.06em; color:var(--green); font-family:var(--mono); display:flex; align-items:center; gap:5px;">
+     <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+     <span>REAL-TIME AI VOICE GENERATOR</span>
     </div>
-    <span id="demoDevBadge" style="font-size:9px; color:var(--muted); font-family:var(--mono);">Direct Ingest</span>
+    <span id="demoDevBadge" style="font-size:9.5px; color:var(--green); font-family:var(--mono); background:rgba(46,229,132,0.1); padding:2px 6px; border-radius:4px; border:1px solid rgba(46,229,132,0.25);">Live Engine</span>
    </div>
 
-   <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:8px;">
-    <button class="btn-soft" onclick="runDemoPreset('ceo_wire')" style="padding:6px 8px; font-size:10px; text-align:left; justify-content:flex-start; border-color:rgba(255,77,94,0.3); color:#ff808d; background:rgba(255,77,94,0.06);">
-     <span style="font-weight:700">🔴 CEO $250k Wire</span>
+   <!-- Mode 1: Live Voice-to-Voice Real-Time Cloner (Speak into Mic) -->
+   <div style="background:rgba(11,13,16,0.6); border:1px solid var(--line2); border-radius:10px; padding:9px 10px; margin-bottom:9px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+     <span style="font-size:10px; font-weight:700; color:var(--ink); letter-spacing:0.02em;">🎙️ REAL-TIME VOICE-TO-VOICE (SPEAK &amp; CLONE)</span>
+     <span id="v2vBadge" style="font-size:9px; font-family:var(--mono); color:var(--muted); font-weight:700;">STANDBY</span>
+    </div>
+    <button id="btnAddonV2V" class="btn-primary" onclick="toggleAddonV2V()" style="width:100%; display:flex; align-items:center; justify-content:center; gap:6px; background:#0e2a1e; border:1px solid var(--green); color:var(--green); font-size:11px; padding:7px 10px;">
+     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg>
+     <span>Start Real-Time Voice-to-Voice AI</span>
     </button>
-    <button class="btn-soft" onclick="runDemoPreset('it_mfa')" style="padding:6px 8px; font-size:10px; text-align:left; justify-content:flex-start; border-color:rgba(255,77,94,0.3); color:#ff808d; background:rgba(255,77,94,0.06);">
-     <span style="font-weight:700">🔴 IT Security MFA</span>
-    </button>
-    <button class="btn-soft" onclick="runDemoPreset('cfo_payroll')" style="padding:6px 8px; font-size:10px; text-align:left; justify-content:flex-start; border-color:rgba(255,77,94,0.3); color:#ff808d; background:rgba(255,77,94,0.06);">
-     <span style="font-weight:700">🔴 CFO Payroll Scam</span>
-    </button>
-    <button class="btn-soft" onclick="runDemoPreset('real_baseline')" style="padding:6px 8px; font-size:10px; text-align:left; justify-content:flex-start; border-color:rgba(46,229,132,0.4); color:var(--green); background:rgba(46,229,132,0.06);">
-     <span style="font-weight:700">🟢 Real Voice (Clean)</span>
-    </button>
+    <div id="v2vLiveTranscript" style="display:none; font-size:10px; color:#ff808d; font-family:var(--mono); margin-top:6px; padding:4px 6px; background:rgba(255,77,94,0.1); border-radius:6px; border:1px solid rgba(255,77,94,0.25);">
+     Listening... Speak into mic to speak in AI clone voice
+    </div>
+    <div class="hint" style="margin-top:5px; font-size:9.5px;">Speak naturally into your mic — the selected AI voice model instantly speaks your words aloud into the meeting!</div>
    </div>
 
-   <!-- Custom Fake Voice Generator -->
-   <div style="display:flex; flex-direction:column; gap:6px; border-top:1px solid var(--line); padding-top:8px;">
+   <!-- Mode 2: Live Text-to-Speech Generator -->
+   <div style="display:flex; flex-direction:column; gap:6px;">
     <div style="display:flex; gap:6px;">
-     <select id="demoVoiceSel" style="flex:1; background:var(--bg); color:var(--ink); border:1px solid var(--line2); border-radius:6px; font-size:10px; padding:4px 6px;">
-      <option value="ceo_impersonator">Executive Baritone (AI Clone)</option>
-      <option value="elevenlabs_brian">ElevenLabs Brian (Conversational)</option>
-      <option value="treasury_lead_female">Senior Treasury Director (Female)</option>
-      <option value="british_exec_male">British Partner (London)</option>
+     <select id="demoVoiceSel" style="flex:1.2; background:var(--bg); color:var(--ink); border:1px solid var(--line2); border-radius:6px; font-size:10px; padding:5px 6px;">
+      <optgroup label="🌟 Neural AI Voice Clones">
+       <option value="ceo_impersonator">CEO Baritone (Deepfake Baritone)</option>
+       <option value="elevenlabs_brian">ElevenLabs Brian (Ultra-Realistic)</option>
+       <option value="openai_andrew">OpenAI Andrew (Conversational)</option>
+       <option value="treasury_lead_female">Senior Treasury Lead (Female VP)</option>
+       <option value="cfo_impersonator">CFO Treasury (Authoritative)</option>
+       <option value="british_exec_male">British Partner (London Exec)</option>
+      </optgroup>
+      <optgroup label="🌐 Multilingual Neural Clones">
+       <option value="spanish_controller">Spanish Controller (Madrid)</option>
+       <option value="french_director">French Managing Director (Paris)</option>
+       <option value="german_treasury">German Treasury Director (Frankfurt)</option>
+      </optgroup>
      </select>
-     <select id="demoSinkSel" onchange="setAudioSink(this.value)" style="flex:1; background:var(--bg); color:var(--ink2); border:1px solid var(--line2); border-radius:6px; font-size:10px; padding:4px 6px;">
-      <option value="">Output: Default</option>
+     <select id="demoSinkSel" onchange="setAudioSink(this.value)" style="flex:0.8; background:var(--bg); color:var(--ink2); border:1px solid var(--line2); border-radius:6px; font-size:10px; padding:5px 6px;">
+      <option value="">Out: Default</option>
      </select>
     </div>
+
     <div style="display:flex; gap:6px;">
-     <input id="demoCustomText" placeholder="Type custom speech to speak into Meet..." value="Please authorize the $250,000 vendor wire transfer immediately." style="flex:1; background:var(--bg); color:var(--ink); border:1px solid var(--line2); border-radius:6px; font-size:10.5px; padding:5px 8px;">
-     <button class="btn" id="btnCustomSpeak" onclick="runCustomDemoSpeech()" style="padding:5px 10px; font-size:10.5px; white-space:nowrap;">Speak Live</button>
+     <input id="demoCustomText" placeholder="Enter speech for AI voice to speak..." value="Please authorize the $250,000 vendor wire transfer immediately." style="flex:1; background:var(--bg); color:var(--ink); border:1px solid var(--line2); border-radius:6px; font-size:10.5px; padding:6px 8px;">
+     <button class="btn" id="btnCustomSpeak" onclick="runCustomDemoSpeech()" style="padding:6px 11px; font-size:10.5px; white-space:nowrap; display:flex; align-items:center; gap:4px;">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+      <span>Speak AI</span>
+     </button>
     </div>
    </div>
 
    <div id="demoActiveBar" style="display:none; margin-top:8px; padding:6px 8px; border-radius:6px; background:rgba(255,77,94,0.12); border:1px solid rgba(255,77,94,0.3); align-items:center; justify-content:space-between;">
     <div style="font-size:10px; color:#ff808d; font-weight:600; display:flex; align-items:center; gap:5px;">
      <span class="spin" style="width:10px; height:10px; border-top-color:#ff4d5e"></span>
-     <span id="demoActiveText">Playing AI Voice Attack...</span>
+     <span id="demoActiveText">AI Voice Speaking Live...</span>
     </div>
     <button class="btn-soft" onclick="dismissThreatCheck()" style="padding:2px 7px; font-size:9.5px; border-color:rgba(255,77,94,0.4); color:#ff808d;">Stop &amp; Dismiss ×</button>
    </div>
   </div>
- <div class="ft"><span id="meta"><span class="dot"></span>detection engine online</span><span><a href="#" onclick="signOut();return false" style="color:var(--muted);font-weight:500;font-size:10px;margin-right:10px">Sign out</a><a href="/console" target="_blank" rel="noopener">Open console ↗</a></span></div>
+
+  <div class="ft"><span id="meta"><span class="dot"></span>detection engine online</span><span><a href="#" onclick="signOut();return false" style="color:var(--muted);font-weight:500;font-size:10px;margin-right:10px">Sign out</a><a href="/console" target="_blank" rel="noopener">Open console ↗</a></span></div>
 </div>
 
 <script>
@@ -807,6 +823,116 @@ async function triggerDemoInjection(text, voiceId, speakerName, isReal, label){
     bar.style.display = 'none';
    }
   }, dur);
+ }
+}
+
+/* ---- Real-Time Voice-to-Voice AI Cloner (Speak into Mic -> AI Cloned Voice Live) ---- */
+var _addonV2VActive = false;
+var _addonV2VRec = null;
+
+function toggleAddonV2V(){
+ if(_addonV2VActive){
+  stopAddonV2V();
+ } else {
+  startAddonV2V();
+ }
+}
+
+function startAddonV2V(){
+ var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+ if(!SpeechRecognition){
+  alert('Speech recognition is supported in Google Chrome or Microsoft Edge.');
+  return;
+ }
+
+ var btn = document.getElementById('btnAddonV2V');
+ var badge = document.getElementById('v2vBadge');
+ var transcriptBox = document.getElementById('v2vLiveTranscript');
+
+ try {
+  _addonV2VRec = new SpeechRecognition();
+  _addonV2VRec.continuous = true;
+  _addonV2VRec.interimResults = false;
+  _addonV2VRec.lang = 'en-US';
+
+  _addonV2VRec.onresult = async function(event){
+   for(var i = event.resultIndex; i < event.results.length; i++){
+    if(event.results[i].isFinal){
+     var text = event.results[i][0].transcript.trim();
+     if(text.length > 1){
+      var vId = document.getElementById('demoVoiceSel').value || 'ceo_impersonator';
+      if(transcriptBox){
+       transcriptBox.style.display = 'block';
+       transcriptBox.innerHTML = '<span style="color:var(--muted)">You said:</span> "' + esc(text) + '"<br><span style="color:#ff4d5e;font-weight:700">AI Clone Speaking Live Into Meeting...</span>';
+      }
+      if(badge){
+       badge.textContent = 'SYNTHESIZING & SPEAKING';
+       badge.style.color = '#ff4d5e';
+      }
+      var spk = "Derek (AI " + vId.split('_')[0].toUpperCase() + " Clone)";
+      await triggerDemoInjection(text, vId, spk, false, "Live Cloned Speech");
+      if(badge && _addonV2VActive){
+       badge.textContent = 'LISTENING (SPEAK TO CLONE)';
+       badge.style.color = 'var(--green)';
+      }
+     }
+    }
+   }
+  };
+
+  _addonV2VRec.onerror = function(e){
+   console.warn('Addon V2V speech recognition error:', e);
+  };
+
+  _addonV2VRec.onend = function(){
+   if(_addonV2VActive && _addonV2VRec){
+    try{ _addonV2VRec.start(); }catch(x){}
+   }
+  };
+
+  _addonV2VRec.start();
+  _addonV2VActive = true;
+  if(btn){
+   btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg><span>Stop Real-Time Voice Cloner</span>';
+   btn.style.background = 'rgba(255,77,94,0.18)';
+   btn.style.borderColor = 'var(--red)';
+   btn.style.color = 'var(--red)';
+  }
+  if(badge){
+   badge.textContent = 'LISTENING (SPEAK TO CLONE)';
+   badge.style.color = 'var(--green)';
+  }
+  if(transcriptBox){
+   transcriptBox.style.display = 'block';
+   transcriptBox.textContent = 'Listening... Speak into your mic and Sonave will re-speak in the AI cloned voice!';
+  }
+ } catch(e){
+  console.error('Failed to start real-time voice cloner:', e);
+  stopAddonV2V();
+ }
+}
+
+function stopAddonV2V(){
+ _addonV2VActive = false;
+ if(_addonV2VRec){
+  try{ _addonV2VRec.stop(); }catch(x){}
+  _addonV2VRec = null;
+ }
+ var btn = document.getElementById('btnAddonV2V');
+ var badge = document.getElementById('v2vBadge');
+ var transcriptBox = document.getElementById('v2vLiveTranscript');
+ if(btn){
+  btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg><span>Start Real-Time Voice-to-Voice AI</span>';
+  btn.style.background = '#0e2a1e';
+  btn.style.borderColor = 'var(--green)';
+  btn.style.color = 'var(--green)';
+ }
+ if(badge){
+  badge.textContent = 'STANDBY';
+  badge.style.color = 'var(--muted)';
+ }
+ if(transcriptBox){
+  transcriptBox.style.display = 'none';
  }
 }
 
