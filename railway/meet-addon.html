@@ -17,9 +17,10 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
 .brand{display:flex;align-items:center;gap:8px}
 .brand b{font-size:13px}
 .brand small{display:block;font-size:9px;color:var(--muted)}
-.banner{padding:12px 14px;border-bottom:1px solid var(--line)}
-.verdict{font-size:19px;font-weight:800;letter-spacing:-.01em}
-.note{font-size:10.5px;color:var(--ink2);margin-top:2px}
+.banner{padding:11px 13px;border-bottom:1px solid var(--line);background:rgba(16,20,24,0.7);backdrop-filter:blur(10px);transition:all .3s ease}
+.banner.fake{background:rgba(255,77,94,0.1);border-bottom-color:rgba(255,77,94,0.4)}
+.verdict{font-size:18px;font-weight:800;letter-spacing:-.01em;display:inline-flex;align-items:center;gap:7px}
+.note{font-size:10.5px;color:var(--ink2);margin-top:3px}
 .list{padding:10px 12px;display:flex;flex-direction:column;gap:8px;flex:1}
 #protect{background:radial-gradient(circle at 50% 15%,rgba(46,229,132,.07),transparent 62%)}
 .btn.cta{box-shadow:0 8px 28px rgba(46,229,132,.22)}
@@ -29,7 +30,8 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
 .spk{border:1px solid var(--line);border-radius:12px;padding:11px 13px;background:var(--panel);transition:opacity .4s ease}
 .spk.fake{border-color:rgba(255,77,94,.45)}
 .srow{display:flex;align-items:center;gap:9px}
-.savatar{width:28px;height:28px;border-radius:50%;background:#161c22;border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--ink2);flex-shrink:0}
+.savatar{width:30px;height:30px;border-radius:50%;background:#161c22;border:1.5px solid var(--line2);display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:700;color:var(--ink2);flex-shrink:0;transition:all .25s ease;position:relative}
+.savatar.speaking{border-color:var(--green);box-shadow:0 0 0 2.5px rgba(46,229,132,0.25), 0 0 10px rgba(46,229,132,0.35);color:var(--green)}
 .smain{flex:1;min-width:0}
 .sname{font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ssub{font-size:10px;color:var(--muted);margin-top:1px}
@@ -132,7 +134,16 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
 </div>
 
 <div id="live" style="display:none">
- <div class="banner" id="banner" style="display:none"><span class="verdict" id="room">—</span><div class="note" id="roomNote">waiting for audio…</div></div>
+ <div class="banner" id="banner" style="display:none">
+  <div style="display:flex;align-items:center;justify-content:space-between">
+   <div style="display:flex;align-items:center;gap:7px">
+    <svg id="shieldIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg>
+    <span class="verdict" id="room">REAL</span>
+   </div>
+   <span id="verdictPill" style="font-size:9.5px;font-family:var(--mono);font-weight:700;letter-spacing:0.04em;padding:2px 7px;border-radius:6px;background:rgba(46,229,132,0.1);color:var(--green);border:1px solid rgba(46,229,132,0.3)">AUTHENTIC</span>
+  </div>
+  <div class="note" id="roomNote">All participant voices authentic and verified.</div>
+ </div>
  <div id="protect" style="display:none;padding:12px 14px 16px;border-bottom:1px solid var(--line)">
   <div class="ph" id="protectHero">
    <div class="radar">
@@ -160,13 +171,23 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
   </div>
  </div>
  <div class="list" id="speakers"></div>
+ <div id="miniSpecWrap" style="padding:0 12px 6px; display:none;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+   <span style="font-size:8.5px;color:var(--muted);font-weight:700;letter-spacing:0.08em;font-family:var(--mono)">ACOUSTIC SPECTROGRAM</span>
+   <span id="specStatus" style="font-size:8.5px;color:var(--green);font-family:var(--mono)">● live 38ms</span>
+  </div>
+  <canvas id="miniSpec" width="280" height="24" style="width:100%;height:24px;border-radius:6px;background:rgba(16,20,24,0.7);border:1px solid var(--line);display:block;"></canvas>
+ </div>
  <div id="sstats">
   <div><b>CHECKS</b><span id="stWin">0</span></div>
   <div><b>SESSION</b><span id="stSess">0:00</span></div>
   <div><b>PEAK RISK</b><span id="stPeak">0%</span></div>
  </div>
  <div style="padding:0 12px 10px; display:flex; justify-content:center;">
-  <button id="btnSim" class="btn-soft" style="width:100%;" onclick="injectMeetTest()"><span>⚡</span> Simulate Voice Threat Check</button>
+  <button id="btnSim" class="btn-soft" style="width:100%;" onclick="injectMeetTest()">
+   <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="margin-right:4px;vertical-align:-1px"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+   <span>Simulate Voice Threat Check</span>
+  </button>
  </div>
  <div class="ft"><span id="meta"><span class="dot"></span>detection engine online</span><span><a href="#" onclick="signOut();return false" style="color:var(--muted);font-weight:500;font-size:10px;margin-right:10px">Sign out</a><a href="/console" target="_blank" rel="noopener">Open console ↗</a></span></div>
 </div>
@@ -442,10 +463,26 @@ async function poll(){
    document.getElementById('stSess').textContent=hmsP(sess);
    var pk=document.getElementById('stPeak');pk.textContent=Math.round(_peak*100)+'%';pk.style.color=vcolor(_peak);
    
+   var isFake = anyVerdict && maxP >= 0.7;
    var room=document.getElementById('room');
    room.textContent=anyVerdict?vname(maxP):'LISTENING';
    room.style.color=anyVerdict?vcolor(maxP):'var(--green)';
    room.className='verdict'+(!anyVerdict?' pulse':'');
+   
+   var shield = document.getElementById('shieldIcon');
+   if(shield) shield.setAttribute('stroke', anyVerdict ? vcolor(maxP) : 'var(--green)');
+   
+   var pill = document.getElementById('verdictPill');
+   if(pill){
+    pill.textContent = isFake ? 'THREAT DETECTED' : anyVerdict ? 'AUTHENTIC' : 'ANALYZING';
+    pill.style.color = anyVerdict ? vcolor(maxP) : 'var(--green)';
+    pill.style.borderColor = anyVerdict ? (isFake ? 'rgba(255,77,94,0.4)' : 'rgba(46,229,132,0.3)') : 'rgba(46,229,132,0.3)';
+    pill.style.background = anyVerdict ? (isFake ? 'rgba(255,77,94,0.15)' : 'rgba(46,229,132,0.1)') : 'rgba(46,229,132,0.1)';
+   }
+   
+   var banner = document.getElementById('banner');
+   if(banner) banner.className = 'banner' + (isFake ? ' fake' : '');
+   
    document.getElementById('roomNote').textContent=anyVerdict? (maxP>=0.7?'A speaker is scoring in the red band.':'All participant voices authentic and verified.') : 'Analyzing speech acoustics — first verdict in ~4 seconds.';
   } else {
    var room=document.getElementById('room');
@@ -454,6 +491,8 @@ async function poll(){
    room.className='verdict pulse';
    document.getElementById('roomNote').textContent='Voice verification active · analyzing incoming speech.';
   }
+  var specWrap = document.getElementById('miniSpecWrap');
+  if(specWrap) specWrap.style.display = isProtected ? 'block' : 'none';
  }catch(e){
  }finally{
   _inPoll = false;
@@ -479,6 +518,8 @@ function patchRow(el,k,s){
  el.className='spk'+(p>=0.7?' fake':'');
  el.style.opacity='1';
  el.setAttribute('data-v',s.auth_verdict?'1':'0');
+ var avEl = el.querySelector('.savatar');
+ if(avEl) avEl.className = 'savatar' + (talk ? ' speaking' : '');
  var you=isMe(k)?' <span class="dim">· you</span>':'';
  var st=' <span class="eq on"><i></i><i></i><i></i></span>';
  var nameEl=el.querySelector('.sname'); if(nameEl) nameEl.innerHTML=esc(k.replace(/_/g,' '))+you+st;
@@ -506,6 +547,35 @@ function patchRow(el,k,s){
   sattr.style.display=h?'block':'none';
  }
 }
+
+var _specCanvas = null, _specCtx = null;
+var _miniBins = new Float32Array(28);
+function animMiniSpec(){
+ if(!_specCanvas) _specCanvas = document.getElementById('miniSpec');
+ if(_specCanvas && !_specCtx) _specCtx = _specCanvas.getContext('2d');
+ if(_specCtx && _specCanvas){
+  var w = _specCanvas.width, h = _specCanvas.height;
+  _specCtx.clearRect(0, 0, w, h);
+  var barW = w / _miniBins.length;
+  var isFake = _peak >= 0.7;
+  for(var i = 0; i < _miniBins.length; i++){
+   var target = 0.05;
+   if(_connected){
+    var freqFactor = 1.0 - (i / _miniBins.length) * 0.45;
+    target = Math.max(0.1, Math.sin(Date.now() * 0.006 + i * 0.3) * 0.4 + 0.45) * freqFactor;
+    if(isFake && i > 14){
+     target = Math.min(0.98, target + 0.45);
+    }
+   }
+   _miniBins[i] += (target - _miniBins[i]) * 0.25;
+   var bh = _miniBins[i] * h * 0.88;
+   _specCtx.fillStyle = isFake && i > 14 ? '#ff4d5e' : (isFake ? '#ffb224' : '#2ee584');
+   _specCtx.fillRect(i * barW, h - bh, barW - 1.5, bh);
+  }
+ }
+ requestAnimationFrame(animMiniSpec);
+}
+requestAnimationFrame(animMiniSpec);
 function panelAnim(){
  /* 60 fps: ease each row's bar toward its latest polled risk */
  var list=document.getElementById('speakers');
