@@ -601,7 +601,7 @@ var _pt={},_pd={},_peak=0;
 function hmsP(t){t=Math.round(t||0);return Math.floor(t/60)+':'+('0'+t%60).slice(-2)}
 function isSimSpk(k){
  var l = String(k||'').toLowerCase();
- return l.indexOf('clone')!==-1 || l.indexOf('test')!==-1 || l.indexOf('simulate')!==-1 || l.indexOf('custom')!==-1 || l.indexOf('voice')!==-1 || l.indexOf('ceo')!==-1 || l.indexOf('brian')!==-1 || l.indexOf('andrew')!==-1 || l.indexOf('treasury')!==-1 || l.indexOf('impersonator')!==-1;
+ return l.indexOf('(ai')!==-1 || l.indexOf('ai ')!==-1 || l.indexOf('clone')!==-1 || l.indexOf('test')!==-1 || l.indexOf('simulate')!==-1 || l.indexOf('custom')!==-1 || l.indexOf('voice')!==-1 || l.indexOf('ceo')!==-1 || l.indexOf('cfo')!==-1 || l.indexOf('vp')!==-1 || l.indexOf('brian')!==-1 || l.indexOf('andrew')!==-1 || l.indexOf('treasury')!==-1 || l.indexOf('impersonator')!==-1 || l.indexOf('director')!==-1 || l.indexOf('partner')!==-1 || l.indexOf('british')!==-1 || l.indexOf('spanish')!==-1 || l.indexOf('french')!==-1 || l.indexOf('german')!==-1;
 }
 
 function rowHTML(k){
@@ -1084,9 +1084,12 @@ async function dismissThreatCheck(){
    delete _pd[k];
   }
  });
- _peak = 0.04;
+ _peak = 0;
  var list = document.getElementById('speakers');
- if(list) list._keys = '';
+ if(list) {
+  list._keys = '';
+  list.innerHTML = '';
+ }
  await poll();
 }
 
