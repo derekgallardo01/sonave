@@ -497,47 +497,49 @@ async function startCloner(){
     _rec.interimResults = true;
     _rec.lang = 'en-US';
 
+    var _processedFinalIndex = 0;
+
     _rec.onresult = function(e){
-      var finalChunk = '';
+      var newFinals = [];
       var interimChunk = '';
 
       for(var i = 0; i < e.results.length; i++){
         var res = e.results[i];
         if(res.isFinal){
-          finalChunk += res[0].transcript + ' ';
+          if(i >= _processedFinalIndex){
+            newFinals.push(res[0].transcript.trim());
+            _processedFinalIndex = i + 1;
+          }
         } else {
           interimChunk += res[0].transcript + ' ';
         }
       }
 
-      finalChunk = finalChunk.trim();
+      // Synthesize each newly finalized sentence immediately
+      for(var j = 0; j < newFinals.length; j++){
+        if(newFinals[j]){
+          clearTimeout(_sentenceTimer);
+          _pendingSentence = '';
+          synthesizeFullSentence(newFinals[j]);
+        }
+      }
+
       interimChunk = interimChunk.trim();
-
-      var currentSpeech = (finalChunk || interimChunk);
-      var fd = document.getElementById('liveFeed');
-      if(fd && currentSpeech && !_isPlayingAudio){
-        fd.innerHTML = '<div style="color:var(--ink2)">🎙️ <b style="color:var(--ink)">Hearing:</b> "' + esc(currentSpeech) + '..."</div>' +
-                       '<div style="color:var(--muted);font-size:10.5px;margin-top:4px;">Listening to complete sentence...</div>';
-      }
-
-      clearTimeout(_sentenceTimer);
-
-      if(finalChunk){
-        _pendingSentence = '';
-        synthesizeFullSentence(finalChunk);
-        try { _rec.stop(); } catch(x){}
-        return;
-      }
-
       if(interimChunk){
         _pendingSentence = interimChunk;
+        var fd = document.getElementById('liveFeed');
+        if(fd && !_isPlayingAudio){
+          fd.innerHTML = '<div style="color:var(--ink2)">🎙️ <b style="color:var(--ink)">Hearing:</b> "' + esc(interimChunk) + '..."</div>' +
+                         '<div style="color:var(--muted);font-size:10.5px;margin-top:4px;">Listening to complete sentence...</div>';
+        }
+
+        clearTimeout(_sentenceTimer);
         _sentenceTimer = setTimeout(function(){
           if(!_active || !_pendingSentence) return;
           var phrase = _pendingSentence;
           _pendingSentence = '';
           synthesizeFullSentence(phrase);
-          try { _rec.stop(); } catch(x){}
-        }, 650);
+        }, 600);
       }
     };
 
@@ -550,6 +552,7 @@ async function startCloner(){
 
     _rec.onend = function(){
       if(_active && _rec){
+        _processedFinalIndex = 0;
         try{ _rec.start(); }catch(x){}
       }
     };
@@ -557,6 +560,7 @@ async function startCloner(){
     _rec.start();
     _active = true;
     _pendingSentence = '';
+    _processedFinalIndex = 0;
     btn.className = 'btn-hero active';
     btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg><span>Stop Real Voice-to-Voice Cloner</span>';
     st.textContent = 'LISTENING (SPEAK)';
