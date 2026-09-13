@@ -324,6 +324,22 @@ async function protectMeeting(){
 }
 async function deployTo(url,btn,st){
  try{
+  // 1. Try Native Google Meet Media API (Botless)
+  var rMeet = await fetch('/api/meet/sessions/connect', {
+   method: 'POST',
+   headers: authHeaders({'Content-Type': 'application/json'}),
+   body: JSON.stringify({space_id: url})
+  });
+  var dMeet = await rMeet.json();
+  if(dMeet.ok){
+   st.textContent='Connected directly via Google Meet Media API (Bot-Free)!';
+   deployWait();
+   return;
+  }
+ }catch(e){}
+
+ // 2. Fallback to bot dispatch if needed
+ try{
   var r=await fetch('/bot',{method:'POST',headers:authHeaders({'Content-Type':'application/json'}),
                             body:JSON.stringify({meeting_url:url})});
   var d=await r.json();

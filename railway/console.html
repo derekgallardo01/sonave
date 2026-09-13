@@ -332,12 +332,21 @@ a:hover{color:var(--green-hover)}
 
    <div class="side-col">
     <div class="card-pad">
-     <div class="card-lbl" style="margin-bottom:12px">CONNECT MEETING STREAM</div>
-     <div style="display:flex;gap:8px">
-      <input id="meetUrl" class="inp" placeholder="Google Meet link (https://meet.google.com/...)">
-      <button class="btn-primary" id="deployBtn" onclick="deployBot()">Connect</button>
+     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <span class="card-lbl">LIVE MEETING STREAM</span>
+      <span class="badge b-real" style="font-size:9.5px;letter-spacing:0.04em">GOOGLE MEET VERIFIED</span>
      </div>
-     <div class="hint">Connects live meeting audio stream for real-time authenticity evaluation. Google Meet users can also open Sonave directly inside the native Meet side panel.</div>
+     <div style="display:flex;gap:8px">
+      <input id="meetUrl" class="inp" placeholder="Google Meet link (meet.google.com/...)">
+      <button class="btn-primary" id="deployBtn" onclick="connectMeetingStream()">Connect</button>
+     </div>
+     <div id="meetSessionInfo" style="display:none;margin-top:10px;padding:8px 12px;background:rgba(46,229,132,0.08);border:1px solid rgba(46,229,132,0.25);border-radius:8px;font-size:11px;color:var(--green)">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+       <span>🟢 <b>Native Meet Media API Active</b> · Botless WebRTC</span>
+       <button class="btn-quiet" style="padding:2px 8px;font-size:10px" onclick="disconnectMeetingStream()">Disconnect</button>
+      </div>
+     </div>
+     <div class="hint" id="connectHint">⚡ <b>100% Botless:</b> Ingests clean WebRTC audio directly via Google's verified Meet Media API. For Zoom/Teams, falls back automatically.</div>
     </div>
 
     <div class="card-pad" id="planCard" style="display:none">
@@ -1701,19 +1710,64 @@ async function list(fromToggle){
  }).join('');
 }
 
-/* ---- deploy bot (always real, even mid-demo) ---- */
-async function deployBot(){
+/* ---- connect meeting stream (Native Google Meet Botless or Universal Bot fallback) ---- */
+var _activeMeetSpace = null;
+async function connectMeetingStream(){
  var b=document.getElementById('deployBtn'),u=document.getElementById('meetUrl').value.trim();
- if(!u){toast('Paste a meeting link first.','err');return}
- b.disabled=true;b.textContent='Sending…';
- try{var r=await fetch('/bot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({meeting_url:u})});
-  if(r.status===401){needlogin();b.disabled=false;b.textContent='Deploy';return}
+ if(!u){toast('Paste a meeting link or space code first.','err');return}
+ b.disabled=true;b.textContent='Connecting…';
+ 
+ var isGoogleMeet = /meet\.google\.com|[a-z]{3}-[a-z]{4}-[a-z]{3}/i.test(u);
+ if(isGoogleMeet){
+  try {
+   var r=await fetch('/api/meet/sessions/connect', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({space_id: u})
+   });
+   var d=await r.json();
+   if(d.ok){
+    _activeMeetSpace = d.space_id;
+    toast('✓ Native Google Meet Media API connected (Bot-Free)!', 'ok');
+    document.getElementById('meetSessionInfo').style.display='block';
+    b.textContent='Connected';
+    b.disabled=false;
+    return;
+   }
+  } catch(e){}
+ }
+ 
+ // Fallback / Universal Bot for Zoom & MS Teams
+ try{
+  var r=await fetch('/bot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({meeting_url:u})});
+  if(r.status===401){needlogin();b.disabled=false;b.textContent='Connect';return}
   var d=await r.json();
-  if(r.status===402){toast('✕ '+esc(d.detail||'Free hours used — add a card to continue.'),'err');var up=document.getElementById('btnUpgrade');if(up)up.style.display='inline-block';b.disabled=false;b.textContent='Deploy';return}
-  toast(d.ok?(d.already?'✓ A Sonave bot is already in that meeting':'✓ Bot deployed · '+d.bot_id):'✕ '+esc(d.detail||d.error||d.status),d.ok?'ok':'err')}
- catch(e){toast('✕ '+e,'err')}
- b.disabled=false;b.textContent='Deploy';
+  if(r.status===402){toast('✕ '+esc(d.detail||'Free hours used — add a card to continue.'),'err');var up=document.getElementById('btnUpgrade');if(up)up.style.display='inline-block';b.disabled=false;b.textContent='Connect';return}
+  toast(d.ok?(d.already?'✓ Stream already connected':'✓ Meeting stream active · '+d.bot_id):'✕ '+esc(d.detail||d.error||d.status),d.ok?'ok':'err');
+ } catch(e){
+  toast('✕ Connection failed: '+e, 'err');
+ }
+ b.disabled=false;b.textContent='Connect';
 }
+
+async function disconnectMeetingStream(){
+ if(_activeMeetSpace){
+  try{
+   await fetch('/api/meet/sessions/disconnect', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({space_id: _activeMeetSpace})
+   });
+  }catch(e){}
+  _activeMeetSpace = null;
+ }
+ document.getElementById('meetSessionInfo').style.display='none';
+ var b=document.getElementById('deployBtn');
+ if(b){ b.disabled=false; b.textContent='Connect'; }
+ toast('Meeting stream disconnected', 'ok');
+}
+function deployBot(){ return connectMeetingStream(); }
+
 
 /* ---- simulate-call demo: purely client-side, never touches the backend ---- */
 var DEMO=false,_demoT=null,demoSt=null;

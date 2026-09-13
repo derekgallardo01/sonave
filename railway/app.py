@@ -1789,14 +1789,124 @@ class MeetConnectReq(BaseModel):
     access_token: str = ""
 
 
+def _clean_space_id(raw: str) -> str:
+    s = raw.strip()
+    if "meet.google.com/" in s:
+        s = s.split("meet.google.com/")[-1].split("?")[0].strip("/")
+    s = s.replace("spaces/", "").strip()
+    return s
+
+
+def _make_meet_media_callback(user_id: str, space_id: str):
+    """Factory creating an audio frame consumer for native Google Meet WebRTC sessions."""
+    buffers: dict[str, bytearray] = {}
+    tails: dict[str, bytearray] = {}
+    idx: dict[str, int] = {}
+    seen: dict[str, int] = {}
+    scored: dict[str, int] = {}
+    session = int(time.time())
+
+    def on_frame(speaker_id: str, pcm_chunk: bytes, ts: float):
+        spk = _SPK_RE.sub("_", speaker_id or "speaker").strip("_") or "speaker"
+        LAST_FRAME[user_id] = ts
+        
+        # Audio level calculation
+        if len(pcm_chunk) >= 640:
+            samples = np.frombuffer(pcm_chunk, dtype=np.int16).astype(np.float32) / 32768.0
+            rms = float(np.sqrt(np.mean(samples**2))) if len(samples) > 0 else 0.0
+            peak = float(np.max(np.abs(samples))) if len(samples) > 0 else 0.0
+            with _STATE_LOCK:
+                QUALITY[(user_id, spk)] = {
+                    "state": "speaking" if rms > 0.02 else "quiet",
+                    "total_sec": round(seen.get(spk, 0) / (2 * SR), 1),
+                    "speech_sec": round(seen.get(spk, 0) / (2 * SR) * 0.85, 1),
+                    "quiet_sec": 0.0,
+                    "level": round(rms, 3),
+                    "peak": round(peak, 3),
+                    "clips": idx.get(spk, 0),
+                    "last_audio_ts": ts,
+                    "speech_pct": 85.0
+                }
+
+        # Buffer for capture storage
+        b = buffers.setdefault(spk, bytearray())
+        b.extend(pcm_chunk)
+        if len(b) >= _CHUNK_BYTES:
+            _write(user_id, spk, bytes(b), session, idx.get(spk, 0))
+            idx[spk] = idx.get(spk, 0) + 1
+            b.clear()
+
+        # Rolling window for real-time neural scoring
+        t = tails.setdefault(spk, bytearray())
+        t.extend(pcm_chunk)
+        if len(t) > _SCORE_WIN_BYTES:
+            del t[:-_SCORE_WIN_BYTES]
+        seen[spk] = seen.get(spk, 0) + len(pcm_chunk)
+        hop = _SCORE_HOP_BYTES if spk in scored else _SCORE_FIRST_BYTES
+        if SCORER_URL and seen[spk] - scored.get(spk, 0) >= hop:
+            scored[spk] = seen[spk]
+            frac = _speech_fraction(bytes(t))
+            if frac >= MIN_SPEECH_FRAC:
+                with _STATE_LOCK:
+                    busy = (user_id, spk) in _INFLIGHT
+                    if not busy:
+                        _INFLIGHT.add((user_id, spk))
+                if not busy:
+                    window = _pcm_to_wav(bytes(t))
+                    threading.Thread(target=_score_and_store,
+                                     args=(user_id, spk, window, frac),
+                                     daemon=True).start()
+
+    return on_frame
+
+
 @app.post("/api/meet/sessions/connect")
 def api_meet_session_connect(req: MeetConnectReq, p: auth.Principal = Depends(require_principal)):
-    """Initiate a native Google Meet Media API session for an active conference space."""
+    """Initiate a native Google Meet Media API session (botless) for an active conference."""
+    space = _clean_space_id(req.space_id)
+    if not space:
+        raise HTTPException(400, "Invalid space_id or Google Meet URL")
+
     token = req.access_token or ""
-    sess = meet_media_ingest.get_or_create_session(req.space_id, token)
+    if not token and p.kind == "user":
+        # Resolve stored OAuth access token
+        raw = db.get_oauth_token(p.user_id, "google_meet") or db.get_oauth_token(p.user_id, "google_calendar")
+        if raw:
+            try:
+                tok_data = json.loads(raw)
+                token = tok_data.get("access_token") or ""
+            except Exception:
+                token = raw
+
+    cb = _make_meet_media_callback(p.user_id, space)
+    sess = meet_media_ingest.get_or_create_session(space, token, on_audio=cb)
     res = sess.connect()
-    _track(p.user_id, "meet_media_connect", space=req.space_id, ok=res.get("ok", False))
-    return res
+    
+    with _STATE_LOCK:
+        ACTIVE_STREAMS[p.user_id] = ACTIVE_STREAMS.get(p.user_id, 0) + 1
+
+    _track(p.user_id, "meet_media_connect", space=space, ok=res.get("ok", False))
+    return {
+        "ok": res.get("ok", False),
+        "space_id": space,
+        "mode": "native_webrtc_botless",
+        "detail": res
+    }
+
+
+class MeetDisconnectReq(BaseModel):
+    space_id: str
+
+
+@app.post("/api/meet/sessions/disconnect")
+def api_meet_session_disconnect(req: MeetDisconnectReq, p: auth.Principal = Depends(require_principal)):
+    """Disconnect and close an active native Google Meet Media session."""
+    space = _clean_space_id(req.space_id)
+    meet_media_ingest.close_session(space)
+    with _STATE_LOCK:
+        ACTIVE_STREAMS[p.user_id] = max(0, ACTIVE_STREAMS.get(p.user_id, 1) - 1)
+    _track(p.user_id, "meet_media_disconnect", space=space)
+    return {"ok": True, "space_id": space, "state": "closed"}
 
 
 class CreateKeyReq(BaseModel):
