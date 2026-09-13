@@ -307,6 +307,27 @@ function authHeaders(extra){
   return h;
 }
 
+var _myTabId = 'cloner_' + Math.random().toString(36).slice(2, 9);
+var _clonerSyncChannel = null;
+
+try {
+  if(window.BroadcastChannel){
+    _clonerSyncChannel = new BroadcastChannel('sonave_cloner_sync');
+    _clonerSyncChannel.onmessage = function(ev){
+      if(ev.data && ev.data.type === 'START_CLONER' && ev.data.tabId !== _myTabId){
+        if(_active){
+          stopCloner();
+          toast('Switched mic to active cloner window', 'ok');
+          var feed = document.getElementById('liveFeed');
+          if(feed){
+            feed.innerHTML = '<div style="color:var(--amber)">ℹ️ <b>Cloner activated in another window.</b> Click Start above if you want to switch back to this window.</div>';
+          }
+        }
+      }
+    };
+  }
+} catch(e){}
+
 var _active = false;
 var _rec = null;
 var _lastSent = '';
@@ -316,6 +337,10 @@ var _audioContext = null;
 var _analyser = null;
 var _micStream = null;
 var _simAudio = null;
+
+window.addEventListener('beforeunload', function(){
+  try { stopCloner(); } catch(x){}
+});
 
 function toast(msg, type){
   var el = document.getElementById('toast');
@@ -672,6 +697,9 @@ async function startCloner(){
     _rec.start();
     _active = true;
     _pendingSentence = '';
+    if(_clonerSyncChannel){
+      try { _clonerSyncChannel.postMessage({ type: 'START_CLONER', tabId: _myTabId }); } catch(x){}
+    }
     btn.className = 'btn-hero active';
     btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg><span>Stop Real Voice-to-Voice Cloner</span>';
     st.textContent = 'LISTENING (SPEAK)';
