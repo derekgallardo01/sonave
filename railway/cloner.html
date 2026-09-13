@@ -500,9 +500,19 @@ var VOICE_NAMES = {
   'german_treasury': 'Derek (AI German)'
 };
 
+var _lastSynthesizedSentence = '';
+var _lastSynthesizedTime = 0;
+
 async function synthesizeFullSentence(sentenceText){
   var trimmed = (sentenceText || '').trim();
   if(!trimmed || trimmed.length < 2) return;
+
+  var now = Date.now();
+  if(trimmed.toLowerCase() === _lastSynthesizedSentence.toLowerCase() && (now - _lastSynthesizedTime) < 3000){
+    return;
+  }
+  _lastSynthesizedSentence = trimmed;
+  _lastSynthesizedTime = now;
 
   var vId = document.getElementById('voiceSel').value || 'elevenlabs_brian';
   var spk = VOICE_NAMES[vId] || ('Derek (AI ' + vId.split('_')[0] + ')');
@@ -551,6 +561,11 @@ async function startCloner(){
   }
 
   try {
+    var AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if(!_audioContext) _audioContext = new AudioCtx();
+    if(_audioContext.state === 'suspended'){
+      await _audioContext.resume();
+    }
     _micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
     initMicSpectrum(_micStream);
     await populateSinks();
@@ -569,39 +584,31 @@ async function startCloner(){
     _rec.interimResults = true;
     _rec.lang = 'en-US';
 
-    var _processedFinalIndex = 0;
-
     _rec.onresult = function(e){
-      var newFinals = [];
-      var interimChunk = '';
+      var finalTranscript = '';
+      var interimTranscript = '';
 
-      for(var i = 0; i < e.results.length; i++){
+      for(var i = e.resultIndex; i < e.results.length; i++){
         var res = e.results[i];
         if(res.isFinal){
-          if(i >= _processedFinalIndex){
-            newFinals.push(res[0].transcript.trim());
-            _processedFinalIndex = i + 1;
-          }
+          finalTranscript += res[0].transcript + ' ';
         } else {
-          interimChunk += res[0].transcript + ' ';
+          interimTranscript += res[0].transcript + ' ';
         }
       }
 
-      // Synthesize each newly finalized sentence immediately
-      for(var j = 0; j < newFinals.length; j++){
-        if(newFinals[j]){
-          clearTimeout(_sentenceTimer);
-          _pendingSentence = '';
-          synthesizeFullSentence(newFinals[j]);
-        }
-      }
+      finalTranscript = finalTranscript.trim();
+      interimTranscript = interimTranscript.trim();
 
-      interimChunk = interimChunk.trim();
-      if(interimChunk){
-        _pendingSentence = interimChunk;
+      if(finalTranscript){
+        clearTimeout(_sentenceTimer);
+        _pendingSentence = '';
+        synthesizeFullSentence(finalTranscript);
+      } else if(interimTranscript){
+        _pendingSentence = interimTranscript;
         var fd = document.getElementById('liveFeed');
         if(fd && !_isPlayingAudio){
-          fd.innerHTML = '<div style="color:var(--ink2)">🎙️ <b style="color:var(--ink)">Hearing:</b> "' + esc(interimChunk) + '..."</div>' +
+          fd.innerHTML = '<div style="color:var(--ink2)">🎙️ <b style="color:var(--ink)">Hearing:</b> "' + esc(interimTranscript) + '..."</div>' +
                          '<div style="color:var(--muted);font-size:10.5px;margin-top:4px;">Listening to complete sentence...</div>';
         }
 
@@ -611,28 +618,30 @@ async function startCloner(){
           var phrase = _pendingSentence;
           _pendingSentence = '';
           synthesizeFullSentence(phrase);
-        }, 600);
+        }, 700);
       }
     };
 
     _rec.onerror = function(e){
-      console.warn(e);
+      console.warn('Speech recognition error:', e);
       if(e.error === 'not-allowed'){
         feed.innerHTML = '<span style="color:var(--red)">Microphone access denied in browser settings.</span>';
       }
     };
 
     _rec.onend = function(){
-      if(_active && _rec){
-        _processedFinalIndex = 0;
-        try{ _rec.start(); }catch(x){}
+      if(_active){
+        setTimeout(function(){
+          try {
+            if(_active && _rec) _rec.start();
+          } catch(x){}
+        }, 60);
       }
     };
 
     _rec.start();
     _active = true;
     _pendingSentence = '';
-    _processedFinalIndex = 0;
     btn.className = 'btn-hero active';
     btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg><span>Stop Real Voice-to-Voice Cloner</span>';
     st.textContent = 'LISTENING (SPEAK)';
