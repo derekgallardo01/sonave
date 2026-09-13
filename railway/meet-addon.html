@@ -530,8 +530,9 @@ function patchRow(el,k,s){
  if(!el) return;
  var p=s.auth_p!=null?s.auth_p:0;
  _pt[k]=p;
- var quiet = s.state === 'quiet' || s.state === 'muted' || (s.quiet_sec || 0) >= 1.0 || (s.level || 0) < 0.012;
- var talk = !quiet && (s.state === 'speaking' || (s.level || 0) >= 0.012);
+ var meSpeaker = isMe(k);
+ var quiet = !meSpeaker && (s.state === 'quiet' || s.state === 'muted' || (s.quiet_sec || 0) >= 1.0 || (s.level || 0) < 0.012);
+ var talk = meSpeaker ? (_localSpeaking || s.state === 'speaking' || (s.level || 0) >= 0.012) : (!quiet && (s.state === 'speaking' || (s.level || 0) >= 0.012));
  el.className='spk'+(p>=0.7?' fake':'');
  el.style.opacity='1';
  el.setAttribute('data-v',s.auth_verdict?'1':'0');
@@ -569,6 +570,7 @@ function patchRow(el,k,s){
 
 var _specCanvas = null, _specCtx = null, _anySpeaking = false;
 var _miniBins = new Float32Array(28);
+var _freqData = new Uint8Array(32);
 function animMiniSpec(){
  if(!_specCanvas) _specCanvas = document.getElementById('miniSpec');
  if(_specCanvas && !_specCtx) _specCtx = _specCanvas.getContext('2d');
@@ -577,20 +579,31 @@ function animMiniSpec(){
   _specCtx.clearRect(0, 0, w, h);
   var barW = w / _miniBins.length;
   var isFake = _peak >= 0.7;
+  var activeSpk = _anySpeaking || _localSpeaking;
+
+  if(_micAnalyser && _connected){
+   _micAnalyser.getByteFrequencyData(_freqData);
+  }
+
   for(var i = 0; i < _miniBins.length; i++){
    var target = 0.04;
-   if(_connected && _anySpeaking){
-    var freqFactor = 1.0 - (i / _miniBins.length) * 0.45;
-    target = Math.max(0.12, Math.sin(Date.now() * 0.006 + i * 0.3) * 0.4 + 0.45) * freqFactor;
+   if(_connected && activeSpk){
+    if(_micAnalyser && _localSpeaking){
+     var fVal = (_freqData[i % _freqData.length] || 0) / 255.0;
+     target = Math.max(0.12, fVal * 0.95);
+    } else {
+     var freqFactor = 1.0 - (i / _miniBins.length) * 0.45;
+     target = Math.max(0.12, Math.sin(Date.now() * 0.006 + i * 0.3) * 0.4 + 0.45) * freqFactor;
+    }
     if(isFake && i > 14){
      target = Math.min(0.98, target + 0.45);
     }
    } else if(_connected){
-    target = 0.05 + Math.sin(Date.now() * 0.002 + i * 0.25) * 0.02;
+    target = 0.04 + Math.sin(Date.now() * 0.002 + i * 0.25) * 0.015;
    }
-   _miniBins[i] += (target - _miniBins[i]) * 0.25;
+   _miniBins[i] += (target - _miniBins[i]) * 0.35;
    var bh = _miniBins[i] * h * 0.88;
-   _specCtx.fillStyle = isFake && i > 14 ? '#ff4d5e' : (isFake ? '#ffb224' : (_anySpeaking ? '#2ee584' : 'rgba(46,229,132,0.4)'));
+   _specCtx.fillStyle = isFake && i > 14 ? '#ff4d5e' : (isFake ? '#ffb224' : (activeSpk ? '#2ee584' : 'rgba(46,229,132,0.4)'));
    _specCtx.fillRect(i * barW, h - bh, barW - 1.5, bh);
   }
  }
@@ -690,11 +703,94 @@ async function dismissThreatCheck(){
  await poll();
 }
 
+var _micCtx = null, _micStream = null, _micWs = null, _micAnalyser = null;
+var _localLevel = 0, _localSpeaking = false, _lastLocalVoiceTs = 0;
+
+function startMicCapture(){
+ if(_micStream || _micWs) return;
+ if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+
+ var spkName = (ME && ME.name) || 'Derek';
+ var wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+ var wsUrl = wsProto + '//' + location.host + '/api/ws/mic-stream?token=' + encodeURIComponent(TOK || '') + '&speaker=' + encodeURIComponent(spkName);
+
+ try {
+  _micWs = new WebSocket(wsUrl);
+  _micWs.binaryType = 'arraybuffer';
+  _micWs.onopen = function(){ console.log('Mic WS connected'); };
+  _micWs.onclose = function(){ _micWs = null; };
+  _micWs.onerror = function(){ _micWs = null; };
+ } catch(e){}
+
+ navigator.mediaDevices.getUserMedia({
+  audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+ }).then(function(stream){
+  _micStream = stream;
+  var AudioContext = window.AudioContext || window.webkitAudioContext;
+  _micCtx = new AudioContext();
+  var source = _micCtx.createMediaStreamSource(stream);
+  
+  _micAnalyser = _micCtx.createAnalyser();
+  _micAnalyser.fftSize = 64;
+  source.connect(_micAnalyser);
+
+  var processor = _micCtx.createScriptProcessor(2048, 1, 1);
+  var targetSampleRate = 16000;
+  var inputSampleRate = _micCtx.sampleRate;
+
+  processor.onaudioprocess = function(e){
+   var inputData = e.inputBuffer.getChannelData(0);
+   
+   // Compute RMS level
+   var sum = 0;
+   for(var i = 0; i < inputData.length; i++){
+    sum += inputData[i] * inputData[i];
+   }
+   var rms = Math.sqrt(sum / inputData.length);
+   _localLevel = rms;
+
+   var now = Date.now();
+   if(rms >= 0.012){
+    _lastLocalVoiceTs = now;
+    _localSpeaking = true;
+   } else if(now - _lastLocalVoiceTs > 800){
+    _localSpeaking = false;
+   }
+
+   // Downsample to 16kHz Int16 PCM and stream to backend
+   if(_micWs && _micWs.readyState === WebSocket.OPEN){
+    var downsampledLen = Math.floor(inputData.length * (targetSampleRate / inputSampleRate));
+    var pcmBuffer = new Int16Array(downsampledLen);
+    var ratio = inputSampleRate / targetSampleRate;
+    for(var j = 0; j < downsampledLen; j++){
+     var srcIdx = Math.floor(j * ratio);
+     var s = Math.max(-1, Math.min(1, inputData[srcIdx]));
+     pcmBuffer[j] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+    _micWs.send(pcmBuffer.buffer);
+   }
+  };
+
+  source.connect(processor);
+  processor.connect(_micCtx.destination);
+ }).catch(function(err){
+  console.warn('Microphone access note:', err);
+ });
+}
+
 function boot(){
  _connectedSince=Date.now();
- if(TOK){show('live');}else{show('signin');}
+ if(TOK){
+  show('live');
+  startMicCapture();
+ }else{
+  show('signin');
+ }
  poll();
  setInterval(poll,500);
+ document.addEventListener('click', function(){
+  if(!_micStream && TOK) startMicCapture();
+ });
 }
 boot();
 </script>
