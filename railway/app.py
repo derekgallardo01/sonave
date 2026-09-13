@@ -1360,18 +1360,19 @@ def api_quality(request: Request, p: auth.Principal = Depends(require_principal)
             start_t = q.get("start_ts") or q.get("last_audio_ts") or time.time()
             elapsed_sec = max(0.0, time.time() - start_t)
             tot_sec = max(round(q.get("total_sec", 0.0)), round(elapsed_sec))
-            spk_sec = round(tot_sec * 0.85)
-            speech = spk_sec / max(tot_sec, 1e-6)
+            speech_sec = round(q.get("speech_sec", 0.0), 1)
+            speech_pct = round((speech_sec / max(tot_sec, 1e-6)) * 100) if tot_sec > 0 else 0
             row.update({"level": round(q.get("level", 0.0), 3), "peak": round(q.get("peak", 0.0), 3),
-                        "clips": max(1, int(tot_sec // 30) + 1),
-                        "speech_pct": round(speech * 100),
+                        "clips": max(1, int(speech_sec // 30) + 1) if speech_sec > 0 else 0,
+                        "speech_pct": min(100, speech_pct),
+                        "speech_sec": speech_sec,
                         "total_sec": tot_sec})
         av = VERDICTS.get((uid, spk))
-        cur_tot = row.get("total_sec", 0.0)
-        if av and (cur_tot >= 4 or av.get("verdict") == "fake"):
+        speech_sec = row.get("speech_sec", 0.0)
+        if av and (speech_sec >= 3.5 or av.get("verdict") == "fake" or av.get("n", 0) >= 1):
             row["auth_verdict"] = av["verdict"]
             row["auth_p"] = av["rolling"]
-            row["checks"] = max(av.get("n", 0), max(1, int(cur_tot // 4)))
+            row["checks"] = max(av.get("n", 0), max(1, int(speech_sec // 4)))
             if av.get("latency_ms") is not None:
                 row["latency_ms"] = av["latency_ms"]
             if av.get("speaker_check"):
@@ -1977,17 +1978,27 @@ def _make_meet_media_callback(user_id: str, space_id: str):
             samples = np.frombuffer(pcm_chunk, dtype=np.int16).astype(np.float32) / 32768.0
             rms = float(np.sqrt(np.mean(samples**2))) if len(samples) > 0 else 0.0
             peak = float(np.max(np.abs(samples))) if len(samples) > 0 else 0.0
+            is_speech = rms > 0.015
             with _STATE_LOCK:
+                prev_q = QUALITY.get((user_id, spk), {})
+                last_spk_t = ts if is_speech else prev_q.get("last_speech_ts", ts)
+                quiet_elapsed = 0.0 if is_speech else round(ts - last_spk_t, 1)
+                cur_speech_sec = prev_q.get("speech_sec", 0.0) + (len(pcm_chunk) / (2 * SR) if is_speech else 0.0)
+                start_t = prev_q.get("start_ts", ts)
+                total_dur = max(0.0, ts - start_t)
+                speech_pct = round((cur_speech_sec / max(1.0, total_dur)) * 100) if total_dur > 0 else 0
                 QUALITY[(user_id, spk)] = {
-                    "state": "speaking" if rms > 0.02 else "quiet",
-                    "total_sec": round(seen.get(spk, 0) / (2 * SR), 1),
-                    "speech_sec": round(seen.get(spk, 0) / (2 * SR) * 0.85, 1),
-                    "quiet_sec": 0.0,
+                    "state": "speaking" if is_speech else ("muted" if quiet_elapsed >= 1.0 else "quiet"),
+                    "start_ts": start_t,
+                    "total_sec": round(total_dur, 1),
+                    "speech_sec": round(cur_speech_sec, 1),
+                    "quiet_sec": quiet_elapsed,
+                    "last_speech_ts": last_spk_t,
                     "level": round(rms, 3),
                     "peak": round(peak, 3),
                     "clips": idx.get(spk, 0),
                     "last_audio_ts": ts,
-                    "speech_pct": 85.0
+                    "speech_pct": speech_pct
                 }
 
         # Buffer for capture storage
@@ -2059,24 +2070,16 @@ def api_meet_session_connect(req: MeetConnectReq, p: auth.Principal = Depends(re
         ACTIVE_STREAMS[p.user_id] = 1
         LAST_FRAME[p.user_id] = now_ts
         QUALITY[(p.user_id, spk)] = {
-            "state": "speaking",
+            "state": "muted",
             "start_ts": now_ts,
             "total_sec": 0.0,
             "speech_sec": 0.0,
             "quiet_sec": 0.0,
-            "level": 0.12,
-            "peak": 0.28,
-            "clips": 1,
+            "level": 0.0,
+            "peak": 0.0,
+            "clips": 0,
             "last_audio_ts": now_ts,
-            "speech_pct": 85.0
-        }
-        VERDICTS[(p.user_id, spk)] = {
-            "verdict": "real",
-            "p_fake": 0.035,
-            "rolling": 0.035,
-            "n": 1,
-            "latency_ms": 38,
-            "model": "sonave-xlsr-meet-v2"
+            "speech_pct": 0.0
         }
 
     _track(p.user_id, "meet_media_connect", space=space, ok=res.get("ok", False))

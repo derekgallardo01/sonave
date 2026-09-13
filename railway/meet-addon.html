@@ -486,7 +486,7 @@ async function poll(){
    
    var pill = document.getElementById('verdictPill');
    if(pill){
-    pill.textContent = isFake ? 'THREAT DETECTED' : anyVerdict ? 'AUTHENTIC' : 'ANALYZING';
+    pill.textContent = isFake ? 'THREAT DETECTED' : anyVerdict ? 'AUTHENTIC' : (anyTalk ? 'ANALYZING' : 'MONITORING');
     pill.style.color = anyVerdict ? vcolor(maxP) : 'var(--green)';
     pill.style.borderColor = anyVerdict ? (isFake ? 'rgba(255,77,94,0.4)' : 'rgba(46,229,132,0.3)') : 'rgba(46,229,132,0.3)';
     pill.style.background = anyVerdict ? (isFake ? 'rgba(255,77,94,0.15)' : 'rgba(46,229,132,0.1)') : 'rgba(46,229,132,0.1)';
@@ -495,7 +495,9 @@ async function poll(){
    var banner = document.getElementById('banner');
    if(banner) banner.className = 'banner' + (isFake ? ' fake' : '');
    
-   document.getElementById('roomNote').textContent=anyVerdict? (maxP>=0.7?'A speaker is scoring in the red band.':'All participant voices authentic and verified.') : 'Analyzing speech acoustics — first verdict in ~4 seconds.';
+   document.getElementById('roomNote').textContent=anyVerdict
+    ? (maxP>=0.7?'A speaker is scoring in the red band.':'All participant voices authentic and verified.')
+    : (anyTalk ? 'Analyzing speech acoustics — first verdict in ~4 seconds.' : 'Microphone muted — listening for incoming participant speech.');
   } else {
    var room=document.getElementById('room');
    room.textContent='LISTENING';
@@ -528,7 +530,7 @@ function patchRow(el,k,s){
  if(!el) return;
  var p=s.auth_p!=null?s.auth_p:0;
  _pt[k]=p;
- var quiet = s.state === 'quiet' || s.state === 'muted' || (s.quiet_sec || 0) >= 1.2 || (s.level || 0) < 0.012;
+ var quiet = s.state === 'quiet' || s.state === 'muted' || (s.quiet_sec || 0) >= 1.0 || (s.level || 0) < 0.012;
  var talk = !quiet && (s.state === 'speaking' || (s.level || 0) >= 0.012);
  el.className='spk'+(p>=0.7?' fake':'');
  el.style.opacity='1';
@@ -543,7 +545,7 @@ function patchRow(el,k,s){
  var subEl=el.querySelector('.ssub');
  if(subEl){
   subEl.textContent=
-   !s.auth_verdict?'analyzing voice · first verdict in ~4s':
+   !s.auth_verdict?(talk?'analyzing speech · ~4s':'muted · waiting for speech'):
    talk?'speaking · verified authentic':
    'muted · verified authentic';
  }
