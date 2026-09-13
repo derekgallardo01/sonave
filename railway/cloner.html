@@ -345,8 +345,8 @@ async function toggleCloner(){
 
 var _audioQueue = [];
 var _isPlayingAudio = false;
-var _lastHeardInterim = '';
-var _lastSentPhrase = '';
+var _committedWordIndex = 0;
+var _trailingFlushTimer = null;
 
 function enqueueAudio(base64Audio, phraseText){
   _audioQueue.push({ b64: base64Audio, text: phraseText });
@@ -414,17 +414,16 @@ function stopAllPlayback(){
   }
 }
 
-async function synthesizeAndEnqueue(textChunk){
+async function synthesizeChunk(textChunk){
   var trimmed = (textChunk || '').trim();
-  if(!trimmed || trimmed.length < 2 || trimmed === _lastSentPhrase) return;
-  _lastSentPhrase = trimmed;
-  var vId = document.getElementById('voiceSel').value || 'ceo_impersonator';
+  if(!trimmed || trimmed.length < 2) return;
+  var vId = document.getElementById('voiceSel').value || 'elevenlabs_brian';
   var spk = "Derek (AI " + vId.split('_')[0].toUpperCase() + " Clone)";
 
   var st = document.getElementById('clonerStatus');
   if(st && !_isPlayingAudio) {
-    st.textContent = 'SYNTHESIZING...';
-    st.style.color = '#ffb224';
+    st.textContent = 'STREAMING...';
+    st.style.color = '#2ee584';
   }
 
   try {
@@ -468,41 +467,52 @@ async function startCloner(){
     _rec.lang = 'en-US';
 
     _rec.onresult = function(e){
-      var interim = '';
+      var transcript = '';
+      var isFinal = false;
+
       for(var i = e.resultIndex; i < e.results.length; i++){
-        var res = e.results[i];
-        if(res.isFinal){
-          var finalChunk = res[0].transcript.trim();
-          if(finalChunk){
-            clearTimeout(_debounceTimer);
-            _lastHeardInterim = '';
-            var fd = document.getElementById('liveFeed');
-            if(fd && !_isPlayingAudio){
-              fd.innerHTML = '<div style="color:var(--ink2)">🎙️ <b style="color:var(--ink)">Heard:</b> "' + esc(finalChunk) + '"</div>' +
-                             '<div style="color:#ffb224;margin-top:4px;font-weight:700;">⚡ Synthesizing neural voice...</div>';
-            }
-            synthesizeAndEnqueue(finalChunk);
-          }
-        } else {
-          interim += res[0].transcript + ' ';
+        transcript += e.results[i][0].transcript + ' ';
+        if(e.results[i].isFinal){
+          isFinal = true;
         }
       }
 
-      interim = interim.trim();
-      if(interim && interim !== _lastHeardInterim){
-        _lastHeardInterim = interim;
-        var fd = document.getElementById('liveFeed');
-        if(fd && !_isPlayingAudio){
-          fd.innerHTML = '<div style="color:var(--ink2)">🎙️ <b style="color:var(--ink)">Hearing:</b> "' + esc(interim) + '..."</div>' +
-                         '<div style="color:var(--muted);font-size:10.5px;margin-top:4px;">Pause speaking or complete phrase to stream AI voice</div>';
+      var words = transcript.trim().split(/\s+/).filter(Boolean);
+      var uncommitted = words.slice(_committedWordIndex);
+
+      var fd = document.getElementById('liveFeed');
+      if(fd && !_isPlayingAudio && words.length > 0){
+        fd.innerHTML = '<div style="color:var(--ink2)">🎙️ <b style="color:var(--ink)">Hearing:</b> "' + esc(words.join(' ')) + '"</div>' +
+                       '<div style="color:var(--green);font-size:10px;margin-top:4px;">⚡ Real-time neural streaming active</div>';
+      }
+
+      // Stream chunks of 3-4 words as they are spoken in real-time
+      if(uncommitted.length >= 3){
+        var takeCount = uncommitted.length >= 6 ? 4 : 3;
+        var chunk = uncommitted.slice(0, takeCount).join(' ');
+        _committedWordIndex += takeCount;
+        synthesizeChunk(chunk);
+      }
+
+      clearTimeout(_trailingFlushTimer);
+
+      if(isFinal){
+        // Flush remaining tail words immediately
+        var remaining = words.slice(_committedWordIndex).join(' ');
+        if(remaining.trim().length >= 2){
+          synthesizeChunk(remaining);
         }
-        clearTimeout(_debounceTimer);
-        _debounceTimer = setTimeout(function(){
-          if(!_active || !_lastHeardInterim) return;
-          var phrase = _lastHeardInterim;
-          _lastHeardInterim = '';
-          synthesizeAndEnqueue(phrase);
-        }, 520);
+        _committedWordIndex = 0;
+      } else {
+        // Fast 260ms pause flush for trailing words
+        _trailingFlushTimer = setTimeout(function(){
+          if(!_active) return;
+          var remaining = words.slice(_committedWordIndex).join(' ');
+          if(remaining.trim().length >= 2){
+            _committedWordIndex = words.length;
+            synthesizeChunk(remaining);
+          }
+        }, 260);
       }
     };
 
@@ -515,19 +525,19 @@ async function startCloner(){
 
     _rec.onend = function(){
       if(_active && _rec){
+        _committedWordIndex = 0;
         try{ _rec.start(); }catch(x){}
       }
     };
 
     _rec.start();
     _active = true;
-    _lastSentPhrase = '';
-    _lastHeardInterim = '';
+    _committedWordIndex = 0;
     btn.className = 'btn-hero active';
     btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg><span>Stop Real Voice-to-Voice Cloner</span>';
     st.textContent = 'LISTENING (SPEAK)';
     st.style.color = 'var(--green)';
-    feed.innerHTML = '🟢 <b>Active.</b> Speak naturally into your mic — AI will re-speak smoothly!';
+    feed.innerHTML = '🟢 <b>Active.</b> Speak naturally into your mic — streaming AI voice in real-time!';
     toast('Voice Cloner Active · Speak into mic', 'ok');
   } catch(e){
     stopCloner();
@@ -536,9 +546,8 @@ async function startCloner(){
 
 function stopCloner(){
   _active = false;
-  clearTimeout(_debounceTimer);
-  _lastSentPhrase = '';
-  _lastHeardInterim = '';
+  clearTimeout(_trailingFlushTimer);
+  _committedWordIndex = 0;
   if(_rec){
     try{ _rec.stop(); }catch(x){}
     _rec = null;

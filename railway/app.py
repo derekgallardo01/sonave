@@ -2209,9 +2209,9 @@ async def api_generator_inject_test(req: SynthReq, p: auth.Principal = Depends(r
     """Generate synthetic voice audio and inject it directly into the live monitoring pipeline."""
     v_profiles = {v["id"]: v for v in generator.VOICE_PROFILES}
     prof = v_profiles.get(req.voice_id, generator.VOICE_PROFILES[0])
-    v_tag = prof.get("voice_tag", "en-US-GuyNeural")
-    pitch = prof.get("pitch", "-12Hz")
-    rate = prof.get("rate", "-4%")
+    v_tag = prof.get("voice_tag", "en-US-BrianNeural")
+    pitch = prof.get("pitch", "+0Hz")
+    rate = prof.get("rate", "+0%")
     spk = req.speaker_name or prof["name"]
 
     mp3_bytes = await generator.generate_synthetic_mp3(req.text, voice_tag=v_tag, pitch=pitch, rate=rate)
