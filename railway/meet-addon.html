@@ -385,7 +385,9 @@ async function poll(){
  _inPoll = true;
  var curTok = TOK;
  try{
-  var r=await fetch('/api/quality',{headers:authHeaders()});
+  var code = window._meetCode || '';
+  var qUrl = '/api/quality' + (code ? '?space_id=' + encodeURIComponent(code) : '');
+  var r=await fetch(qUrl,{headers:authHeaders()});
   if(r.status===401){
    if(TOK===curTok){
     clearTok();
@@ -400,7 +402,7 @@ async function poll(){
   if(!ME){try{ME=await (await fetch('/api/me',{headers:authHeaders()})).json()}catch(e){ME={}}}
   var ks=Object.keys(d).filter(function(k){return k[0]!=='_'});
   var hasAudio=ks.length>0;
-  var isProtected=_connected||hasAudio;
+  var isProtected=_connected;
   
   var prot=document.getElementById('protect');
   prot.style.display=isProtected?'none':'block';
@@ -410,7 +412,7 @@ async function poll(){
   document.getElementById('sstats').style.display=isProtected?'grid':'none';
   
   var list=document.getElementById('speakers');
-  list.style.display='flex';
+  list.style.display=isProtected?'flex':'none';
   
   if(isProtected && !hasAudio){
    var sess=_connectedSince?Math.round((Date.now()-_connectedSince)/1000):0;

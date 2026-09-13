@@ -1293,11 +1293,22 @@ SKIP_SPEAKERS = ("HealthCheck", "FIXCHECK", "WSTEST", "deploycheck",
                  "Sonave")   # the bot itself joins as a participant — never a speaker card
 
 
+ACTIVE_MEET_SPACES: dict[str, str] = {}
+
+
 @app.get("/api/quality")
-def api_quality(p: auth.Principal = Depends(require_principal)):
+def api_quality(request: Request, p: auth.Principal = Depends(require_principal)):
     out = {}
     uid = p.user_id
     udir = enroll.ENROLL_DIR / uid
+    
+    req_space = request.query_params.get("space_id")
+    if req_space:
+        clean_req = _clean_space_id(req_space)
+        act_space = ACTIVE_MEET_SPACES.get(uid)
+        if act_space and clean_req and act_space != clean_req:
+            return {"_scorer": {"configured": bool(SCORER_URL)}, "_v": _BUILD}
+
     # reaper: a kicked bot's socket can linger open, so periodically verify
     # live-looking bots against Recall's authoritative status (off-thread).
     # Quiet stream -> fast sweep (kick likely); flowing audio -> lazy sweep.
@@ -2032,6 +2043,7 @@ def api_meet_session_connect(req: MeetConnectReq, p: auth.Principal = Depends(re
     spk = _SPK_RE.sub("_", spk_name).strip("_") or "Host"
     now_ts = time.time()
     with _STATE_LOCK:
+        ACTIVE_MEET_SPACES[p.user_id] = space
         # Reset state for fresh meeting session
         for k in list(QUALITY.keys()):
             if k[0] == p.user_id:
@@ -2081,7 +2093,15 @@ def api_meet_session_disconnect(req: MeetDisconnectReq, p: auth.Principal = Depe
     space = _clean_space_id(req.space_id)
     meet_media_ingest.close_session(space)
     with _STATE_LOCK:
-        ACTIVE_STREAMS[p.user_id] = max(0, ACTIVE_STREAMS.get(p.user_id, 1) - 1)
+        ACTIVE_STREAMS[p.user_id] = 0
+        LAST_CLOSE[p.user_id] = time.time()
+        for k in list(QUALITY.keys()):
+            if k[0] == p.user_id:
+                del QUALITY[k]
+        for k in list(VERDICTS.keys()):
+            if k[0] == p.user_id:
+                del VERDICTS[k]
+        ACTIVE_MEET_SPACES.pop(p.user_id, None)
     _track(p.user_id, "meet_media_disconnect", space=space)
     return {"ok": True, "space_id": space, "state": "closed"}
 
