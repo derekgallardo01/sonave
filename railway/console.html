@@ -439,7 +439,7 @@ a:hover{color:var(--green-hover)}
          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"></circle></svg>
          <span>Inject AI Threat</span>
         </button>
-        <button class="btn-soft" onclick="dismissThreatCheck()" style="flex:0.6; padding:11px 12px; font-size:11.5px; font-weight:700; border-color:rgba(255,77,94,0.45); background:rgba(255,77,94,0.09); color:#ff808d; border-radius:10px; display:flex; align-items:center; justify-content:center; gap:4px; cursor:pointer;" title="Clear active threat and return meeting to clean authentic status">
+        <button id="btnConsoleClearThreat" class="btn-soft" onclick="dismissThreatCheck()" style="display:none; flex:0.6; padding:11px 12px; font-size:11.5px; font-weight:700; border-color:rgba(255,77,94,0.45); background:rgba(255,77,94,0.09); color:#ff808d; border-radius:10px; align-items:center; justify-content:center; gap:4px; cursor:pointer;" title="Clear active threat and return meeting to clean authentic status">
          <span>↺ Clear</span>
         </button>
        </div>
@@ -1833,6 +1833,8 @@ async function runConsolePreset(key){
     toast('Real Voice Reference Injected · 3.8% Authentic', 'ok');
    } else {
     toast('AI Fake Voice Attack Injected · 98.5% Threat Detected!', 'ok');
+    var btc = document.getElementById('btnConsoleClearThreat');
+    if(btc) btc.style.display = 'inline-flex';
    }
    if(d.audio_base64){
     var a = new Audio('data:audio/mp3;base64,' + d.audio_base64);
@@ -1844,6 +1846,18 @@ async function runConsolePreset(key){
  } catch(e){
   toast('Injection failed', 'err');
  }
+}
+
+async function dismissThreatCheck(){
+ var btc = document.getElementById('btnConsoleClearThreat');
+ if(btc) btc.style.display = 'none';
+ try {
+  await fetch('/api/generator/clear-test', {
+   method: 'POST',
+   headers: {'Content-Type': 'application/json'}
+  });
+ } catch(e){}
+ toast('Threat cleared · Restored authentic baseline', 'ok');
 }
 
 async function injectSynthAudio(){

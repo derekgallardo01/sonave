@@ -190,7 +190,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
       <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
       <span>AI THREAT INJECTOR</span>
      </div>
-     <button class="btn-soft" onclick="dismissThreatCheck()" style="padding:3px 8px; font-size:10px; font-weight:700; border-color:rgba(255,77,94,0.4); background:rgba(255,77,94,0.08); color:#ff808d; border-radius:6px; cursor:pointer;" title="Clear threat and restore authentic status">
+     <button id="btnThreatClear" class="btn-soft" onclick="dismissThreatCheck()" style="display:none; padding:3px 8px; font-size:10px; font-weight:700; border-color:rgba(255,77,94,0.4); background:rgba(255,77,94,0.08); color:#ff808d; border-radius:6px; cursor:pointer;" title="Clear threat and restore authentic status">
       ↺ Clear Threat
      </button>
     </div>
@@ -588,6 +588,10 @@ async function poll(){
   }
   var specWrap = document.getElementById('miniSpecWrap');
   if(specWrap) specWrap.style.display = isProtected ? 'block' : 'none';
+  var btc = document.getElementById('btnThreatClear');
+  if(btc){
+   btc.style.display = (isFake || _simActive || maxP >= 0.5) ? 'inline-flex' : 'none';
+  }
  }catch(e){
  }finally{
   _inPoll = false;
@@ -862,13 +866,17 @@ async function runCustomDemoSpeech(){
 }
 
 async function triggerDemoInjection(text, voiceId, speakerName, isReal, label){
- var bar = document.getElementById('demoActiveBar');
- var lbl = document.getElementById('demoActiveText');
- if(bar){
-  bar.style.display = 'flex';
-  bar.style.background = isReal ? 'rgba(46,229,132,0.1)' : 'rgba(255,77,94,0.12)';
-  bar.style.borderColor = isReal ? 'rgba(46,229,132,0.35)' : 'rgba(255,77,94,0.3)';
- }
+  var bar = document.getElementById('demoActiveBar');
+  var lbl = document.getElementById('demoActiveText');
+  var btc = document.getElementById('btnThreatClear');
+  if(btc){
+   btc.style.display = isReal ? 'none' : 'inline-flex';
+  }
+  if(bar){
+   bar.style.display = 'flex';
+   bar.style.background = isReal ? 'rgba(46,229,132,0.1)' : 'rgba(255,77,94,0.12)';
+   bar.style.borderColor = isReal ? 'rgba(46,229,132,0.35)' : 'rgba(255,77,94,0.3)';
+  }
  if(lbl){
   lbl.textContent = 'Playing ' + (isReal ? '🟢 ' : '🔴 ') + label + '...';
   lbl.style.color = isReal ? 'var(--green)' : '#ff808d';
@@ -1059,6 +1067,8 @@ async function dismissThreatCheck(){
  if(bar) bar.style.display = 'none';
  var btnDismiss = document.getElementById('btnDismiss');
  if(btnDismiss) btnDismiss.style.display = 'none';
+ var btc = document.getElementById('btnThreatClear');
+ if(btc) btc.style.display = 'none';
  try{
   await fetch('/api/generator/clear-test', {
    method: 'POST',
