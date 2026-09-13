@@ -253,7 +253,7 @@ canvas {
   <div style="font-size:10px; font-weight:800; color:var(--ink2); letter-spacing:0.06em; font-family:var(--mono); margin-bottom:6px;">
     NEURAL TARGET VOICE MODEL
   </div>
-  <select id="voiceSel" class="sel" style="margin-bottom:10px;">
+  <select id="voiceSel" class="sel" onchange="onVoiceChange(this.value)" style="margin-bottom:10px;">
     <optgroup label="🌟 Neural AI Impersonators">
       <option value="ceo_impersonator" selected>CEO Baritone (Deepfake Executive)</option>
       <option value="elevenlabs_brian">ElevenLabs Brian (Ultra-Realistic)</option>
@@ -335,6 +335,19 @@ function setSink(id){
   toast('Audio sink routed', 'ok');
 }
 
+function onVoiceChange(vId){
+  _lastSynthesizedSentence = '';
+  _pendingSentence = '';
+  _lastVoiceId = vId || '';
+  var sel = document.getElementById('voiceSel');
+  var optName = sel && sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text.split('(')[0].trim() : 'New Voice';
+  toast('Voice switched: ' + optName, 'ok');
+  var feed = document.getElementById('liveFeed');
+  if(feed && !_isPlayingAudio){
+    feed.innerHTML = '🟢 <b>Target Voice: ' + esc(optName) + '</b><br><span style="color:var(--ink2);font-size:11px;">Ready. Speak your next sentence to clone in this voice.</span>';
+  }
+}
+
 async function toggleCloner(){
   if(_active){
     stopCloner();
@@ -348,6 +361,7 @@ var _isPlayingAudio = false;
 var _sentenceTimer = null;
 var _pendingSentence = '';
 var _lastSynthesizedSentence = '';
+var _lastVoiceId = '';
 
 function enqueueAudio(base64Audio, phraseText){
   _audioQueue.push({ b64: base64Audio, text: phraseText });
@@ -417,9 +431,14 @@ function stopAllPlayback(){
 
 async function synthesizeFullSentence(sentenceText){
   var trimmed = (sentenceText || '').trim();
-  if(!trimmed || trimmed.length < 2 || trimmed === _lastSynthesizedSentence) return;
-  _lastSynthesizedSentence = trimmed;
   var vId = document.getElementById('voiceSel').value || 'elevenlabs_brian';
+
+  if(!trimmed || trimmed.length < 2) return;
+  // If user repeats the same text in the SAME voice, ignore. If they changed voices, allow it!
+  if(trimmed === _lastSynthesizedSentence && vId === _lastVoiceId) return;
+
+  _lastSynthesizedSentence = trimmed;
+  _lastVoiceId = vId;
   var spk = "Derek (AI " + vId.split('_')[0].toUpperCase() + " Clone)";
 
   var st = document.getElementById('clonerStatus');
