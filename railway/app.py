@@ -2257,6 +2257,21 @@ def auth_callback(request: Request, code: str = "", state: str = ""):
             _track(p.user_id, "calendar_connected")
             logger.info("calendar connected for %s", p.user_id)
         return resp
+    if auth.state_ctx(state) == "meet":
+        # Google Meet Media API grant: save refresh/access token
+        p = auth.get_principal(request)
+        resp = RedirectResponse("/console", status_code=302)
+        resp.delete_cookie(auth.STATE_COOKIE, path="/auth")
+        if p is not None and p.kind == "user":
+            try:
+                tokens = auth._exchange_code(code)
+                tok_val = tokens.get("refresh_token") or json.dumps(tokens)
+                db.save_oauth_token(p.user_id, "google_meet", "meet_media", tok_val)
+                _track(p.user_id, "meet_oauth_connected")
+                logger.info("google meet media token connected for %s", p.user_id)
+            except Exception as e:
+                logger.warning("meet oauth connect failed: %s", repr(e)[:120])
+            return resp
     try:
         user = auth.complete_login(code)
     except ValueError as e:
