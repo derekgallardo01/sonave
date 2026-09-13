@@ -343,6 +343,105 @@ async function toggleCloner(){
   }
 }
 
+var _audioQueue = [];
+var _isPlayingAudio = false;
+var _lastHeardInterim = '';
+var _lastSentPhrase = '';
+
+function enqueueAudio(base64Audio, phraseText){
+  _audioQueue.push({ b64: base64Audio, text: phraseText });
+  if(!_isPlayingAudio){
+    processAudioQueue();
+  }
+}
+
+function processAudioQueue(){
+  if(_audioQueue.length === 0){
+    _isPlayingAudio = false;
+    _simAudio = null;
+    var st = document.getElementById('clonerStatus');
+    if(st && _active){
+      st.textContent = 'LISTENING (SPEAK)';
+      st.style.color = 'var(--green)';
+    }
+    return;
+  }
+
+  _isPlayingAudio = true;
+  var item = _audioQueue.shift();
+  var st = document.getElementById('clonerStatus');
+  if(st){
+    st.textContent = 'STREAMING AI VOICE';
+    st.style.color = '#2ee584';
+  }
+  var feed = document.getElementById('liveFeed');
+  if(feed){
+    feed.innerHTML = '<div style="color:var(--ink2)">🎙️ <b style="color:var(--ink)">Heard:</b> "' + esc(item.text) + '"</div>' +
+                     '<div style="color:var(--green);margin-top:4px;font-weight:700;">⚡ Streaming Neural AI Voice ' + (_audioQueue.length > 0 ? '(+' + _audioQueue.length + ' queued)' : 'live') + '...</div>';
+  }
+
+  try {
+    _simAudio = new Audio('data:audio/mp3;base64,' + item.b64);
+    if(_selectedSink && typeof _simAudio.setSinkId === 'function'){
+      _simAudio.setSinkId(_selectedSink).catch(function(){});
+    }
+    _simAudio.onended = function(){
+      processAudioQueue();
+    };
+    _simAudio.onerror = function(){
+      processAudioQueue();
+    };
+    var p = _simAudio.play();
+    if(p !== undefined){
+      p.catch(function(){
+        processAudioQueue();
+      });
+    }
+  } catch(err){
+    processAudioQueue();
+  }
+}
+
+function stopAllPlayback(){
+  _audioQueue = [];
+  _isPlayingAudio = false;
+  if(_simAudio){
+    try {
+      _simAudio.pause();
+      _simAudio.currentTime = 0;
+    } catch(e){}
+    _simAudio = null;
+  }
+}
+
+async function synthesizeAndEnqueue(textChunk){
+  var trimmed = (textChunk || '').trim();
+  if(!trimmed || trimmed.length < 2 || trimmed === _lastSentPhrase) return;
+  _lastSentPhrase = trimmed;
+  var vId = document.getElementById('voiceSel').value || 'ceo_impersonator';
+  var spk = "Derek (AI " + vId.split('_')[0].toUpperCase() + " Clone)";
+
+  var st = document.getElementById('clonerStatus');
+  if(st && !_isPlayingAudio) {
+    st.textContent = 'SYNTHESIZING...';
+    st.style.color = '#ffb224';
+  }
+
+  try {
+    var r = await fetch('/api/generator/inject-test', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ text: trimmed, voice_id: vId, speaker_name: spk, is_real: false })
+    });
+    var d = await r.json();
+    if(d.ok && d.audio_base64){
+      enqueueAudio(d.audio_base64, trimmed);
+    }
+  } catch(err){
+    console.error('Synthesis error:', err);
+  }
+}
+
 async function startCloner(){
   var SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
   if(!SpeechRec){
@@ -359,7 +458,6 @@ async function startCloner(){
   }
 
   var btn = document.getElementById('btnHeroToggle');
-  var txt = document.getElementById('btnHeroText');
   var st = document.getElementById('clonerStatus');
   var feed = document.getElementById('liveFeed');
 
@@ -371,50 +469,40 @@ async function startCloner(){
 
     _rec.onresult = function(e){
       var interim = '';
-      var finalTxt = '';
       for(var i = e.resultIndex; i < e.results.length; i++){
         var res = e.results[i];
         if(res.isFinal){
-          finalTxt += res[0].transcript + ' ';
+          var finalChunk = res[0].transcript.trim();
+          if(finalChunk){
+            clearTimeout(_debounceTimer);
+            _lastHeardInterim = '';
+            var fd = document.getElementById('liveFeed');
+            if(fd && !_isPlayingAudio){
+              fd.innerHTML = '<div style="color:var(--ink2)">🎙️ <b style="color:var(--ink)">Heard:</b> "' + esc(finalChunk) + '"</div>' +
+                             '<div style="color:#ffb224;margin-top:4px;font-weight:700;">⚡ Synthesizing neural voice...</div>';
+            }
+            synthesizeAndEnqueue(finalChunk);
+          }
         } else {
           interim += res[0].transcript + ' ';
         }
       }
-      var current = (finalTxt || interim).trim();
-      if(current && current.length > 2 && current !== _lastSent){
-        feed.innerHTML = '<div style="color:var(--ink2)">🎙️ <b style="color:var(--ink)">Heard:</b> "' + esc(current) + '"</div>' +
-                         '<div style="color:var(--green);margin-top:4px;font-weight:700;">⚡ Synthesizing neural voice &amp; streaming live...</div>';
-        st.textContent = 'SYNTHESIZING';
-        st.style.color = '#ffb224';
 
+      interim = interim.trim();
+      if(interim && interim !== _lastHeardInterim){
+        _lastHeardInterim = interim;
+        var fd = document.getElementById('liveFeed');
+        if(fd && !_isPlayingAudio){
+          fd.innerHTML = '<div style="color:var(--ink2)">🎙️ <b style="color:var(--ink)">Hearing:</b> "' + esc(interim) + '..."</div>' +
+                         '<div style="color:var(--muted);font-size:10.5px;margin-top:4px;">Pause speaking or complete phrase to stream AI voice</div>';
+        }
         clearTimeout(_debounceTimer);
-        _debounceTimer = setTimeout(async function(){
-          if(!_active || current === _lastSent) return;
-          _lastSent = current;
-          var vId = document.getElementById('voiceSel').value || 'ceo_impersonator';
-          var spk = "Derek (AI " + vId.split('_')[0].toUpperCase() + " Clone)";
-          try {
-            var r = await fetch('/api/generator/inject-test', {
-              method: 'POST',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ text: current, voice_id: vId, speaker_name: spk, is_real: false })
-            });
-            var d = await r.json();
-            if(d.ok && d.audio_base64){
-              if(_simAudio){ try{ _simAudio.pause(); }catch(x){} }
-              _simAudio = new Audio('data:audio/mp3;base64,' + d.audio_base64);
-              if(_selectedSink && typeof _simAudio.setSinkId === 'function'){
-                try{ await _simAudio.setSinkId(_selectedSink); }catch(x){}
-              }
-              _simAudio.play().catch(function(){});
-              feed.innerHTML += '<div style="color:var(--green);font-size:10px;margin-top:2px;">✓ Injected live into meeting audio stream</div>';
-            }
-          } catch(err){}
-          if(st && _active){
-            st.textContent = 'LISTENING';
-            st.style.color = 'var(--green)';
-          }
-        }, 180);
+        _debounceTimer = setTimeout(function(){
+          if(!_active || !_lastHeardInterim) return;
+          var phrase = _lastHeardInterim;
+          _lastHeardInterim = '';
+          synthesizeAndEnqueue(phrase);
+        }, 520);
       }
     };
 
@@ -433,11 +521,13 @@ async function startCloner(){
 
     _rec.start();
     _active = true;
+    _lastSentPhrase = '';
+    _lastHeardInterim = '';
     btn.className = 'btn-hero active';
     btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg><span>Stop Real Voice-to-Voice Cloner</span>';
     st.textContent = 'LISTENING (SPEAK)';
     st.style.color = 'var(--green)';
-    feed.innerHTML = '🟢 <b>Active.</b> Speak any words into your mic — AI will re-speak them instantly!';
+    feed.innerHTML = '🟢 <b>Active.</b> Speak naturally into your mic — AI will re-speak smoothly!';
     toast('Voice Cloner Active · Speak into mic', 'ok');
   } catch(e){
     stopCloner();
@@ -446,6 +536,9 @@ async function startCloner(){
 
 function stopCloner(){
   _active = false;
+  clearTimeout(_debounceTimer);
+  _lastSentPhrase = '';
+  _lastHeardInterim = '';
   if(_rec){
     try{ _rec.stop(); }catch(x){}
     _rec = null;
@@ -454,6 +547,7 @@ function stopCloner(){
     _micStream.getTracks().forEach(function(t){ t.stop(); });
     _micStream = null;
   }
+  stopAllPlayback();
   var btn = document.getElementById('btnHeroToggle');
   var st = document.getElementById('clonerStatus');
   var feed = document.getElementById('liveFeed');
@@ -472,10 +566,7 @@ function stopCloner(){
 }
 
 async function clearThreat(){
-  if(_simAudio){
-    try{ _simAudio.pause(); }catch(x){}
-    _simAudio = null;
-  }
+  stopAllPlayback();
   try {
     await fetch('/api/generator/clear-test', { method: 'POST' });
   } catch(e){}
