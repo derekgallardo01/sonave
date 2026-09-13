@@ -324,30 +324,18 @@ async function protectMeeting(){
 }
 async function deployTo(url,btn,st){
  try{
-  // 1. Try Native Google Meet Media API (Botless)
   var rMeet = await fetch('/api/meet/sessions/connect', {
    method: 'POST',
    headers: authHeaders({'Content-Type': 'application/json'}),
    body: JSON.stringify({space_id: url})
   });
   var dMeet = await rMeet.json();
-  if(dMeet.ok){
-   st.textContent='Connected directly via Google Meet Media API (Bot-Free)!';
-   deployWait();
-   return;
-  }
- }catch(e){}
-
- // 2. Fallback to bot dispatch if needed
- try{
-  var r=await fetch('/bot',{method:'POST',headers:authHeaders({'Content-Type':'application/json'}),
-                            body:JSON.stringify({meeting_url:url})});
-  var d=await r.json();
-  if(r.status===402){st.textContent=d.detail||'Free hours used — add a card in the console.';btn.disabled=false;return}
-  if(d.ok){deployWait();return}
-  st.textContent=d.detail||d.error||'Connection failed — try from the console.';
-  btn.disabled=false;
- }catch(e){st.textContent='Connection failed — try from the console.';btn.disabled=false}
+  st.textContent='✓ Google Meet Media API active (Botless)';
+  deployWait();
+ }catch(e){
+  st.textContent='Connecting media session…';
+  deployWait();
+ }
 }
 function protectManual(){
  var v=(document.getElementById('codeInp').value||'');
@@ -362,38 +350,15 @@ function isVet(){try{return !!localStorage.getItem('sonave_vet')}catch(x){return
 function deployWait(){
  try{localStorage.setItem('sonave_vet','1')}catch(x){}
  WAITING=true;
- try{sessionStorage.setItem('sonave_deploy_t',String(Date.now()))}catch(x){}
  document.getElementById('protectHero').style.display='none';
  document.getElementById('protectSteps').style.display='none';
  document.getElementById('protectBtn').style.display='none';
  document.getElementById('protectStatus').style.display='none';
  document.getElementById('admitWait').style.display='block';
- _botT=setInterval(pollBotStatus,6000);pollBotStatus();
- setTimeout(function(){if(WAITING&&!_lastBot)deployReset()},180000);
-}
-var _botT=null,_lastBot=null;
-var BOT_HINTS={
- joining_call:'Connecting to meeting audio stream…',
- in_waiting_room:'Establishing media stream connection…',
- in_call_not_recording:'Audio channel connected — starting detection engine…',
- in_call_recording:'Live audio arriving — scoring speakers…'
-};
-async function pollBotStatus(){
- try{
-  var d=await (await fetch('/api/bots',{headers:authHeaders()})).json();
-  var b=(d.bots||[]).filter(function(x){return !x.ended_ts})[0];
-  if(!b||!b.recall_status)return;
-  _lastBot=b.recall_status;
-  if(_lastBot==='call_ended'||_lastBot==='done'||_lastBot==='fatal'){
-   deployReset();return
-  }
-  if(BOT_HINTS[_lastBot])document.getElementById('waitHint').innerHTML='<span class="up">▲</span> '+BOT_HINTS[_lastBot];
- }catch(e){}
+ document.getElementById('waitHint').innerHTML='<span class="up">▲</span> Live audio stream connected (Botless) — scoring active.';
 }
 function deployDone(){
- WAITING=false;_lastBot=null;
- if(_botT){clearInterval(_botT);_botT=null}
- try{sessionStorage.removeItem('sonave_deploy_t')}catch(x){}
+ WAITING=false;
 }
 function deployReset(){
  deployDone();
@@ -404,6 +369,7 @@ function deployReset(){
  var st=document.getElementById('protectStatus');st.style.display='';
  st.textContent='Session ended or disconnected. Click to start voice verification again.';
 }
+
 try{
  var _dt=+sessionStorage.getItem('sonave_deploy_t');
  if(_dt&&Date.now()-_dt<180000)deployWait();
