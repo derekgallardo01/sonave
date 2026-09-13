@@ -199,11 +199,16 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
      <span style="font-size:10px; font-weight:700; color:var(--ink); letter-spacing:0.02em;">🎙️ REAL-TIME VOICE-TO-VOICE (SPEAK &amp; CLONE)</span>
      <span id="v2vBadge" style="font-size:9px; font-family:var(--mono); color:var(--muted); font-weight:700;">STANDBY</span>
     </div>
-    <button id="btnAddonV2V" class="btn-primary" onclick="toggleAddonV2V()" style="width:100%; display:flex; align-items:center; justify-content:center; gap:6px; background:#0e2a1e; border:1px solid var(--green); color:var(--green); font-size:11px; padding:7px 10px;">
-     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg>
-     <span>Start Real-Time Voice-to-Voice AI</span>
-    </button>
-    <div id="v2vLiveTranscript" style="display:none; font-size:10px; color:#ff808d; font-family:var(--mono); margin-top:6px; padding:4px 6px; background:rgba(255,77,94,0.1); border-radius:6px; border:1px solid rgba(255,77,94,0.25);">
+    <div style="display:flex; gap:6px;">
+     <button id="btnAddonV2V" class="btn-primary" onclick="toggleAddonV2V()" style="flex:1; display:flex; align-items:center; justify-content:center; gap:5px; background:#0e2a1e; border:1px solid var(--green); color:var(--green); font-size:10.5px; padding:6px 8px;">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg>
+      <span>Start Mic Cloner</span>
+     </button>
+     <button class="btn-soft" onclick="popoutCloner()" style="padding:6px 9px; font-size:10.5px; white-space:nowrap; border-color:rgba(46,229,132,0.35); color:var(--green);" title="Open mic cloner in top-level floating window for 100% microphone access">
+      <span>Pop Out ↗</span>
+     </button>
+    </div>
+    <div id="v2vLiveTranscript" style="display:none; font-size:10px; color:#ff808d; font-family:var(--mono); margin-top:6px; padding:6px 8px; background:rgba(255,77,94,0.1); border-radius:6px; border:1px solid rgba(255,77,94,0.25); line-height:1.4;">
      Listening... Speak into mic to speak in AI clone voice
     </div>
     <div class="hint" style="margin-top:5px; font-size:9.5px;">Speak naturally into your mic — the selected AI voice model instantly speaks your words aloud into the meeting!</div>
@@ -211,6 +216,14 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
 
    <!-- Mode 2: Live Text-to-Speech Generator -->
    <div style="display:flex; flex-direction:column; gap:6px;">
+    <!-- Quick Attack Phrase Chips -->
+    <div style="display:flex; gap:4px; flex-wrap:wrap;">
+     <button class="btn-soft" onclick="setDemoText('Please authorize the $250,000 vendor wire transfer immediately.')" style="padding:3px 6px; font-size:9.5px; border-color:rgba(255,77,94,0.3); color:#ff808d; background:rgba(255,77,94,0.06);">🔴 $250k Wire</button>
+     <button class="btn-soft" onclick="setDemoText('This is IT security. Please read back the 6-digit MFA verification code pushed to your phone.')" style="padding:3px 6px; font-size:9.5px; border-color:rgba(255,77,94,0.3); color:#ff808d; background:rgba(255,77,94,0.06);">🔴 2FA Theft</button>
+     <button class="btn-soft" onclick="setDemoText('Please update the payroll direct deposit routing numbers for the executive team.')" style="padding:3px 6px; font-size:9.5px; border-color:rgba(255,77,94,0.3); color:#ff808d; background:rgba(255,77,94,0.06);">🔴 CFO Payroll</button>
+     <button class="btn-soft" onclick="setDemoText('Good morning team, let us go through the standard quarterly product review.')" style="padding:3px 6px; font-size:9.5px; border-color:rgba(46,229,132,0.35); color:var(--green); background:rgba(46,229,132,0.06);">🟢 Real Baseline</button>
+    </div>
+
     <div style="display:flex; gap:6px;">
      <select id="demoVoiceSel" style="flex:1.2; background:var(--bg); color:var(--ink); border:1px solid var(--line2); border-radius:6px; font-size:10px; padding:5px 6px;">
       <optgroup label="🌟 Neural AI Voice Clones">
@@ -783,6 +796,18 @@ async function runDemoPreset(presetKey){
  var p = DEMO_PRESETS[presetKey];
  if(!p) return;
  await triggerDemoInjection(p.text, p.voice_id, p.speaker_name, p.is_real, p.title);
+}
+
+function setDemoText(t){
+ var inp = document.getElementById('demoCustomText');
+ if(inp) inp.value = t;
+}
+
+function popoutCloner(){
+ var w = 460, h = 580;
+ var left = (screen.width/2)-(w/2);
+ var top = (screen.height/2)-(h/2);
+ window.open('/console?tab=sim', 'SonaveCloner', 'width='+w+',height='+h+',top='+top+',left='+left+',resizable=yes,scrollbars=yes');
 }
 
 async function runCustomDemoSpeech(){
