@@ -1769,11 +1769,21 @@ async function connectMeetingStream(){
     b.textContent='Connected';
     b.disabled=false;
     return;
+   } else {
+    toast('⚠️ Google Meet OAuth needed. Authorize Google Meet below.', 'err');
+    b.disabled=false;
+    b.textContent='Connect';
+    return;
    }
-  } catch(e){}
+  } catch(e){
+   toast('✕ Google Meet connection failed: '+e, 'err');
+   b.disabled=false;
+   b.textContent='Connect';
+   return;
+  }
  }
  
- // Fallback / Universal Bot for Zoom & MS Teams
+ // Universal Bot for Zoom & MS Teams only
  try{
   var r=await fetch('/bot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({meeting_url:u})});
   if(r.status===401){needlogin();b.disabled=false;b.textContent='Connect';return}
