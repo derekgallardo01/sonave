@@ -2032,7 +2032,14 @@ def api_meet_session_connect(req: MeetConnectReq, p: auth.Principal = Depends(re
     spk = _SPK_RE.sub("_", spk_name).strip("_") or "Host"
     now_ts = time.time()
     with _STATE_LOCK:
-        ACTIVE_STREAMS[p.user_id] = ACTIVE_STREAMS.get(p.user_id, 0) + 1
+        # Reset state for fresh meeting session
+        for k in list(QUALITY.keys()):
+            if k[0] == p.user_id:
+                del QUALITY[k]
+        for k in list(VERDICTS.keys()):
+            if k[0] == p.user_id:
+                del VERDICTS[k]
+        ACTIVE_STREAMS[p.user_id] = 1
         LAST_FRAME[p.user_id] = now_ts
         QUALITY[(p.user_id, spk)] = {
             "state": "speaking",

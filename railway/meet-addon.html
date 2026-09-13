@@ -326,6 +326,7 @@ async function protectMeeting(){
 var _connected = false, _connectedSince = 0;
 
 async function deployTo(url,btn,st){
+ _connectedSince = Date.now();
  try{
   var rMeet = await fetch('/api/meet/sessions/connect', {
    method: 'POST',
@@ -335,7 +336,7 @@ async function deployTo(url,btn,st){
   var dMeet = await rMeet.json();
  }catch(e){}
  _connected = true;
- _connectedSince = _connectedSince || Date.now();
+ _connectedSince = Date.now();
  deployDone();
  poll();
 }
