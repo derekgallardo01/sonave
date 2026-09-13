@@ -428,6 +428,12 @@ async function synthesizeFullSentence(sentenceText){
     st.style.color = '#ffb224';
   }
 
+  var feed = document.getElementById('liveFeed');
+  if(feed && !_isPlayingAudio){
+    feed.innerHTML = '<div style="color:var(--ink2)">🎙️ <b style="color:var(--ink)">Sentence Complete:</b> "' + esc(trimmed) + '"</div>' +
+                     '<div style="color:#ffb224;margin-top:4px;font-weight:700;">⚡ Synthesizing full neural voice...</div>';
+  }
+
   try {
     var r = await fetch('/api/generator/inject-test', {
       method: 'POST',
@@ -469,43 +475,44 @@ async function startCloner(){
     _rec.lang = 'en-US';
 
     _rec.onresult = function(e){
-      var fullTxt = '';
-      var hasFinal = false;
+      var finalChunk = '';
+      var interimChunk = '';
 
       for(var i = e.resultIndex; i < e.results.length; i++){
         var res = e.results[i];
-        fullTxt += res[0].transcript + ' ';
         if(res.isFinal){
-          hasFinal = true;
+          finalChunk += res[0].transcript + ' ';
+        } else {
+          interimChunk += res[0].transcript + ' ';
         }
       }
 
-      var current = fullTxt.trim();
-      if(!current) return;
+      finalChunk = finalChunk.trim();
+      interimChunk = interimChunk.trim();
 
-      _pendingSentence = current;
-
-      // Update hearing display live
-      var fd = document.getElementById('liveFeed');
-      if(fd && !_isPlayingAudio){
-        fd.innerHTML = '<div style="color:var(--ink2)">🎙️ <b style="color:var(--ink)">Hearing:</b> "' + esc(current) + '..."</div>' +
-                       '<div style="color:var(--muted);font-size:10.5px;margin-top:4px;">Speak complete sentence · synthesizes on natural pause</div>';
+      if(finalChunk){
+        clearTimeout(_sentenceTimer);
+        _pendingSentence = '';
+        synthesizeFullSentence(finalChunk);
+        return;
       }
 
-      clearTimeout(_sentenceTimer);
+      if(interimChunk){
+        _pendingSentence = interimChunk;
+        var fd = document.getElementById('liveFeed');
+        if(fd && !_isPlayingAudio){
+          fd.innerHTML = '<div style="color:var(--ink2)">🎙️ <b style="color:var(--ink)">Hearing:</b> "' + esc(interimChunk) + '..."</div>' +
+                         '<div style="color:var(--muted);font-size:10.5px;margin-top:4px;">Listening to complete sentence...</div>';
+        }
 
-      if(hasFinal){
-        // Speech recognizer determined full sentence boundary
-        synthesizeFullSentence(_pendingSentence);
-        _pendingSentence = '';
-      } else {
-        // Natural pause (580ms) triggers full sentence synthesis
+        clearTimeout(_sentenceTimer);
+        // Generous 1.4s silence pause only triggers if speech recognizer did not emit isFinal
         _sentenceTimer = setTimeout(function(){
           if(!_active || !_pendingSentence) return;
           var sentence = _pendingSentence;
           _pendingSentence = '';
           synthesizeFullSentence(sentence);
-        }, 580);
+        }, 1400);
       }
     };
 
