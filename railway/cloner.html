@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>Sonave Live Mic Cloner — Real-Time Voice-to-Voice</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" type="image/png" href="__FAVICON__">
+<link rel="icon" href="data:image/svg+xml;base64,__FAVICON__">
 <style>
 :root {
   --bg: #06080a;
@@ -553,6 +553,9 @@ async function synthesizeFullSentence(sentenceText){
   }
 }
 
+var _isCapturingMic = false;
+var _isSpeakingNow = false;
+
 async function startCloner(){
   var SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
   if(!SpeechRec){
@@ -566,13 +569,15 @@ async function startCloner(){
     if(_audioContext.state === 'suspended'){
       await _audioContext.resume();
     }
-    _micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-    initMicSpectrum(_micStream);
+    // Probe mic permissions & populate output audio sinks
+    try {
+      if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia){
+        var probe = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        probe.getTracks().forEach(function(t){ t.stop(); });
+      }
+    } catch(err){}
     await populateSinks();
-  } catch(e){
-    toast('Microphone permission required', 'err');
-    return;
-  }
+  } catch(e){}
 
   var btn = document.getElementById('btnHeroToggle');
   var st = document.getElementById('clonerStatus');
@@ -583,6 +588,26 @@ async function startCloner(){
     _rec.continuous = true;
     _rec.interimResults = true;
     _rec.lang = 'en-US';
+
+    _rec.onaudiostart = function(){
+      _isCapturingMic = true;
+      if(st && !_isPlayingAudio) {
+        st.textContent = 'LISTENING (SPEAK)';
+        st.style.color = 'var(--green)';
+      }
+    };
+
+    _rec.onspeechstart = function(){
+      _isSpeakingNow = true;
+      var fd = document.getElementById('liveFeed');
+      if(fd && !_isPlayingAudio && !_pendingSentence){
+        fd.innerHTML = '<div style="color:var(--green)">🎙️ <b style="color:var(--ink)">Hearing microphone speech...</b> speak full sentence</div>';
+      }
+    };
+
+    _rec.onspeechend = function(){
+      _isSpeakingNow = false;
+    };
 
     _rec.onresult = function(e){
       var finalTranscript = '';
@@ -623,13 +648,18 @@ async function startCloner(){
     };
 
     _rec.onerror = function(e){
-      console.warn('Speech recognition error:', e);
+      console.warn('Speech recognition status/error:', e.error, e);
+      var fd = document.getElementById('liveFeed');
       if(e.error === 'not-allowed'){
-        feed.innerHTML = '<span style="color:var(--red)">Microphone access denied in browser settings.</span>';
+        if(fd) fd.innerHTML = '<span style="color:var(--red)">Microphone access blocked. Click the lock icon in the URL bar and allow Microphone.</span>';
+      } else if(e.error === 'audio-capture'){
+        if(fd) fd.innerHTML = '<span style="color:var(--red)">Microphone unavailable. Please verify your microphone is plugged in.</span>';
       }
     };
 
     _rec.onend = function(){
+      _isCapturingMic = false;
+      _isSpeakingNow = false;
       if(_active){
         setTimeout(function(){
           try {
@@ -655,6 +685,8 @@ async function startCloner(){
 
 function stopCloner(){
   _active = false;
+  _isCapturingMic = false;
+  _isSpeakingNow = false;
   clearTimeout(_sentenceTimer);
   _pendingSentence = '';
   if(_rec){
@@ -700,19 +732,9 @@ function esc(s){
   });
 }
 
-/* Spectrum Animation */
+/* Dynamic Spectrum Visualizer */
 var _specCanvas = null, _specCtx = null;
 var _fftBins = new Float32Array(24);
-function initMicSpectrum(stream){
-  try {
-    var AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if(!_audioContext) _audioContext = new AudioCtx();
-    _analyser = _audioContext.createAnalyser();
-    _analyser.fftSize = 64;
-    var src = _audioContext.createMediaStreamSource(stream);
-    src.connect(_analyser);
-  } catch(e){}
-}
 
 function animSpectrum(){
   if(!_specCanvas) _specCanvas = document.getElementById('liveSpectrum');
@@ -722,16 +744,20 @@ function animSpectrum(){
     _specCtx.clearRect(0, 0, w, h);
     var barW = w / _fftBins.length;
 
-    var data = new Uint8Array(_fftBins.length);
-    if(_analyser && _active){
-      _analyser.getByteFrequencyData(data);
-    }
-
     for(var i = 0; i < _fftBins.length; i++){
-      var target = _active ? (data[i] ? data[i] / 255 : 0.05 + Math.sin(Date.now()*0.005 + i*0.4)*0.03) : 0.03;
-      _fftBins[i] += (target - _fftBins[i]) * 0.4;
-      var bh = _fftBins[i] * h * 0.85;
-      _specCtx.fillStyle = _active ? '#2ee584' : 'rgba(46,229,132,0.3)';
+      var target = 0.03;
+      if(_active){
+        if(_isPlayingAudio){
+          target = 0.18 + Math.abs(Math.sin(Date.now()*0.012 + i*0.5)) * 0.72;
+        } else if(_pendingSentence || _isSpeakingNow){
+          target = 0.15 + Math.abs(Math.sin(Date.now()*0.009 + i*0.45)) * 0.55;
+        } else {
+          target = 0.04 + Math.sin(Date.now()*0.004 + i*0.35) * 0.03;
+        }
+      }
+      _fftBins[i] += (target - _fftBins[i]) * 0.35;
+      var bh = _fftBins[i] * h * 0.88;
+      _specCtx.fillStyle = _isPlayingAudio ? '#2ee584' : (_pendingSentence ? '#ffb224' : (_active ? 'rgba(46,229,132,0.85)' : 'rgba(46,229,132,0.25)'));
       _specCtx.fillRect(i * barW, h - bh, barW - 2, bh);
     }
   }
