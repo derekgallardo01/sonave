@@ -356,7 +356,8 @@ a:hover{color:var(--green-hover)}
 .fsd-pipeline{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:12px;align-items:center}
 .fsd-node{background:#0d131a;border:1px solid #19232e;border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:6px}
 .fsd-node.active{border-color:rgba(46,229,132,0.35);background:rgba(46,229,132,0.03)}
-.fsd-icon{font-size:18px}
+.fsd-icon{width:34px;height:34px;border-radius:8px;background:rgba(46,229,132,0.08);border:1px solid rgba(46,229,132,0.2);display:flex;align-items:center;justify-content:center;color:var(--green);margin-bottom:6px}
+.fsd-icon svg{width:18px;height:18px}
 .fsd-title{font-size:12.5px;font-weight:700;color:#ffffff}
 .fsd-desc{font-size:11px;color:var(--ink2);line-height:1.45}
 .fsd-tag{font-size:9.5px;font-family:var(--mono);padding:2px 6px;border-radius:4px;background:#121b23;color:var(--muted);align-self:flex-start;margin-top:4px}
@@ -365,8 +366,8 @@ a:hover{color:var(--green-hover)}
 
 /* Footer Trust Strip */
 .footer-trust-strip{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin:28px 0 0}
-.fts-item{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-family:var(--mono);color:var(--muted);padding:5px 12px;border-radius:6px;background:#0d1319;border:1px solid #161f28}
-.fts-item svg{color:var(--green)}
+.fts-item{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-family:var(--mono);color:var(--muted);padding:6px 13px;border-radius:6px;background:#0d1319;border:1px solid #161f28}
+.fts-item svg{color:var(--green);flex-shrink:0}
 
 /* Responsiveness */
 @media (max-width:1100px){
@@ -477,7 +478,8 @@ a:hover{color:var(--green-hover)}
             <span>Real-time per-speaker authenticity score</span>
           </div>
           <div class="hero-floating-tag-right">
-            ⚡ 4s Rolling Windows
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+            <span>4s Rolling Windows</span>
           </div>
         </div>
       </div>
@@ -577,7 +579,7 @@ a:hover{color:var(--green-hover)}
       <!-- Showcase Footer Callout -->
       <div class="showcase-footer">
         <div class="showcase-explanation">
-          <div class="showcase-icon" id="showcase-icon">🛡️</div>
+          <div class="showcase-icon" id="showcase-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg></div>
           <div>
             <div class="showcase-text-title" id="showcase-title">In-Meeting Google Meet Side Panel</div>
             <div class="showcase-text-desc" id="showcase-desc">Sonave scores every participant concurrently directly in the Google Meet panel. Green badges confirm verified authentic voices with rolling confidence scores.</div>
@@ -632,7 +634,9 @@ a:hover{color:var(--green-hover)}
               <span>Encrypted audio pipeline (TLS 1.3)</span>
             </div>
             <div class="scv-bot-row">
-              <div class="scv-bot-icon">🤖</div>
+              <div class="scv-bot-icon">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path><line x1="8" y1="16" x2="8.01" y2="16"></line><line x1="16" y1="16" x2="16.01" y2="16"></line></svg>
+              </div>
               <div class="scv-bot-info">
                 <div class="scv-name">Sonave Security Bot</div>
                 <div class="scv-meta">Streams uncompressed isolated audio</div>
@@ -767,12 +771,12 @@ a:hover{color:var(--green-hover)}
               <div class="cvc-bar-wrapper">
                 <span class="cvc-name">Commodity</span>
                 <div class="cvc-track"><div class="cvc-fill cvc-red" style="width:2%"></div></div>
-                <span class="cvc-val" style="color:var(--red)">2% ⚠️</span>
+                <span class="cvc-val" style="color:var(--red)">2%</span>
               </div>
               <div class="cvc-bar-wrapper">
                 <span class="cvc-name">Sonave</span>
                 <div class="cvc-track"><div class="cvc-fill cvc-green" style="width:97%"></div></div>
-                <span class="cvc-val" style="color:var(--green)">97% 🛡️</span>
+                <span class="cvc-val" style="color:var(--green)">97%</span>
               </div>
             </div>
           </div>
@@ -791,7 +795,7 @@ a:hover{color:var(--green-hover)}
         <div class="comp-visual-timeline">
           <div class="cvt-item fail">
             <div class="cvt-header">
-              <span class="cvt-bad">❌ Post-Mortem Upload</span>
+              <span class="cvt-bad" style="display:flex;align-items:center;gap:5px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg> Post-Mortem Upload</span>
               <span class="cvt-time">30m+ Post-Call</span>
             </div>
             <div class="cvt-flow">
@@ -799,12 +803,12 @@ a:hover{color:var(--green-hover)}
               <div class="cvt-arr">&rarr;</div>
               <div class="cvt-step">Upload MP3</div>
               <div class="cvt-arr">&rarr;</div>
-              <div class="cvt-step alert">Wire Cleared ⚠️</div>
+              <div class="cvt-step alert">Wire Cleared</div>
             </div>
           </div>
           <div class="cvt-item success">
             <div class="cvt-header">
-              <span class="cvt-good">✅ Sonave In-Call</span>
+              <span class="cvt-good" style="display:flex;align-items:center;gap:5px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Sonave In-Call</span>
               <span class="cvt-time">&lt;4s Live Verdict</span>
             </div>
             <div class="cvt-flow">
@@ -905,7 +909,7 @@ a:hover{color:var(--green-hover)}
         <div class="spark">
           <i style="height:12%;background:var(--green)"></i><i style="height:18%;background:var(--green)"></i><i style="height:30%;background:var(--green)"></i><i style="height:26%;background:var(--green)"></i><i style="height:44%;background:var(--amber)"></i><i style="height:58%;background:var(--amber)"></i><i style="height:52%;background:var(--amber)"></i><i style="height:70%;background:var(--red)"></i><i style="height:78%;background:var(--red)"></i><i style="height:84%;background:var(--red)"></i><i style="height:80%;background:var(--red)"></i><i style="height:88%;background:var(--red)"></i><i style="height:74%;background:var(--red)"></i><i style="height:82%;background:var(--red)"></i><i style="height:90%;background:var(--red)"></i><i style="height:86%;background:var(--red)"></i><i style="height:78%;background:var(--red)"></i><i style="height:84%;background:var(--red)"></i><i style="height:88%;background:var(--red)"></i><i style="height:94%;background:var(--red)"></i>
         </div>
-        <div class="hold">⛔ Wire hold triggered — re-authentication required</div>
+        <div class="hold"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg> Wire hold triggered — re-authentication required</div>
       </div>
     </div>
   </section>
@@ -1015,7 +1019,9 @@ a:hover{color:var(--green-hover)}
       </div>
       <div class="fsd-pipeline">
         <div class="fsd-node">
-          <div class="fsd-icon">📞</div>
+          <div class="fsd-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+          </div>
           <div class="fsd-title">1. Meeting Ingestion</div>
           <div class="fsd-desc">Calendar bot joins visible call and ingests speaker stream over encrypted WebRTC/PCM.</div>
           <div class="fsd-tag">Zero Client Install</div>
@@ -1024,7 +1030,9 @@ a:hover{color:var(--green-hover)}
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
         </div>
         <div class="fsd-node active">
-          <div class="fsd-icon">⚡</div>
+          <div class="fsd-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="14" x2="23" y2="14"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="14" x2="4" y2="14"></line></svg>
+          </div>
           <div class="fsd-title">2. Volatile GPU RAM</div>
           <div class="fsd-desc">4s neural tensor window scored in RAM. Never written to disk or permanent storage.</div>
           <div class="fsd-tag active">98ms TensorRT Inference</div>
@@ -1033,7 +1041,9 @@ a:hover{color:var(--green-hover)}
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
         </div>
         <div class="fsd-node">
-          <div class="fsd-icon">🛡️</div>
+          <div class="fsd-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="9 12 11 14 15 10"></polyline></svg>
+          </div>
           <div class="fsd-title">3. Instant Flush &amp; Action</div>
           <div class="fsd-desc">Audio buffer immediately purged from memory. Real-time verdict &amp; webhook emitted.</div>
           <div class="fsd-tag">Immutable Audit Log</div>
@@ -1125,11 +1135,26 @@ a:hover{color:var(--green-hover)}
 
     <!-- Visual Trust Strip -->
     <div class="footer-trust-strip">
-      <span class="fts-item"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg> Google Workspace Compatible</span>
-      <span class="fts-item">⚡ Zoom Marketplace Ready</span>
-      <span class="fts-item">🛡️ Microsoft Teams Bot</span>
-      <span class="fts-item">🔒 SOC 2 Type II Architecture</span>
-      <span class="fts-item">🔐 Encrypted TLS 1.3 In-Flight</span>
+      <span class="fts-item">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+        Google Workspace Compatible
+      </span>
+      <span class="fts-item">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2z"/></svg>
+        Zoom Marketplace Ready
+      </span>
+      <span class="fts-item">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+        Microsoft Teams Bot
+      </span>
+      <span class="fts-item">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+        SOC 2 Type II Architecture
+      </span>
+      <span class="fts-item">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="9 12 11 14 15 10"></polyline></svg>
+        Encrypted TLS 1.3 In-Flight
+      </span>
     </div>
 
     <div class="footer-line">
@@ -1157,15 +1182,15 @@ const showcaseData = [
     img: "/shot-meet-panel.png",
     alt: "Google Meet conference with live Sonave Voice Authenticity panel",
     url: "https://meet.google.com/wire-approval-q3 · Sonave Active",
-    icon: "🛡️",
+    icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>',
     title: "Google Meet In-Call Voice Verification",
     desc: "Real-time in-meeting side panel scoring each speaker continuously. Genuine participants receive live green REAL badges with low risk metrics (4%, 8%, 12%)."
   },
   {
     img: "/shot-wire-hold.png",
     alt: "Synthetic voice flagged FAKE with red wire-hold banner in Google Meet",
-    url: "https://meet.google.com/wire-approval-q3 · ⛔ Wire Hold Recommended",
-    icon: "🚨",
+    url: "https://meet.google.com/wire-approval-q3 · Wire Hold Recommended",
+    icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>',
     title: "Instant Synthetic Alert & Wire Hold Trigger",
     desc: "The moment an unknown voice crosses the synthetic threshold: caller tile is bordered in red, a 94% FAKE risk alert fires, and an automated webhook pauses payment approval."
   },
@@ -1173,7 +1198,7 @@ const showcaseData = [
     img: "/shot-console.png",
     alt: "Sonave Enterprise Console showing real-time call forensics and incident logs",
     url: "https://usesonave.com/console · Incident #8402 Logged",
-    icon: "📊",
+    icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>',
     title: "Real-Time Forensic Incident Console",
     desc: "Enterprise operator dashboard tracking active meetings, median scoring latency, immutable audit histories, and one-click exportable PDF forensic reports for compliance."
   },
@@ -1181,7 +1206,7 @@ const showcaseData = [
     img: "/shot-protect.png",
     alt: "Sonave Voice Verification ready state in Google Meet",
     url: "https://meet.google.com/wire-approval-q3 · Ready",
-    icon: "⚡",
+    icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>',
     title: "One-Click Meeting Protection Initialization",
     desc: "No plugins, no participant browser extensions. With a single click or calendar invite, the bot joins and arms 4-second continuous voice verification."
   }
@@ -1223,7 +1248,7 @@ function switchShowcase(index) {
   }, 120);
 
   urlEl.textContent = data.url;
-  iconEl.textContent = data.icon;
+  iconEl.innerHTML = data.icon;
   titleEl.textContent = data.title;
   descEl.textContent = data.desc;
 }
