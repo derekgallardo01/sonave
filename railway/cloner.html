@@ -431,14 +431,9 @@ function stopAllPlayback(){
 
 async function synthesizeFullSentence(sentenceText){
   var trimmed = (sentenceText || '').trim();
-  var vId = document.getElementById('voiceSel').value || 'elevenlabs_brian';
-
   if(!trimmed || trimmed.length < 2) return;
-  // If user repeats the same text in the SAME voice, ignore. If they changed voices, allow it!
-  if(trimmed === _lastSynthesizedSentence && vId === _lastVoiceId) return;
 
-  _lastSynthesizedSentence = trimmed;
-  _lastVoiceId = vId;
+  var vId = document.getElementById('voiceSel').value || 'elevenlabs_brian';
   var spk = "Derek (AI " + vId.split('_')[0].toUpperCase() + " Clone)";
 
   var st = document.getElementById('clonerStatus');
@@ -449,8 +444,8 @@ async function synthesizeFullSentence(sentenceText){
 
   var feed = document.getElementById('liveFeed');
   if(feed && !_isPlayingAudio){
-    feed.innerHTML = '<div style="color:var(--ink2)">🎙️ <b style="color:var(--ink)">Sentence Complete:</b> "' + esc(trimmed) + '"</div>' +
-                     '<div style="color:#ffb224;margin-top:4px;font-weight:700;">⚡ Synthesizing full neural voice...</div>';
+    feed.innerHTML = '<div style="color:var(--ink2)">🎙️ <b style="color:var(--ink)">Heard:</b> "' + esc(trimmed) + '"</div>' +
+                     '<div style="color:#ffb224;margin-top:4px;font-weight:700;">⚡ Synthesizing neural voice...</div>';
   }
 
   try {
@@ -497,7 +492,7 @@ async function startCloner(){
       var finalChunk = '';
       var interimChunk = '';
 
-      for(var i = e.resultIndex; i < e.results.length; i++){
+      for(var i = 0; i < e.results.length; i++){
         var res = e.results[i];
         if(res.isFinal){
           finalChunk += res[0].transcript + ' ';
@@ -509,29 +504,31 @@ async function startCloner(){
       finalChunk = finalChunk.trim();
       interimChunk = interimChunk.trim();
 
+      var currentSpeech = (finalChunk || interimChunk);
+      var fd = document.getElementById('liveFeed');
+      if(fd && currentSpeech && !_isPlayingAudio){
+        fd.innerHTML = '<div style="color:var(--ink2)">🎙️ <b style="color:var(--ink)">Hearing:</b> "' + esc(currentSpeech) + '..."</div>' +
+                       '<div style="color:var(--muted);font-size:10.5px;margin-top:4px;">Listening to complete sentence...</div>';
+      }
+
+      clearTimeout(_sentenceTimer);
+
       if(finalChunk){
-        clearTimeout(_sentenceTimer);
         _pendingSentence = '';
         synthesizeFullSentence(finalChunk);
+        try { _rec.stop(); } catch(x){}
         return;
       }
 
       if(interimChunk){
         _pendingSentence = interimChunk;
-        var fd = document.getElementById('liveFeed');
-        if(fd && !_isPlayingAudio){
-          fd.innerHTML = '<div style="color:var(--ink2)">🎙️ <b style="color:var(--ink)">Hearing:</b> "' + esc(interimChunk) + '..."</div>' +
-                         '<div style="color:var(--muted);font-size:10.5px;margin-top:4px;">Listening to complete sentence...</div>';
-        }
-
-        clearTimeout(_sentenceTimer);
-        // Generous 1.4s silence pause only triggers if speech recognizer did not emit isFinal
         _sentenceTimer = setTimeout(function(){
           if(!_active || !_pendingSentence) return;
-          var sentence = _pendingSentence;
+          var phrase = _pendingSentence;
           _pendingSentence = '';
-          synthesizeFullSentence(sentence);
-        }, 1400);
+          synthesizeFullSentence(phrase);
+          try { _rec.stop(); } catch(x){}
+        }, 650);
       }
     };
 
@@ -550,7 +547,6 @@ async function startCloner(){
 
     _rec.start();
     _active = true;
-    _lastSynthesizedSentence = '';
     _pendingSentence = '';
     btn.className = 'btn-hero active';
     btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg><span>Stop Real Voice-to-Voice Cloner</span>';
@@ -567,7 +563,6 @@ function stopCloner(){
   _active = false;
   clearTimeout(_sentenceTimer);
   _pendingSentence = '';
-  _lastSynthesizedSentence = '';
   if(_rec){
     try{ _rec.stop(); }catch(x){}
     _rec = null;
