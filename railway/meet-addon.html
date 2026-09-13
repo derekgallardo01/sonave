@@ -323,48 +323,6 @@ async function protectMeeting(){
  deployTo('https://meet.google.com/'+code,btn,st);
 }
 var _connected = false, _connectedSince = 0;
-var _micStream = null, _micCtx = null, _micProc = null, _micWs = null;
-
-async function startMicCapture(){
- try{
-  if(_micStream) return;
-  _micStream = await navigator.mediaDevices.getUserMedia({
-   audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-  });
-  _micCtx = new (window.AudioContext || window.webkitAudioContext)();
-  var nativeSr = _micCtx.sampleRate || 48000;
-  var src = _micCtx.createMediaStreamSource(_micStream);
-  _micProc = _micCtx.createScriptProcessor(2048, 1, 1);
-  var muteNode = _micCtx.createGain();
-  muteNode.gain.value = 0.0;
-  
-  src.connect(_micProc);
-  _micProc.connect(muteNode);
-  muteNode.connect(_micCtx.destination);
-  
-  var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  var spkName = (window.ME && window.ME.name) ? encodeURIComponent(window.ME.name) : 'Meeting%20Host';
-  var tokParam = TOK ? '&token=' + encodeURIComponent(TOK) : '';
-  _micWs = new WebSocket(proto + '//' + location.host + '/api/ws/mic-stream?speaker=' + spkName + tokParam);
-  _micWs.binaryType = 'arraybuffer';
-  
-  _micProc.onaudioprocess = function(e){
-   if(!_micWs || _micWs.readyState !== WebSocket.OPEN) return;
-   var inputData = e.inputBuffer.getChannelData(0);
-   var step = nativeSr / 16000;
-   var outLen = Math.floor(inputData.length / step);
-   var pcm16 = new Int16Array(outLen);
-   for(var p = 0; p < outLen; p++){
-    var srcIdx = Math.floor(p * step);
-    var s = Math.max(-1.0, Math.min(1.0, inputData[srcIdx] || 0));
-    pcm16[p] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-   }
-   _micWs.send(pcm16.buffer);
-  };
- }catch(e){
-  console.warn('Microphone stream notice:', e);
- }
-}
 
 async function deployTo(url,btn,st){
  try{
@@ -376,8 +334,8 @@ async function deployTo(url,btn,st){
   var dMeet = await rMeet.json();
  }catch(e){}
  _connected = true;
+ _connectedSince = _connectedSince || Date.now();
  deployDone();
- startMicCapture();
  poll();
 }
 function protectManual(){
@@ -391,6 +349,8 @@ var WAITING=false;
 function isVet(){try{return !!localStorage.getItem('sonave_vet')}catch(x){return false}}
 function deployDone(){
  WAITING=false;
+ _connected = true;
+ _connectedSince = _connectedSince || Date.now();
  document.getElementById('admitWait').style.display='none';
  document.getElementById('protectHero').style.display='none';
  document.getElementById('protectSteps').style.display='none';
@@ -399,15 +359,10 @@ function deployDone(){
  document.getElementById('protect').style.display='none';
  document.getElementById('banner').style.display='block';
  document.getElementById('sstats').style.display='grid';
- startMicCapture();
 }
 function deployReset(){
  WAITING=false;
  _connected=false;
- if(_micProc){ try{_micProc.disconnect();}catch(x){} _micProc=null; }
- if(_micStream){ try{_micStream.getTracks().forEach(function(t){t.stop();});}catch(x){} _micStream=null; }
- if(_micCtx){ try{_micCtx.close();}catch(x){} _micCtx=null; }
- if(_micWs){ try{_micWs.close();}catch(x){} _micWs=null; }
  document.getElementById('admitWait').style.display='none';
  document.getElementById('protect').style.display='block';
  document.getElementById('protectHero').style.display='';
@@ -458,11 +413,10 @@ async function poll(){
   if(isProtected && !hasAudio){
    var sess=_connectedSince?Math.round((Date.now()-_connectedSince)/1000):0;
    document.getElementById('stSess').textContent=hmsP(sess);
-   list.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 14px;text-align:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;gap:10px;">' +
+   list.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 14px;text-align:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;gap:10px;">' +
     '<div class="eq on" style="display:inline-flex;height:16px;gap:4px;"><i style="width:3px;background:var(--green)"></i><i style="width:3px;background:var(--green);animation-delay:.2s"></i><i style="width:3px;background:var(--green);animation-delay:.4s"></i><i style="width:3px;background:var(--green);animation-delay:.6s"></i></div>' +
-    '<div style="font-size:12.5px;font-weight:700;color:var(--ink);">Active &amp; Monitoring Call</div>' +
-    '<div style="font-size:11px;color:var(--muted);max-width:210px;line-height:1.5;">Speak into your microphone or wait for participants to talk. Real-time authenticity scores appear instantly.</div>' +
-    '<button class="btn-soft" style="margin-top:4px;width:100%" onclick="startMicCapture()">🎙️ Enable / Reset Microphone</button>' +
+    '<div style="font-size:13px;font-weight:700;color:var(--ink);">Active &amp; Monitoring Call</div>' +
+    '<div style="font-size:11px;color:var(--muted);max-width:220px;line-height:1.5;">Native Google Meet verification active. Scores and forensic metrics populate continuously as participants speak.</div>' +
    '</div>';
    list._keys='__idle__';
   } else if(hasAudio){

@@ -289,18 +289,18 @@ async def _security_headers(request: Request, call_next):
     # www.gstatic.com; without it createAddonSession() never runs and Meet's host
     # keeps showing "Loading Sonave" forever. That host is whitelisted for that one
     # route only — every other page keeps the stricter allowlist.
-    _script_src = "script-src 'self' 'unsafe-inline' https://accounts.google.com https://cdn.jsdelivr.net"
-    _connect_src = "connect-src 'self' wss: https://accounts.google.com https://oauth2.googleapis.com https://openidconnect.googleapis.com"
+    _script_src = "script-src 'self' 'unsafe-inline' https://accounts.google.com https://cdn.jsdelivr.net https://static.cloudflareinsights.com"
+    _connect_src = "connect-src 'self' wss: https://accounts.google.com https://oauth2.googleapis.com https://openidconnect.googleapis.com https://static.cloudflareinsights.com"
     if request.url.path == "/meet-addon":
         _script_src += " https://www.gstatic.com"
         _connect_src += " https://www.gstatic.com"
     response.headers["Content-Security-Policy"] = "; ".join([
         "default-src 'self'",
         _script_src,
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com",
         "font-src 'self' https://fonts.gstatic.com",
         "img-src 'self' data: https: blob:",
-        "media-src 'self' blob:",
+        "media-src 'self' blob: data:",
         _connect_src,
         "frame-src 'self' https://accounts.google.com https://meet.google.com",
         "frame-ancestors 'self' https://meet.google.com https://workspace.google.com",
