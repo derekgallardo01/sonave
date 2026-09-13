@@ -370,12 +370,36 @@ def send_bot(req: BotReq, request: Request, p: "auth.Principal" = Depends(requir
 def _launch_bot(user_id: str, role: str, meeting_url: str,
                 request: Request | None = None, bot_name: str = "Sonave",
                 source: str = "manual"):
-    """Deploy a bot into a meeting. Shared by POST /bot and the calendar
-    auto-join loop (which has no request; _ws_url falls back to env domain)."""
-    if not RECALL_API_KEY:
-        return {"error": "SONAVE_RECALL_API_KEY not set on the service"}
     murl = meeting_url.strip()
     u = urlparse(murl)
+    if "meet.google.com" in u.netloc or u.netloc == "meet.google.com":
+        # Google Meet is 100% native bot-free via Google Meet Media API
+        space = murl.split("meet.google.com/")[-1].split("?")[0].strip("/")
+        token = ""
+        raw = db.get_oauth_token(user_id, "google_meet") or db.get_oauth_token(user_id, "google_calendar")
+        if raw:
+            try:
+                tok_data = json.loads(raw)
+                token = tok_data.get("access_token") or ""
+            except Exception:
+                token = raw
+        if not token:
+            return {
+                "ok": False,
+                "error": "google_meet_oauth_required",
+                "detail": "Google Meet uses native bot-free verification. Please authorize Google Meet at /auth/meet/connect."
+            }
+        sess = meet_media_ingest.get_or_create_session(space, token)
+        res = sess.connect()
+        return {
+            "ok": res.get("ok", False),
+            "space_id": space,
+            "mode": "native_webrtc_botless",
+            "bot_id": f"meet_{space}",
+            "detail": "Google Meet native bot-free verification active."
+        }
+    if not RECALL_API_KEY:
+        return {"error": "SONAVE_RECALL_API_KEY not set on the service"}
     if u.scheme not in ("http", "https") or not any(
             u.netloc == h or u.netloc.endswith("." + h) for h in ALLOWED_MEET_HOSTS):
         return {"ok": False, "detail": "meeting_url must be a Google Meet / Zoom / Teams link"}
