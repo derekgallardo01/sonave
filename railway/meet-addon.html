@@ -238,6 +238,9 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
       <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
       <span>Speak AI</span>
      </button>
+     <button class="btn-soft" onclick="dismissThreatCheck()" style="padding:6px 10px; font-size:10.5px; white-space:nowrap; border-color:rgba(255,77,94,0.4); background:rgba(255,77,94,0.08); color:#ff808d;" title="Clear simulated threat and reset to authentic">
+      <span>↺ Clear Threat</span>
+     </button>
     </div>
    </div>
 
@@ -246,7 +249,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
      <span class="spin" style="width:10px; height:10px; border-top-color:#ff4d5e"></span>
      <span id="demoActiveText">AI Voice Speaking Live...</span>
     </div>
-    <button class="btn-soft" onclick="dismissThreatCheck()" style="padding:2px 7px; font-size:9.5px; border-color:rgba(255,77,94,0.4); color:#ff808d;">Stop &amp; Dismiss ×</button>
+    <button class="btn-soft" onclick="dismissThreatCheck()" style="padding:2px 7px; font-size:9.5px; border-color:rgba(255,77,94,0.4); color:#ff808d;">Clear &amp; Reset ×</button>
    </div>
   </div>
 
@@ -583,9 +586,14 @@ async function poll(){
 }
 var _pt={},_pd={},_peak=0;
 function hmsP(t){t=Math.round(t||0);return Math.floor(t/60)+':'+('0'+t%60).slice(-2)}
+function isSimSpk(k){
+ var l = String(k||'').toLowerCase();
+ return l.indexOf('clone')!==-1 || l.indexOf('test')!==-1 || l.indexOf('simulate')!==-1 || l.indexOf('custom')!==-1 || l.indexOf('voice')!==-1 || l.indexOf('ceo')!==-1 || l.indexOf('brian')!==-1 || l.indexOf('andrew')!==-1 || l.indexOf('treasury')!==-1 || l.indexOf('impersonator')!==-1;
+}
+
 function rowHTML(k){
- var isSim = k.indexOf('Clone')!==-1 || k.indexOf('Test')!==-1 || k.indexOf('Simulate')!==-1;
- var dismissBtn = isSim ? '<button class="btn-soft" onclick="dismissThreatCheck()" style="padding:2px 7px;font-size:9.5px;margin-left:auto;margin-right:6px;border-color:rgba(255,77,94,0.3);color:var(--red);cursor:pointer;" title="Dismiss test threat">Dismiss ×</button>' : '';
+ var isSim = isSimSpk(k);
+ var dismissBtn = isSim ? '<button class="btn-soft" onclick="dismissThreatCheck()" style="padding:2px 7px;font-size:9.5px;margin-left:auto;margin-right:6px;border-color:rgba(255,77,94,0.4);background:rgba(255,77,94,0.1);color:#ff808d;cursor:pointer;" title="Clear this test threat">Clear Threat ×</button>' : '';
  return '<div class="spk" data-spk="'+esc(k)+'">'+
   '<div class="srow"><div class="savatar">'+esc(k.charAt(0).toUpperCase())+'</div>'+
   '<div class="smain"><div class="sname"></div><div class="ssub"></div></div>'+
@@ -838,59 +846,88 @@ function toggleAddonV2V(){
  }
 }
 
-function startAddonV2V(){
- var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
- if(!SpeechRecognition){
-  alert('Speech recognition is supported in Google Chrome or Microsoft Edge.');
-  return;
- }
+var _addonMicStream = null;
 
+async function startAddonV2V(){
+ var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
  var btn = document.getElementById('btnAddonV2V');
  var badge = document.getElementById('v2vBadge');
  var transcriptBox = document.getElementById('v2vLiveTranscript');
 
  try {
-  _addonV2VRec = new SpeechRecognition();
-  _addonV2VRec.continuous = true;
-  _addonV2VRec.interimResults = false;
-  _addonV2VRec.lang = 'en-US';
+  // Request microphone permission directly to unlock iframe audio access
+  if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia){
+   try {
+    _addonMicStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+   } catch(err) {
+    console.warn('Microphone permission request:', err);
+   }
+  }
 
-  _addonV2VRec.onresult = async function(event){
-   for(var i = event.resultIndex; i < event.results.length; i++){
-    if(event.results[i].isFinal){
-     var text = event.results[i][0].transcript.trim();
-     if(text.length > 1){
+  if(SpeechRecognition){
+   _addonV2VRec = new SpeechRecognition();
+   _addonV2VRec.continuous = true;
+   _addonV2VRec.interimResults = true;
+   _addonV2VRec.lang = 'en-US';
+
+   var _lastSentTranscript = '';
+   var _sendTimer = null;
+
+   _addonV2VRec.onresult = function(event){
+    var interim = '';
+    var finalTxt = '';
+    for(var i = event.resultIndex; i < event.results.length; i++){
+     var res = event.results[i];
+     if(res.isFinal){
+      finalTxt += res[0].transcript + ' ';
+     } else {
+      interim += res[0].transcript + ' ';
+     }
+    }
+    var currentTxt = (finalTxt || interim).trim();
+    if(currentTxt && currentTxt.length > 2 && currentTxt !== _lastSentTranscript){
+     if(transcriptBox){
+      transcriptBox.style.display = 'block';
+      transcriptBox.innerHTML = '<span style="color:var(--muted)">Heard:</span> "' + esc(currentTxt) + '"<br><span style="color:#ff4d5e;font-weight:700">Synthesizing &amp; Speaking AI Clone...</span>';
+     }
+     if(badge){
+      badge.textContent = 'SYNTHESIZING...';
+      badge.style.color = '#ff4d5e';
+     }
+     clearTimeout(_sendTimer);
+     _sendTimer = setTimeout(async function(){
+      if(!_addonV2VActive || currentTxt === _lastSentTranscript) return;
+      _lastSentTranscript = currentTxt;
       var vId = document.getElementById('demoVoiceSel').value || 'ceo_impersonator';
-      if(transcriptBox){
-       transcriptBox.style.display = 'block';
-       transcriptBox.innerHTML = '<span style="color:var(--muted)">You said:</span> "' + esc(text) + '"<br><span style="color:#ff4d5e;font-weight:700">AI Clone Speaking Live Into Meeting...</span>';
-      }
-      if(badge){
-       badge.textContent = 'SYNTHESIZING & SPEAKING';
-       badge.style.color = '#ff4d5e';
-      }
-      var spk = "Derek (AI " + vId.split('_')[0].toUpperCase() + " Clone)";
-      await triggerDemoInjection(text, vId, spk, false, "Live Cloned Speech");
+      var spk = "Custom AI Voice (" + vId.split('_')[0] + ")";
+      await triggerDemoInjection(currentTxt, vId, spk, false, "Live Cloned Speech");
       if(badge && _addonV2VActive){
        badge.textContent = 'LISTENING (SPEAK TO CLONE)';
        badge.style.color = 'var(--green)';
       }
-     }
+     }, 450);
     }
-   }
-  };
+   };
 
-  _addonV2VRec.onerror = function(e){
-   console.warn('Addon V2V speech recognition error:', e);
-  };
+   _addonV2VRec.onerror = function(e){
+    console.warn('Addon V2V speech recognition error:', e);
+    if(transcriptBox && e.error === 'not-allowed'){
+     transcriptBox.style.display = 'block';
+     transcriptBox.textContent = 'Microphone permission denied. Please allow microphone permissions in your browser.';
+    }
+   };
 
-  _addonV2VRec.onend = function(){
-   if(_addonV2VActive && _addonV2VRec){
-    try{ _addonV2VRec.start(); }catch(x){}
-   }
-  };
+   _addonV2VRec.onend = function(){
+    if(_addonV2VActive && _addonV2VRec){
+     try{ _addonV2VRec.start(); }catch(x){}
+    }
+   };
 
-  _addonV2VRec.start();
+   _addonV2VRec.start();
+  } else {
+   alert('Speech recognition is supported in Google Chrome or Microsoft Edge.');
+  }
+
   _addonV2VActive = true;
   if(btn){
    btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg><span>Stop Real-Time Voice Cloner</span>';
@@ -917,6 +954,10 @@ function stopAddonV2V(){
  if(_addonV2VRec){
   try{ _addonV2VRec.stop(); }catch(x){}
   _addonV2VRec = null;
+ }
+ if(_addonMicStream){
+  try{ _addonMicStream.getTracks().forEach(function(t){ t.stop(); }); }catch(x){}
+  _addonMicStream = null;
  }
  var btn = document.getElementById('btnAddonV2V');
  var badge = document.getElementById('v2vBadge');
@@ -959,7 +1000,7 @@ async function dismissThreatCheck(){
   console.error('Clear test failed:', e);
  }
  Object.keys(_pt).forEach(function(k){
-  if(k.indexOf('Clone')!==-1 || k.indexOf('Test')!==-1 || k.indexOf('Simulate')!==-1 || k.indexOf('Real')!==-1 || k.indexOf('Speaker')!==-1){
+  if(isSimSpk(k)){
    delete _pt[k];
    delete _pd[k];
   }

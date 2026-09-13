@@ -2277,18 +2277,19 @@ def api_generator_clear_test(p: auth.Principal = Depends(require_principal)):
     """Dismiss simulated voice threat test data and restore clean meeting state."""
     uid = p.user_id
     removed = []
+    sim_keywords = ("Clone", "Simulate", "Test", "Custom", "Voice", "ceo", "brian", "andrew", "treasury", "Impersonator", "Director", "Real")
     with _STATE_LOCK:
         for k in list(QUALITY.keys()):
-            if k[0] == uid and ("Clone" in k[1] or "Simulate" in k[1] or "Test" in k[1]):
+            if k[0] == uid and any(w.lower() in k[1].lower() for w in sim_keywords):
                 QUALITY.pop(k, None)
                 removed.append(k[1])
         for k in list(VERDICTS.keys()):
-            if k[0] == uid and ("Clone" in k[1] or "Simulate" in k[1] or "Test" in k[1]):
+            if k[0] == uid and any(w.lower() in k[1].lower() for w in sim_keywords):
                 VERDICTS.pop(k, None)
                 removed.append(k[1])
     try:
         c = incidents._conn()
-        c.execute("UPDATE incidents SET status='acknowledged', hold=0 WHERE user_id=? AND (speaker LIKE '%Clone%' OR speaker LIKE '%Simulate%' OR speaker LIKE '%Test%')", (uid,))
+        c.execute("UPDATE incidents SET status='acknowledged', hold=0 WHERE user_id=? AND (speaker LIKE '%Clone%' OR speaker LIKE '%Simulate%' OR speaker LIKE '%Test%' OR speaker LIKE '%Custom%' OR speaker LIKE '%Voice%')", (uid,))
         c.commit()
         c.close()
     except Exception:
