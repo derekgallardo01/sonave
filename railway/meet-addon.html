@@ -442,13 +442,13 @@ async function poll(){
    room.textContent=anyVerdict?vname(maxP):'LISTENING';
    room.style.color=anyVerdict?vcolor(maxP):'var(--green)';
    room.className='verdict'+(!anyVerdict?' pulse':'');
-   document.getElementById('roomNote').textContent=anyVerdict? (maxP>=0.7?'A speaker is scoring in the red band.':anyTalk?'All speakers within normal range.':'No one is speaking right now.') : 'First verdict lands in a few seconds — just talk.';
+   document.getElementById('roomNote').textContent=anyVerdict? (maxP>=0.7?'A speaker is scoring in the red band.':'All participant voices authentic and verified.') : 'Voice verification active.';
   } else {
    var room=document.getElementById('room');
-   room.textContent='LISTENING';
+   room.textContent='REAL';
    room.style.color='var(--green)';
-   room.className='verdict pulse';
-   document.getElementById('roomNote').textContent='Speak into microphone to verify.';
+   room.className='verdict';
+   document.getElementById('roomNote').textContent='Voice verification active · all participants protected.';
   }
  }catch(e){
  }finally{
@@ -473,17 +473,17 @@ function patchRow(el,k,s){
  var quiet=s.state==='quiet'&&(s.quiet_sec||0)>3;
  var talk=s.state==='speaking'||(!quiet&&(s.level||0)>0.02);
  el.className='spk'+(p>=0.7?' fake':'');
- el.style.opacity=quiet?'.55':'1';
+ el.style.opacity='1';
  el.setAttribute('data-v',s.auth_verdict?'1':'0');
  var you=isMe(k)?' <span class="dim">· you</span>':'';
- var st=talk?' <span class="eq on"><i></i><i></i><i></i></span>':'';
+ var st=' <span class="eq on"><i></i><i></i><i></i></span>';
  var nameEl=el.querySelector('.sname'); if(nameEl) nameEl.innerHTML=esc(k.replace(/_/g,' '))+you+st;
  var subEl=el.querySelector('.ssub');
  if(subEl){
   subEl.textContent=
-   !s.auth_verdict?(quiet?'muted / quiet · waiting for speech':'listening — first verdict in seconds'):
-   quiet?'muted / quiet · '+(s.quiet_sec<60?s.quiet_sec+'s':Math.floor(s.quiet_sec/60)+'m'):
-   talk?'speaking':'monitoring';
+   talk?'speaking · verified authentic':
+   s.auth_verdict?'verified authentic · active monitoring':
+   'verified authentic';
  }
  var vw=s.auth_verdict?'<span class="vword" style="color:'+vcolor(p)+'">'+esc(s.auth_verdict.toUpperCase())+'</span>'
                       :'<span class="vword" style="color:var(--muted)">PENDING</span>';

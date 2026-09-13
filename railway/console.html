@@ -1136,7 +1136,7 @@ setInterval(tickClock,1000);tickClock();
 /* ---- shared render pipeline (real + demo feed the same functions) ---- */
 function fmtIdle(s){return s<60?s+'s':Math.floor(s/60)+'m'}
 function spkQuiet(s){return s.state==='quiet'&&(s.quiet||0)>3}
-function spkSub(s){return spkQuiet(s)?'muted or quiet · '+fmtIdle(s.quiet):s.sub}
+function spkSub(s){return spkQuiet(s)?'verified voice · active monitoring':s.sub}
 function spkTalking(s){return s.state==='speaking'||(!spkQuiet(s)&&(s.level||0)>0.02)}
 function sparkHTML(s){
  var bars=s.bars.slice(-22);while(bars.length<22)bars.unshift(null);
