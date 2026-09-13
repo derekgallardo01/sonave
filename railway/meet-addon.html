@@ -606,10 +606,10 @@ function isSimSpk(k){
 
 function rowHTML(k){
  var isSim = isSimSpk(k);
- var dismissBtn = isSim ? '<button class="btn-soft" onclick="dismissThreatCheck()" style="padding:2px 7px;font-size:9.5px;margin-left:auto;margin-right:6px;border-color:rgba(255,77,94,0.4);background:rgba(255,77,94,0.1);color:#ff808d;cursor:pointer;" title="Clear this test threat">Clear Threat ×</button>' : '';
+ var dismissBtn = isSim ? '<button class="btn-soft" onclick="dismissThreatCheck()" style="padding:2px 6px;font-size:9.5px;font-weight:700;margin-left:auto;margin-right:5px;border-color:rgba(255,77,94,0.4);background:rgba(255,77,94,0.1);color:#ff808d;cursor:pointer;flex-shrink:0;" title="Clear this threat">✕</button>' : '';
  return '<div class="spk" data-spk="'+esc(k)+'">'+
   '<div class="srow"><div class="savatar">'+esc(k.charAt(0).toUpperCase())+'</div>'+
-  '<div class="smain"><div class="sname"></div><div class="ssub"></div></div>'+
+  '<div class="smain" style="min-width:0;flex:1;"><div class="sname" style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div><div class="ssub"></div></div>'+
   dismissBtn +
   '<span class="spct">—</span></div>'+
   '<div class="track"><div class="fill" style="width:0%"></div></div>'+
@@ -854,7 +854,8 @@ function popoutCloner(){
  var w = 440, h = 560;
  var left = (screen.width/2)-(w/2);
  var top = (screen.height/2)-(h/2);
- window.open('/cloner', 'SonaveCloner', 'width='+w+',height='+h+',top='+top+',left='+left+',resizable=yes,scrollbars=yes');
+ var u = '/cloner' + (TOK ? '?token=' + encodeURIComponent(TOK) : '');
+ window.open(u, 'SonaveCloner', 'width='+w+',height='+h+',top='+top+',left='+left+',resizable=yes,scrollbars=yes');
 }
 
 async function runCustomDemoSpeech(){

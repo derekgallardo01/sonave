@@ -289,6 +289,24 @@ canvas {
 <div class="toast" id="toast"></div>
 
 <script>
+var TOK = (function(){
+  try {
+    var params = new URLSearchParams(window.location.search);
+    var urlTok = params.get('token');
+    if(urlTok){
+      try { localStorage.setItem('sonave_tok', urlTok); } catch(x){}
+      return urlTok;
+    }
+    return localStorage.getItem('sonave_tok') || sessionStorage.getItem('sonave_tok') || '';
+  } catch(x){ return ''; }
+})();
+
+function authHeaders(extra){
+  var h = extra || {};
+  if(TOK) h['Authorization'] = 'Bearer ' + TOK;
+  return h;
+}
+
 var _active = false;
 var _rec = null;
 var _lastSent = '';
@@ -429,12 +447,24 @@ function stopAllPlayback(){
   }
 }
 
+var VOICE_NAMES = {
+  'ceo_impersonator': 'Derek (AI CEO)',
+  'elevenlabs_brian': 'Derek (AI Brian)',
+  'openai_andrew': 'Derek (AI Andrew)',
+  'treasury_lead_female': 'Derek (AI VP)',
+  'cfo_impersonator': 'Derek (AI CFO)',
+  'british_exec_male': 'Derek (AI British)',
+  'spanish_controller': 'Derek (AI Spanish)',
+  'french_director': 'Derek (AI French)',
+  'german_treasury': 'Derek (AI German)'
+};
+
 async function synthesizeFullSentence(sentenceText){
   var trimmed = (sentenceText || '').trim();
   if(!trimmed || trimmed.length < 2) return;
 
   var vId = document.getElementById('voiceSel').value || 'elevenlabs_brian';
-  var spk = "Derek (AI " + vId.split('_')[0].toUpperCase() + " Clone)";
+  var spk = VOICE_NAMES[vId] || ('Derek (AI ' + vId.split('_')[0] + ')');
 
   var st = document.getElementById('clonerStatus');
   if(st) {
@@ -451,7 +481,7 @@ async function synthesizeFullSentence(sentenceText){
   try {
     var r = await fetch('/api/generator/inject-test', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: authHeaders({'Content-Type': 'application/json'}),
       body: JSON.stringify({ text: trimmed, voice_id: vId, speaker_name: spk, is_real: false })
     });
     var d = await r.json();
@@ -605,7 +635,10 @@ function stopCloner(){
 async function clearThreat(){
   stopAllPlayback();
   try {
-    await fetch('/api/generator/clear-test', { method: 'POST' });
+    await fetch('/api/generator/clear-test', {
+      method: 'POST',
+      headers: authHeaders()
+    });
   } catch(e){}
   toast('Threat cleared · Baseline restored', 'ok');
 }
