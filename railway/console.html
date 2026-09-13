@@ -497,67 +497,66 @@ a:hover{color:var(--green-hover)}
     <div class="side-tab-panel" id="side-panel-sim">
      <div class="card-pad">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-       <span class="card-lbl">SYNTHETIC VOICE GENERATOR &amp; TEST INJECTOR</span>
-       <span class="update-note">Neural TTS / Cloner</span>
+       <span class="card-lbl">LIVE AI VOICE GENERATOR &amp; CLONER</span>
+       <span class="update-note">Real-Time Threat Injector</span>
       </div>
+
+      <!-- Prominent 1: Real-Time Live Voice-to-Voice (Speak to Clone) -->
+      <div style="background:rgba(11,13,16,0.7); border:1.5px solid rgba(46,229,132,0.3); border-radius:12px; padding:12px 14px; margin-bottom:12px; box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <span style="font-size:11px; font-weight:800; color:var(--ink); letter-spacing:0.04em;">🎙️ REAL-TIME VOICE-TO-VOICE AI (LIVE MIC)</span>
+        <span id="v2vStatus" class="badge" style="font-size:9.5px; font-family:var(--mono); color:var(--muted); background:rgba(255,255,255,0.05); padding:2px 7px; border-radius:5px;">STANDBY</span>
+       </div>
+       <div style="display:flex; gap:8px;">
+        <button class="btn-primary" id="btnV2VToggle" onclick="toggleV2V()" style="flex:1; background:linear-gradient(135deg, #0d3824, #082417); border:1.5px solid var(--green); color:var(--green); font-size:12px; font-weight:700; padding:10px 14px; border-radius:9px; box-shadow:0 0 16px rgba(46,229,132,0.18); display:flex; align-items:center; justify-content:center; gap:7px;">
+         <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"></path><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"></path></svg>
+         <span>Start Real Voice-to-Voice (Speak &amp; Clone)</span>
+        </button>
+        <button class="btn-soft" onclick="dismissThreatCheck()" style="padding:10px 14px; font-size:11px; font-weight:700; border-color:rgba(255,77,94,0.4); background:rgba(255,77,94,0.08); color:#ff808d; border-radius:9px;" title="Clear active threat and return meeting to clean authentic status">
+         <span>↺ Clear Threat</span>
+        </button>
+       </div>
+       <div id="v2vLiveBox" style="display:none; font-size:10.5px; color:#ff808d; font-family:var(--mono); margin-top:8px; padding:6px 10px; background:rgba(255,77,94,0.1); border-radius:6px; border:1px solid rgba(255,77,94,0.3); line-height:1.4;">
+        Listening for speech...
+       </div>
+       <div class="hint" style="margin-top:6px; font-size:10px;">Speak naturally into your mic — as soon as you speak, the selected neural voice will instantly re-speak your words live into the meeting!</div>
+      </div>
+
+      <!-- Prominent 2: Text Generator & Quick Presets -->
       <div style="display:flex; flex-direction:column; gap:8px;">
+       <div style="display:flex; align-items:center; justify-content:space-between;">
+        <span style="font-size:10.5px; font-weight:700; color:var(--ink2);">AI VOICE MODEL &amp; PRESET ATTACKS</span>
+       </div>
        <!-- Quick 1-Click Demo Presets -->
        <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
-        <button class="btn-soft" onclick="runConsolePreset('ceo_wire')" style="padding:6px 8px; font-size:10.5px; text-align:left; justify-content:flex-start; border-color:rgba(255,77,94,0.3); color:#ff808d; background:rgba(255,77,94,0.06);">
+        <button class="btn-soft" onclick="runConsolePreset('ceo_wire')" style="padding:7px 9px; font-size:10.5px; text-align:left; justify-content:flex-start; border-color:rgba(255,77,94,0.3); color:#ff808d; background:rgba(255,77,94,0.06);">
          <span style="font-weight:700">🔴 CEO $250k Wire</span>
         </button>
-        <button class="btn-soft" onclick="runConsolePreset('it_mfa')" style="padding:6px 8px; font-size:10.5px; text-align:left; justify-content:flex-start; border-color:rgba(255,77,94,0.3); color:#ff808d; background:rgba(255,77,94,0.06);">
+        <button class="btn-soft" onclick="runConsolePreset('it_mfa')" style="padding:7px 9px; font-size:10.5px; text-align:left; justify-content:flex-start; border-color:rgba(255,77,94,0.3); color:#ff808d; background:rgba(255,77,94,0.06);">
          <span style="font-weight:700">🔴 IT Security MFA</span>
         </button>
-        <button class="btn-soft" onclick="runConsolePreset('cfo_payroll')" style="padding:6px 8px; font-size:10.5px; text-align:left; justify-content:flex-start; border-color:rgba(255,77,94,0.3); color:#ff808d; background:rgba(255,77,94,0.06);">
+        <button class="btn-soft" onclick="runConsolePreset('cfo_payroll')" style="padding:7px 9px; font-size:10.5px; text-align:left; justify-content:flex-start; border-color:rgba(255,77,94,0.3); color:#ff808d; background:rgba(255,77,94,0.06);">
          <span style="font-weight:700">🔴 CFO Payroll Scam</span>
         </button>
-        <button class="btn-soft" onclick="runConsolePreset('real_baseline')" style="padding:6px 8px; font-size:10.5px; text-align:left; justify-content:flex-start; border-color:rgba(46,229,132,0.4); color:var(--green); background:rgba(46,229,132,0.06);">
+        <button class="btn-soft" onclick="runConsolePreset('real_baseline')" style="padding:7px 9px; font-size:10.5px; text-align:left; justify-content:flex-start; border-color:rgba(46,229,132,0.4); color:var(--green); background:rgba(46,229,132,0.06);">
          <span style="font-weight:700">🟢 Real Voice (Clean)</span>
         </button>
        </div>
 
-       <select id="synthVoiceSel" class="sel">
-        <option value="me_clone">Derek / Meeting Host (Clone)</option>
+       <select id="synthVoiceSel" class="sel" style="font-size:11.5px; padding:7px 10px;">
+        <option value="ceo_impersonator">CEO Baritone (Deepfake Executive)</option>
+        <option value="elevenlabs_adam">ElevenLabs Brian / Adam (Ultra-Realistic)</option>
+        <option value="me_clone">Derek / Meeting Host (Natural Clone)</option>
         <option value="cfo_impersonator">CFO / Treasury Impersonator</option>
-        <option value="ceo_impersonator">CEO / Executive Impersonator</option>
-        <option value="elevenlabs_adam">ElevenLabs Adam (Deep Clone)</option>
-        <option value="openai_alloy">OpenAI Alloy (Synthetic)</option>
+        <option value="openai_alloy">OpenAI Alloy (Synthetic Conversational)</option>
        </select>
-       <input id="synthText" class="inp" placeholder="Sentence to synthesize as fake voice..." value="Please authorize the $250,000 vendor wire transfer before the end of the business day.">
-       <div class="attack-grid">
-        <button class="attack-btn" onclick="setSynthPrompt(0)">
-         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
-         <span>Wire Transfer</span>
-        </button>
-        <button class="attack-btn" onclick="setSynthPrompt(1)">
-         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-         <span>Urgent Bypass</span>
-        </button>
-        <button class="attack-btn" onclick="setSynthPrompt(2)">
-         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
-         <span>Emergency Invoice</span>
-        </button>
-        <button class="attack-btn" onclick="setSynthPrompt(3)">
-         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-         <span>MFA Reset</span>
-        </button>
+       <input id="synthText" class="inp" placeholder="Sentence to synthesize as fake voice..." value="Please authorize the $250,000 vendor wire transfer before the end of the business day." style="padding:8px 10px; font-size:11.5px;">
+       <div style="display:flex; gap:8px;">
+        <button class="btn-primary" id="btnInjectSynth" onclick="injectSynthAudio()" style="flex:1.2; font-weight:700;">Generate &amp; Inject Live Test</button>
+        <button class="btn-soft" onclick="playSynthPreview()" style="flex:0.8;">Preview Audio</button>
        </div>
-       <div style="display:flex; gap:8px; margin-top:2px;">
-        <button class="btn-primary" id="btnInjectSynth" onclick="injectSynthAudio()" style="flex:1">Generate &amp; Inject Live Test</button>
-        <button class="btn-soft" onclick="playSynthPreview()">Preview Audio</button>
-       </div>
-       <div style="border-top:1px solid var(--line); margin-top:10px; padding-top:10px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-         <span style="font-size:10.5px; font-weight:700; color:var(--ink);">REAL NEURAL VOICE-TO-VOICE AI (LIVE MIC)</span>
-         <span id="v2vStatus" style="font-size:9.5px; font-family:var(--mono); color:var(--muted)">OFF</span>
-        </div>
-        <div style="display:flex; gap:8px;">
-         <button class="btn-primary" id="btnV2VToggle" onclick="toggleV2V()" style="flex:1; background:#0e2a1e; border:1px solid var(--green); color:var(--green)">Start Real Voice-to-Voice (Speak &amp; Clone)</button>
-        </div>
-        <div class="hint" style="margin-top:6px">Speak any phrase into your mic — the selected real neural voice (ElevenLabs, OpenAI, etc.) will immediately speak your exact words in that voice!</div>
-       </div>
-       <div id="micMorphCard" style="display:none;border-top:1px solid var(--line); margin-top:10px; padding-top:10px;">
+      </div>
+      <div id="micMorphCard" style="display:none;border-top:1px solid var(--line); margin-top:10px; padding-top:10px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
          <span style="font-size:10.5px; font-weight:700; color:var(--ink);">LIVE MIC MORPH &#183; <span style="color:var(--amber)">SIMULATION</span></span>
          <span id="liveMicStatus" style="font-size:9.5px; font-family:var(--mono); color:var(--muted)">OFF</span>
@@ -1938,41 +1937,71 @@ function startV2V(){
 
  var btn = document.getElementById('btnV2VToggle');
  var st = document.getElementById('v2vStatus');
+ var liveBox = document.getElementById('v2vLiveBox');
 
  try {
   _v2vRecognizer = new SpeechRecognition();
   _v2vRecognizer.continuous = true;
-  _v2vRecognizer.interimResults = false;
+  _v2vRecognizer.interimResults = true;
   _v2vRecognizer.lang = 'en-US';
 
-  _v2vRecognizer.onresult = async function(event){
+  var _lastV2VSent = '';
+  var _v2vTimer = null;
+
+  _v2vRecognizer.onresult = function(event){
+   var interim = '';
+   var finalTxt = '';
    for(var i = event.resultIndex; i < event.results.length; i++){
-    if(event.results[i].isFinal){
-     var transcript = event.results[i][0].transcript.trim();
-     if(transcript.length > 1){
-      var vId = document.getElementById('synthVoiceSel').value;
-      st.textContent = 'SYNTHESIZING...';
-      try {
-       var r = await fetch('/api/generator/inject-test', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({text: transcript, voice_id: vId})
-       });
-       var d = await r.json();
-       if(d.ok && d.audio_base64){
-        var a = new Audio('data:audio/mp3;base64,' + d.audio_base64);
-        a.play().catch(function(){});
-        toast('Neural Clone Speaking: "' + transcript + '"', 'ok');
-       }
-      } catch(e){}
-      st.textContent = 'LISTENING (SPEAK INTO MIC)';
-     }
+    var res = event.results[i];
+    if(res.isFinal){
+     finalTxt += res[0].transcript + ' ';
+    } else {
+     interim += res[0].transcript + ' ';
     }
+   }
+   var currentTxt = (finalTxt || interim).trim();
+   if(currentTxt && currentTxt.length > 2 && currentTxt !== _lastV2VSent){
+    if(liveBox){
+     liveBox.style.display = 'block';
+     liveBox.innerHTML = '<span style="color:var(--muted)">Heard:</span> "' + esc(currentTxt) + '"<br><span style="color:#ff4d5e;font-weight:700">Synthesizing &amp; Speaking AI Clone Live...</span>';
+    }
+    if(st){
+     st.textContent = 'SYNTHESIZING...';
+     st.style.color = '#ff4d5e';
+    }
+    clearTimeout(_v2vTimer);
+    _v2vTimer = setTimeout(async function(){
+     if(!_v2vActive || currentTxt === _lastV2VSent) return;
+     _lastV2VSent = currentTxt;
+     var vId = document.getElementById('synthVoiceSel').value || 'ceo_impersonator';
+     var spk = "Derek (AI " + vId.split('_')[0].toUpperCase() + " Clone)";
+     try {
+      var r = await fetch('/api/generator/inject-test', {
+       method: 'POST',
+       headers: {'Content-Type': 'application/json'},
+       body: JSON.stringify({text: currentTxt, voice_id: vId, speaker_name: spk})
+      });
+      var d = await r.json();
+      if(d.ok && d.audio_base64){
+       var a = new Audio('data:audio/mp3;base64,' + d.audio_base64);
+       a.play().catch(function(){});
+       toast('AI Clone Speaking: "' + currentTxt + '"', 'ok');
+      }
+     } catch(e){}
+     if(st && _v2vActive){
+      st.textContent = 'LISTENING (SPEAK INTO MIC)';
+      st.style.color = 'var(--green)';
+     }
+    }, 180);
    }
   };
 
   _v2vRecognizer.onerror = function(e){
    console.warn('V2V error:', e);
+   if(liveBox && e.error === 'not-allowed'){
+    liveBox.style.display = 'block';
+    liveBox.textContent = 'Microphone permission denied. Please allow microphone permissions in Chrome.';
+   }
   };
 
   _v2vRecognizer.onend = function(){
@@ -1983,12 +2012,16 @@ function startV2V(){
 
   _v2vRecognizer.start();
   _v2vActive = true;
-  btn.textContent = 'Stop Real Voice-to-Voice';
-  btn.style.background = 'rgba(255,77,94,0.2)';
+  btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg><span>Stop Real Voice-to-Voice Cloner</span>';
+  btn.style.background = 'rgba(255,77,94,0.18)';
   btn.style.borderColor = 'var(--red)';
   btn.style.color = 'var(--red)';
   st.textContent = 'LISTENING (SPEAK INTO MIC)';
   st.style.color = 'var(--green)';
+  if(liveBox){
+   liveBox.style.display = 'block';
+   liveBox.textContent = 'Listening... Speak any words into your mic to clone your voice live!';
+  }
   toast('Real Voice-to-Voice active · Speak any phrase into your mic!', 'ok');
  } catch(e){
   console.error(e);
@@ -2005,15 +2038,19 @@ function stopV2V(){
  }
  var btn = document.getElementById('btnV2VToggle');
  var st = document.getElementById('v2vStatus');
+ var liveBox = document.getElementById('v2vLiveBox');
  if(btn){
-  btn.textContent = 'Start Real Voice-to-Voice (Speak & Clone)';
-  btn.style.background = '#0e2a1e';
+  btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"></path><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"></path></svg><span>Start Real Voice-to-Voice (Speak &amp; Clone)</span>';
+  btn.style.background = 'linear-gradient(135deg, #0d3824, #082417)';
   btn.style.borderColor = 'var(--green)';
   btn.style.color = 'var(--green)';
  }
  if(st){
-  st.textContent = 'OFF';
+  st.textContent = 'STANDBY';
   st.style.color = 'var(--muted)';
+ }
+ if(liveBox){
+  liveBox.style.display = 'none';
  }
  toast('Real Voice-to-Voice stopped', 'ok');
 }
