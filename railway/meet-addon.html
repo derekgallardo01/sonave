@@ -208,8 +208,8 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
     </div>
 
     <!-- Collapsible Custom Text / Settings Toggle -->
-    <div style="margin-top:7px; text-align:center;">
-     <button class="link" onclick="toggleCustomSpeechDrawer()" id="btnToggleCustomDrawer" style="font-size:10px; color:var(--muted); text-decoration:none; cursor:pointer;">
+    <div style="margin-top:8px; text-align:center;">
+     <button onclick="toggleCustomSpeechDrawer()" id="btnToggleCustomDrawer" style="background:none; border:none; outline:none; padding:3px 8px; font-size:10.5px; color:var(--muted); cursor:pointer; font-family:var(--font); letter-spacing:0.02em; display:inline-flex; align-items:center; gap:4px;">
       <span>Custom Speech &amp; Voice Model ▾</span>
      </button>
     </div>
@@ -827,8 +827,8 @@ function toggleCustomSpeechDrawer(){
  var isHidden = d.style.display === 'none' || !d.style.display;
  d.style.display = isHidden ? 'flex' : 'none';
  if(b){
-  b.innerHTML = isHidden ? '<span>Custom Speech ▴</span>' : '<span>Custom Speech ▾</span>';
-  b.style.color = isHidden ? 'var(--green)' : 'var(--ink2)';
+  b.innerHTML = isHidden ? '<span>Custom Speech &amp; Voice Model ▴</span>' : '<span>Custom Speech &amp; Voice Model ▾</span>';
+  b.style.color = isHidden ? 'var(--green)' : 'var(--muted)';
  }
 }
 
