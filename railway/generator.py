@@ -68,15 +68,36 @@ def _fmt_param(val: str, default: str) -> str:
     return v
 
 
+DIGIT_WORDS = {
+    "0": "zero", "1": "one", "2": "two", "3": "three", "4": "four",
+    "5": "five", "6": "six", "7": "seven", "8": "eight", "9": "nine"
+}
+
+
+def normalize_cloner_text(text: str) -> str:
+    """Normalize transcribed speech so numbers and spoken digits are read naturally."""
+    t = (text or "").strip()
+    if not t:
+        return t
+    import re
+    if re.fullmatch(r"[\d\s,.-]+", t):
+        digits = re.findall(r"\d", t)
+        if digits:
+            return ", ".join(DIGIT_WORDS.get(d, d) for d in digits)
+    # If counting digits appear in a sentence like "testing 1 2 3" or "123"
+    t = re.sub(r"\b\d{1,4}\b", lambda m: " ".join(DIGIT_WORDS.get(d, d) for d in m.group(0)), t)
+    return t
+
+
 async def generate_synthetic_mp3(text: str, voice_tag: str = "en-US-BrianNeural",
                                  pitch: str = "+0Hz", rate: str = "+0%") -> bytes:
     """Generate high-definition MP3 synthetic speech directly using edge-tts."""
-    text = text.strip() or random.choice(DEFAULT_PHRASES)
+    norm_text = normalize_cloner_text(text.strip()) or random.choice(DEFAULT_PHRASES)
     p_tag = _fmt_param(pitch, "+0Hz")
     r_tag = _fmt_param(rate, "+0%")
     try:
         import edge_tts
-        communicate = edge_tts.Communicate(text, voice_tag, pitch=p_tag, rate=r_tag)
+        communicate = edge_tts.Communicate(norm_text, voice_tag, pitch=p_tag, rate=r_tag)
         mp3_buffer = io.BytesIO()
         async for chunk in communicate.stream():
             if chunk["type"] == "audio":
