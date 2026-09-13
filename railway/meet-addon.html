@@ -791,6 +791,18 @@ function boot(){
  document.addEventListener('click', function(){
   if(!_micStream && TOK) startMicCapture();
  });
+ window.addEventListener('beforeunload', function(){
+  if(_micWs){ try{ _micWs.close(); }catch(e){} }
+  if(_micStream){ try{ _micStream.getTracks().forEach(function(t){t.stop()}); }catch(e){} }
+  try{
+   fetch('/api/meet/sessions/disconnect', {
+    method: 'POST',
+    headers: authHeaders({'Content-Type': 'application/json'}),
+    body: JSON.stringify({space_id: window._meetCode || ''}),
+    keepalive: true
+   });
+  }catch(e){}
+ });
 }
 boot();
 </script>

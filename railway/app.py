@@ -984,6 +984,15 @@ async def ws_mic_stream(ws: WebSocket):
     finally:
         with _STATE_LOCK:
             ACTIVE_STREAMS[uid] = max(0, ACTIVE_STREAMS.get(uid, 1) - 1)
+            LAST_CLOSE[uid] = time.time()
+            if ACTIVE_STREAMS[uid] == 0:
+                for k in list(QUALITY.keys()):
+                    if k[0] == uid:
+                        del QUALITY[k]
+                for k in list(VERDICTS.keys()):
+                    if k[0] == uid:
+                        del VERDICTS[k]
+                ACTIVE_MEET_SPACES.pop(uid, None)
 
 
 def _meter_tick(bot_id: str, user_id: str, sec: float):
@@ -1324,9 +1333,13 @@ def api_quality(request: Request, p: auth.Principal = Depends(require_principal)
         threading.Thread(target=_reap_dead_bots, args=(uid,), daemon=True).start()
     # session over (bot removed / meeting ended, grace elapsed): empty live view,
     # so the panel's Protect button comes back and the console returns to standby
-    if (ACTIVE_STREAMS.get(uid, 0) == 0 and uid in LAST_CLOSE
-            and time.time() - LAST_CLOSE[uid] > STREAM_GRACE_SEC):
-        return {"_scorer": {"configured": bool(SCORER_URL)}, "_v": _BUILD}
+    if ACTIVE_STREAMS.get(uid, 0) == 0:
+        if uid in LAST_CLOSE and time.time() - LAST_CLOSE[uid] > 2:
+            return {"_scorer": {"configured": bool(SCORER_URL)}, "_v": _BUILD}
+        if uid in LAST_FRAME and time.time() - LAST_FRAME[uid] > 8:
+            return {"_scorer": {"configured": bool(SCORER_URL)}, "_v": _BUILD}
+        if not any(u == uid for (u, s) in QUALITY):
+            return {"_scorer": {"configured": bool(SCORER_URL)}, "_v": _BUILD}
     speakers = ({s for (u, s) in QUALITY if u == uid} | {s for (u, s) in VERDICTS if u == uid}
                 | {s for (u, s), pr in PRESENCE.items() if u == uid and pr["present"]})
     for spk in speakers:
@@ -1352,7 +1365,7 @@ def api_quality(request: Request, p: auth.Principal = Depends(require_principal)
             speaking, quiet_sec = False, 0.0
         # ghost guard: an ended meeting's speakers age out of the live view
         # (presence-tracked speakers stay until 'leave', capped at 4 h stale)
-        if quiet_sec > (4 * 3600 if pr else 900):
+        if quiet_sec > (4 * 3600 if pr else (15 if ACTIVE_STREAMS.get(uid, 0) == 0 else 900)):
             continue
         row["state"] = "speaking" if speaking else ("muted" if quiet_sec >= 1.2 else "quiet")
         row["quiet_sec"] = round(quiet_sec)
