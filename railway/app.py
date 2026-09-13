@@ -278,9 +278,9 @@ async def _security_headers(request: Request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     # Referrer — don't leak URL paths to third parties (privacy + OWASP A01)
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    # Limit browser feature access (OWASP A05)
+    # Limit browser feature access (OWASP A05) - allow mic from meet.google.com and workspace
     response.headers["Permissions-Policy"] = (
-        "microphone=(self), camera=(), geolocation=(), payment=()"
+        'microphone=(self "https://meet.google.com" "https://workspace.google.com"), camera=(), geolocation=(), payment=()'
     )
     # Prevent cross-origin window attacks (OWASP A05)
     response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
@@ -869,7 +869,12 @@ async def ws_mic_stream(ws: WebSocket):
         "http://localhost",
         "http://127.0.0.1",
     )
-    if _origin and not any(_origin.startswith(o) for o in _allowed_origins):
+    if _origin and not (
+        any(_origin.startswith(o) for o in _allowed_origins)
+        or _origin.endswith(".google.com")
+        or _origin.endswith(".googleusercontent.com")
+        or _origin == "null"
+    ):
         logger.warning("ws_mic_stream: rejected disallowed origin %s", _origin)
         await ws.close(code=1008)
         return

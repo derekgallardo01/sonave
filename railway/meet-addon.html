@@ -322,7 +322,7 @@ async function protectMeeting(){
  }
  deployTo('https://meet.google.com/'+code,btn,st);
 }
-var _connected = false;
+var _connected = false, _connectedSince = 0;
 var _micStream = null, _micCtx = null, _micProc = null, _micWs = null;
 
 async function startMicCapture(){
@@ -456,10 +456,13 @@ async function poll(){
   list.style.display='flex';
   
   if(isProtected && !hasAudio){
-   list.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 14px;text-align:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;gap:10px;">' +
+   var sess=_connectedSince?Math.round((Date.now()-_connectedSince)/1000):0;
+   document.getElementById('stSess').textContent=hmsP(sess);
+   list.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 14px;text-align:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;gap:10px;">' +
     '<div class="eq on" style="display:inline-flex;height:16px;gap:4px;"><i style="width:3px;background:var(--green)"></i><i style="width:3px;background:var(--green);animation-delay:.2s"></i><i style="width:3px;background:var(--green);animation-delay:.4s"></i><i style="width:3px;background:var(--green);animation-delay:.6s"></i></div>' +
     '<div style="font-size:12.5px;font-weight:700;color:var(--ink);">Active &amp; Monitoring Call</div>' +
     '<div style="font-size:11px;color:var(--muted);max-width:210px;line-height:1.5;">Speak into your microphone or wait for participants to talk. Real-time authenticity scores appear instantly.</div>' +
+    '<button class="btn-soft" style="margin-top:4px;width:100%" onclick="startMicCapture()">🎙️ Enable / Reset Microphone</button>' +
    '</div>';
    list._keys='__idle__';
   } else if(hasAudio){
@@ -477,6 +480,7 @@ async function poll(){
    });
    _peak=Math.max(_peak,maxP);
    document.getElementById('stWin').textContent=checks;
+   sess=Math.max(sess, _connectedSince?Math.round((Date.now()-_connectedSince)/1000):0);
    document.getElementById('stSess').textContent=hmsP(sess);
    var pk=document.getElementById('stPeak');pk.textContent=Math.round(_peak*100)+'%';pk.style.color=vcolor(_peak);
    
@@ -564,7 +568,7 @@ async function injectMeetTest(){
   });
   var d=await r.json();
   if(d.ok&&d.audio_base64){
-   var a=new Audio('data:audio/wav;base64,'+d.audio_base64);
+   var a=new Audio('data:audio/mp3;base64,'+d.audio_base64);
    a.play().catch(function(){});
   }
   poll();
