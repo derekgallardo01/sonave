@@ -333,24 +333,65 @@ async function populateSinks(){
     var sinks = devices.filter(function(d){ return d.kind === 'audiooutput'; });
     var sel = document.getElementById('sinkSel');
     if(sel && sinks.length > 0){
-      sel.innerHTML = '<option value="">Output: System Default</option>';
+      var savedSink = '';
+      var savedLabel = '';
+      try {
+        savedSink = localStorage.getItem('sonave_sink') || '';
+        savedLabel = localStorage.getItem('sonave_sink_label') || '';
+      } catch(x){}
+
+      var foundSelected = false;
+      sel.innerHTML = '<option value="">System Default (Direct Ingest)</option>';
+
       sinks.forEach(function(s){
         var opt = document.createElement('option');
         opt.value = s.deviceId;
-        opt.textContent = s.label ? (s.label.length > 30 ? s.label.slice(0, 28) + '…' : s.label) : 'Audio Out (' + s.deviceId.slice(0,4) + ')';
-        if(s.label && (s.label.indexOf('CABLE') !== -1 || s.label.indexOf('VB-Audio') !== -1)){
+        var lbl = s.label || ('Audio Out (' + s.deviceId.slice(0,4) + ')');
+        opt.textContent = lbl.length > 36 ? lbl.slice(0, 34) + '…' : lbl;
+        
+        // Priority 1: User explicitly saved this sink previously
+        if(savedSink && s.deviceId === savedSink){
           opt.selected = true;
           _selectedSink = s.deviceId;
+          foundSelected = true;
+        } else if(!foundSelected && savedLabel && s.label && s.label === savedLabel){
+          opt.selected = true;
+          _selectedSink = s.deviceId;
+          foundSelected = true;
+        }
+        // Priority 2: Auto-detect Virtual Cable / CABLE Input / VB-Audio
+        else if(!foundSelected && !savedSink && s.label && (
+          s.label.toUpperCase().indexOf('CABLE') !== -1 ||
+          s.label.toUpperCase().indexOf('VB-AUDIO') !== -1 ||
+          s.label.toUpperCase().indexOf('VIRTUAL') !== -1 ||
+          s.label.toUpperCase().indexOf('VOICEMEETER') !== -1 ||
+          s.label.toUpperCase().indexOf('BLACKHOLE') !== -1
+        )){
+          opt.selected = true;
+          _selectedSink = s.deviceId;
+          foundSelected = true;
         }
         sel.appendChild(opt);
       });
+
+      if(!foundSelected){
+        sel.selectedIndex = 0;
+        _selectedSink = '';
+      }
     }
   } catch(e){}
 }
 
 function setSink(id){
   _selectedSink = id || '';
-  toast('Audio sink routed', 'ok');
+  try {
+    localStorage.setItem('sonave_sink', _selectedSink);
+    var sel = document.getElementById('sinkSel');
+    if(sel && sel.selectedIndex >= 0){
+      localStorage.setItem('sonave_sink_label', sel.options[sel.selectedIndex].text);
+    }
+  } catch(x){}
+  toast('Audio routing set as default', 'ok');
 }
 
 function onVoiceChange(vId){
@@ -512,6 +553,7 @@ async function startCloner(){
   try {
     _micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
     initMicSpectrum(_micStream);
+    await populateSinks();
   } catch(e){
     toast('Microphone permission required', 'err');
     return;

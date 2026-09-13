@@ -751,6 +751,13 @@ var DEMO_PRESETS = {
 
 async function setAudioSink(sinkId){
  _selectedSinkId = sinkId || '';
+ try{
+  localStorage.setItem('sonave_sink', _selectedSinkId);
+  var sel = document.getElementById('demoSinkSel');
+  if(sel && sel.selectedIndex >= 0){
+   localStorage.setItem('sonave_sink_label', sel.options[sel.selectedIndex].text);
+  }
+ }catch(x){}
  var b = document.getElementById('demoDevBadge');
  if(b) b.textContent = sinkId ? 'VB-Cable Out' : 'Direct Ingest';
 }
@@ -762,19 +769,50 @@ async function populateAudioOutputs(){
   var sinks = devices.filter(function(d){ return d.kind === 'audiooutput'; });
   var sel = document.getElementById('demoSinkSel');
   if(sel && sinks.length > 0){
-   sel.innerHTML = '<option value="">Output: Default</option>';
+   var savedSink = '';
+   var savedLabel = '';
+   try {
+    savedSink = localStorage.getItem('sonave_sink') || '';
+    savedLabel = localStorage.getItem('sonave_sink_label') || '';
+   } catch(x){}
+
+   var foundSelected = false;
+   sel.innerHTML = '<option value="">Out: Default</option>';
+
    sinks.forEach(function(s){
     var opt = document.createElement('option');
     opt.value = s.deviceId;
-    opt.textContent = s.label ? (s.label.length > 24 ? s.label.slice(0, 22) + '…' : s.label) : 'Audio Out (' + s.deviceId.slice(0,4) + ')';
-    if(s.label && (s.label.indexOf('CABLE') !== -1 || s.label.indexOf('VB-Audio') !== -1)){
+    var lbl = s.label || ('Audio Out (' + s.deviceId.slice(0,4) + ')');
+    opt.textContent = lbl.length > 24 ? lbl.slice(0, 22) + '…' : lbl;
+
+    if(savedSink && s.deviceId === savedSink){
      opt.selected = true;
      _selectedSinkId = s.deviceId;
-     var b = document.getElementById('demoDevBadge');
-     if(b) b.textContent = 'VB-Cable Out';
+     foundSelected = true;
+    } else if(!foundSelected && savedLabel && s.label && s.label === savedLabel){
+     opt.selected = true;
+     _selectedSinkId = s.deviceId;
+     foundSelected = true;
+    } else if(!foundSelected && !savedSink && s.label && (
+     s.label.toUpperCase().indexOf('CABLE') !== -1 ||
+     s.label.toUpperCase().indexOf('VB-AUDIO') !== -1 ||
+     s.label.toUpperCase().indexOf('VIRTUAL') !== -1 ||
+     s.label.toUpperCase().indexOf('VOICEMEETER') !== -1 ||
+     s.label.toUpperCase().indexOf('BLACKHOLE') !== -1
+    )){
+     opt.selected = true;
+     _selectedSinkId = s.deviceId;
+     foundSelected = true;
     }
     sel.appendChild(opt);
    });
+
+   if(!foundSelected){
+    sel.selectedIndex = 0;
+    _selectedSinkId = '';
+   }
+   var b = document.getElementById('demoDevBadge');
+   if(b) b.textContent = _selectedSinkId ? 'VB-Cable Out' : 'Direct Ingest';
   }
  }catch(e){}
 }
