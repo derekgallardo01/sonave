@@ -430,42 +430,26 @@ a:hover{color:var(--green-hover)}
        <span id="v2vStatus" class="badge" style="font-size:9.5px; font-family:var(--mono); color:var(--muted); background:rgba(255,255,255,0.06); padding:2px 8px; border-radius:5px;">STANDBY</span>
       </div>
 
-      <div style="display:flex; gap:10px; margin-bottom:10px;">
-       <button class="btn-primary" id="btnV2VToggle" onclick="toggleV2V()" style="flex:1.4; background:linear-gradient(135deg, #2ee584 0%, #16b85d 100%); color:#06130b; font-size:13px; font-weight:800; padding:12px 18px; border-radius:10px; border:none; box-shadow:0 4px 24px rgba(46,229,132,0.4); display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer; letter-spacing:-0.01em;">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"></path><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"></path></svg>
-        <span>Start Real Voice-to-Voice (Speak &amp; Clone)</span>
-       </button>
-       <button class="btn-soft" onclick="dismissThreatCheck()" style="flex:0.6; padding:12px 14px; font-size:12px; font-weight:700; border-color:rgba(255,77,94,0.45); background:rgba(255,77,94,0.09); color:#ff808d; border-radius:10px; display:flex; align-items:center; justify-content:center; gap:5px; cursor:pointer;" title="Clear active threat and return meeting to clean authentic status">
-        <span>↺ Clear Threat</span>
-       </button>
-      </div>
-
-      <div id="v2vLiveBox" style="display:none; font-size:11px; color:#ff808d; font-family:var(--mono); margin-bottom:10px; padding:8px 12px; background:rgba(255,77,94,0.1); border-radius:8px; border:1px solid rgba(255,77,94,0.3); line-height:1.4;">
-       Listening for speech...
-      </div>
-
-      <!-- Quick Attack Presets & Fast Threat Injector -->
-      <div style="display:flex; flex-direction:column; gap:8px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.06);">
-       <div style="display:flex; justify-content:space-between; align-items:center;">
-        <span style="font-size:10px; font-weight:800; color:var(--ink2); letter-spacing:0.06em; font-family:var(--mono);">⚡ INSTANT THREAT INJECTION &amp; NEURAL ATTACK SCENARIOS</span>
-        <span style="font-size:9.5px; color:var(--muted); font-family:var(--mono);">Zero-Delay Inject</span>
-       </div>
-       <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:6px;">
-        <button class="btn-soft" onclick="runConsolePreset('ceo_wire')" style="padding:7px 8px; font-size:10.5px; text-align:center; justify-content:center; border-color:rgba(255,77,94,0.35); color:#ff808d; background:rgba(255,77,94,0.06);">
-         <span style="font-weight:700">🔴 CEO $250k Wire</span>
+       <div style="display:flex; gap:8px; margin-bottom:10px;">
+        <button class="btn-primary" id="btnV2VToggle" onclick="toggleV2V()" style="flex:1.4; background:linear-gradient(135deg, #2ee584 0%, #16b85d 100%); color:#06130b; font-size:12.5px; font-weight:800; padding:11px 16px; border-radius:10px; border:none; box-shadow:0 4px 24px rgba(46,229,132,0.4); display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer; letter-spacing:-0.01em;">
+         <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"></path><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"></path></svg>
+         <span>Start Voice-to-Voice (Speak &amp; Clone)</span>
         </button>
-        <button class="btn-soft" onclick="runConsolePreset('it_mfa')" style="padding:7px 8px; font-size:10.5px; text-align:center; justify-content:center; border-color:rgba(255,77,94,0.35); color:#ff808d; background:rgba(255,77,94,0.06);">
-         <span style="font-weight:700">🔴 IT Security MFA</span>
+        <button class="btn-soft" onclick="runConsolePreset('ceo_wire')" style="flex:0.9; padding:11px 12px; font-size:11.5px; font-weight:700; border-color:rgba(255,77,94,0.45); color:#ff808d; background:rgba(255,77,94,0.08); border-radius:10px; display:flex; align-items:center; justify-content:center; gap:5px; cursor:pointer;" title="Inject 1-click synthetic deepfake attack">
+         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"></circle></svg>
+         <span>Inject AI Threat</span>
         </button>
-        <button class="btn-soft" onclick="runConsolePreset('cfo_payroll')" style="padding:7px 8px; font-size:10.5px; text-align:center; justify-content:center; border-color:rgba(255,77,94,0.35); color:#ff808d; background:rgba(255,77,94,0.06);">
-         <span style="font-weight:700">🔴 CFO Payroll</span>
-        </button>
-        <button class="btn-soft" onclick="runConsolePreset('real_baseline')" style="padding:7px 8px; font-size:10.5px; text-align:center; justify-content:center; border-color:rgba(46,229,132,0.4); color:var(--green); background:rgba(46,229,132,0.06);">
-         <span style="font-weight:700">🟢 Real Voice</span>
+        <button class="btn-soft" onclick="dismissThreatCheck()" style="flex:0.6; padding:11px 12px; font-size:11.5px; font-weight:700; border-color:rgba(255,77,94,0.45); background:rgba(255,77,94,0.09); color:#ff808d; border-radius:10px; display:flex; align-items:center; justify-content:center; gap:4px; cursor:pointer;" title="Clear active threat and return meeting to clean authentic status">
+         <span>↺ Clear</span>
         </button>
        </div>
+
+       <div id="v2vLiveBox" style="display:none; font-size:11px; color:#ff808d; font-family:var(--mono); margin-bottom:10px; padding:8px 12px; background:rgba(255,77,94,0.1); border-radius:8px; border:1px solid rgba(255,77,94,0.3); line-height:1.4;">
+        Listening for speech...
+       </div>
+
        <!-- Custom Speech Row -->
-       <div style="display:flex; gap:8px; margin-top:2px;">
+       <div style="display:flex; gap:8px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.06);">
         <select id="synthVoiceSel" class="sel" style="flex:0.8; font-size:11px; padding:6px 8px;">
          <option value="ceo_impersonator">CEO Baritone (Deepfake)</option>
          <option value="elevenlabs_adam">ElevenLabs Brian / Adam</option>

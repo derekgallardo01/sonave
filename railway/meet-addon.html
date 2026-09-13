@@ -195,30 +195,22 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
      </button>
     </div>
 
-    <!-- 1-Click Instant Attack Buttons (One click synthesizes and injects immediately!) -->
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:8px;">
-     <button class="btn-soft" onclick="runDemoPreset('ceo_wire')" style="padding:7px 9px; font-size:10.5px; font-weight:700; text-align:left; justify-content:flex-start; border-color:rgba(255,77,94,0.35); color:#ff808d; background:rgba(255,77,94,0.06); border-radius:8px;">
-      🔴 CEO $250k Wire
+    <!-- Primary 2-Button Action Bar: 1 Threat Preset + Live Mic Cloner -->
+    <div style="display:flex; gap:8px;">
+     <button class="btn-soft" onclick="runDemoPreset('ceo_wire')" style="flex:1.1; padding:9px 12px; font-size:11px; font-weight:700; text-align:center; justify-content:center; border-color:rgba(255,77,94,0.45); color:#ff808d; background:rgba(255,77,94,0.08); border-radius:8px; display:flex; align-items:center; gap:6px; cursor:pointer;" title="Inject 1-click synthetic deepfake attack">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"></circle></svg>
+      <span>Inject AI Threat</span>
      </button>
-     <button class="btn-soft" onclick="runDemoPreset('it_mfa')" style="padding:7px 9px; font-size:10.5px; font-weight:700; text-align:left; justify-content:flex-start; border-color:rgba(255,77,94,0.35); color:#ff808d; background:rgba(255,77,94,0.06); border-radius:8px;">
-      🔴 2FA Code Theft
-     </button>
-     <button class="btn-soft" onclick="runDemoPreset('cfo_payroll')" style="padding:7px 9px; font-size:10.5px; font-weight:700; text-align:left; justify-content:flex-start; border-color:rgba(255,77,94,0.35); color:#ff808d; background:rgba(255,77,94,0.06); border-radius:8px;">
-      🔴 CFO Payroll Scam
-     </button>
-     <button class="btn-soft" onclick="runDemoPreset('real_baseline')" style="padding:7px 9px; font-size:10.5px; font-weight:700; text-align:left; justify-content:flex-start; border-color:rgba(46,229,132,0.4); color:var(--green); background:rgba(46,229,132,0.06); border-radius:8px;">
-      🟢 Real Baseline
+     <button class="btn-primary" onclick="popoutCloner()" style="flex:1.1; padding:9px 12px; font-size:11px; font-weight:800; background:linear-gradient(135deg, #2ee584 0%, #16b85d 100%); color:#06130b; border:none; border-radius:8px; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer; box-shadow:0 2px 12px rgba(46,229,132,0.3);" title="Open real-time microphone cloner companion">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"></path><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"></path></svg>
+      <span>Live Mic Cloner ↗</span>
      </button>
     </div>
 
-    <!-- Secondary Utilities: Live Mic Popout & Custom Text Toggle -->
-    <div style="display:flex; gap:6px;">
-     <button class="btn-primary" onclick="popoutCloner()" style="flex:1.2; padding:7px 10px; font-size:10.5px; font-weight:700; background:linear-gradient(135deg, #2ee584 0%, #16b85d 100%); color:#06130b; border:none; border-radius:7px; display:flex; align-items:center; justify-content:center; gap:5px; cursor:pointer;" title="Open real-time microphone cloner companion">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"></path><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"></path></svg>
-      <span>Live Mic Cloner ↗</span>
-     </button>
-     <button class="btn-soft" onclick="toggleCustomSpeechDrawer()" id="btnToggleCustomDrawer" style="flex:0.8; padding:7px 8px; font-size:10.5px; font-weight:600; border-color:var(--line2); color:var(--ink2); border-radius:7px; display:flex; align-items:center; justify-content:center; gap:4px; cursor:pointer;">
-      <span>Custom Speech ▾</span>
+    <!-- Collapsible Custom Text / Settings Toggle -->
+    <div style="margin-top:7px; text-align:center;">
+     <button class="link" onclick="toggleCustomSpeechDrawer()" id="btnToggleCustomDrawer" style="font-size:10px; color:var(--muted); text-decoration:none; cursor:pointer;">
+      <span>Custom Speech &amp; Voice Model ▾</span>
      </button>
     </div>
 
