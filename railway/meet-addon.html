@@ -183,16 +183,22 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
   <div><b>SESSION</b><span id="stSess">0:00</span></div>
   <div><b>PEAK RISK</b><span id="stPeak">0%</span></div>
  </div>
- <div style="padding:0 12px 10px; display:flex; justify-content:center; gap:8px;">
-  <button id="btnSim" class="btn-soft" style="flex:1;" onclick="injectMeetTest()">
-   <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="margin-right:4px;vertical-align:-1px"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
-   <span>Simulate Voice Threat Check</span>
-  </button>
-  <button id="btnDismiss" class="btn-soft" style="display:none;padding:0 12px;color:var(--muted);border-color:var(--line);white-space:nowrap;" onclick="dismissThreatCheck()" title="Dismiss simulated threat check">
-   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-1px"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-   <span>Dismiss</span>
-  </button>
- </div>
+  <div id="micPrompt" style="display:none;padding:0 12px 10px;">
+   <button class="btn-soft" style="width:100%;background:rgba(46,229,132,0.12);border-color:rgba(46,229,132,0.4);color:var(--green);font-size:11.5px;padding:8px 12px;" onclick="startMicCapture()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:-2px"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+    <span>Tap to Allow Live Voice Verification</span>
+   </button>
+  </div>
+  <div style="padding:0 12px 10px; display:flex; justify-content:center; gap:8px;">
+   <button id="btnSim" class="btn-soft" style="flex:1;" onclick="injectMeetTest()">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="margin-right:4px;vertical-align:-1px"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+    <span>Simulate Voice Threat Check</span>
+   </button>
+   <button id="btnDismiss" class="btn-soft" style="display:none;padding:0 12px;color:var(--muted);border-color:var(--line);white-space:nowrap;" onclick="dismissThreatCheck()" title="Dismiss simulated threat check">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-1px"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+    <span>Dismiss</span>
+   </button>
+  </div>
  <div class="ft"><span id="meta"><span class="dot"></span>detection engine online</span><span><a href="#" onclick="signOut();return false" style="color:var(--muted);font-weight:500;font-size:10px;margin-right:10px">Sign out</a><a href="/console" target="_blank" rel="noopener">Open console ↗</a></span></div>
 </div>
 
@@ -507,6 +513,8 @@ async function poll(){
   }
   var specWrap = document.getElementById('miniSpecWrap');
   if(specWrap) specWrap.style.display = isProtected ? 'block' : 'none';
+  var promptEl = document.getElementById('micPrompt');
+  if(promptEl) promptEl.style.display = (isProtected && !_micStream) ? 'block' : 'none';
  }catch(e){
  }finally{
   _inPoll = false;
@@ -706,30 +714,26 @@ async function dismissThreatCheck(){
 var _micCtx = null, _micStream = null, _micWs = null, _micAnalyser = null;
 var _localLevel = 0, _localSpeaking = false, _lastLocalVoiceTs = 0;
 
-function startMicCapture(){
- if(_micStream || _micWs) return;
+async function startMicCapture(){
+ if(_micStream && _micWs && _micWs.readyState === WebSocket.OPEN) {
+  if(_micCtx && _micCtx.state === 'suspended') { try{ await _micCtx.resume(); }catch(e){} }
+  return;
+ }
  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
 
- var spkName = (ME && ME.name) || 'Derek';
- var wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
- var wsUrl = wsProto + '//' + location.host + '/api/ws/mic-stream?token=' + encodeURIComponent(TOK || '') + '&speaker=' + encodeURIComponent(spkName);
-
+ var promptEl = document.getElementById('micPrompt');
  try {
-  _micWs = new WebSocket(wsUrl);
-  _micWs.binaryType = 'arraybuffer';
-  _micWs.onopen = function(){ console.log('Mic WS connected'); };
-  _micWs.onclose = function(){ _micWs = null; };
-  _micWs.onerror = function(){ _micWs = null; };
- } catch(e){}
-
- navigator.mediaDevices.getUserMedia({
-  audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
- }).then(function(stream){
+  var stream = await navigator.mediaDevices.getUserMedia({
+   audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+  });
   _micStream = stream;
+  if(promptEl) promptEl.style.display = 'none';
+
   var AudioContext = window.AudioContext || window.webkitAudioContext;
-  _micCtx = new AudioContext();
+  if(!_micCtx) _micCtx = new AudioContext();
+  if(_micCtx.state === 'suspended') { await _micCtx.resume(); }
+
   var source = _micCtx.createMediaStreamSource(stream);
-  
   _micAnalyser = _micCtx.createAnalyser();
   _micAnalyser.fftSize = 64;
   source.connect(_micAnalyser);
@@ -738,10 +742,22 @@ function startMicCapture(){
   var targetSampleRate = 16000;
   var inputSampleRate = _micCtx.sampleRate;
 
+  var spkName = (ME && ME.name) || 'Derek';
+  var wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  var wsUrl = wsProto + '//' + location.host + '/api/ws/mic-stream?token=' + encodeURIComponent(TOK || '') + '&speaker=' + encodeURIComponent(spkName);
+
+  if(!_micWs || _micWs.readyState > WebSocket.OPEN){
+   try {
+    _micWs = new WebSocket(wsUrl);
+    _micWs.binaryType = 'arraybuffer';
+    _micWs.onopen = function(){ console.log('Mic WS connected'); };
+    _micWs.onclose = function(){ _micWs = null; };
+    _micWs.onerror = function(){ _micWs = null; };
+   } catch(e){}
+  }
+
   processor.onaudioprocess = function(e){
    var inputData = e.inputBuffer.getChannelData(0);
-   
-   // Compute RMS level
    var sum = 0;
    for(var i = 0; i < inputData.length; i++){
     sum += inputData[i] * inputData[i];
@@ -750,14 +766,13 @@ function startMicCapture(){
    _localLevel = rms;
 
    var now = Date.now();
-   if(rms >= 0.012){
+   if(rms >= 0.010){
     _lastLocalVoiceTs = now;
     _localSpeaking = true;
-   } else if(now - _lastLocalVoiceTs > 800){
+   } else if(now - _lastLocalVoiceTs > 600){
     _localSpeaking = false;
    }
 
-   // Downsample to 16kHz Int16 PCM and stream to backend
    if(_micWs && _micWs.readyState === WebSocket.OPEN){
     var downsampledLen = Math.floor(inputData.length * (targetSampleRate / inputSampleRate));
     var pcmBuffer = new Int16Array(downsampledLen);
@@ -773,9 +788,10 @@ function startMicCapture(){
 
   source.connect(processor);
   processor.connect(_micCtx.destination);
- }).catch(function(err){
-  console.warn('Microphone access note:', err);
- });
+ } catch(err){
+  console.warn('Microphone permission required:', err);
+  if(promptEl) promptEl.style.display = 'block';
+ }
 }
 
 function boot(){
