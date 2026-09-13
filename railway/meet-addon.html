@@ -513,6 +513,7 @@ function rowHTML(k){
   '<div class="sattr" style="display:none"></div></div>';
 }
 function patchRow(el,k,s){
+ if(!el) return;
  var p=s.auth_p!=null?s.auth_p:0;
  _pt[k]=p;
  var quiet=s.state==='quiet'&&(s.quiet_sec||0)>3;
@@ -522,14 +523,18 @@ function patchRow(el,k,s){
  el.setAttribute('data-v',s.auth_verdict?'1':'0');
  var you=isMe(k)?' <span class="dim">· you</span>':'';
  var st=talk?' <span class="eq on"><i></i><i></i><i></i></span>':'';
- el.querySelector('.sname').innerHTML=esc(k.replace(/_/g,' '))+you+st;
- el.querySelector('.ssub').textContent=
-  !s.auth_verdict?(quiet?'muted / quiet · waiting for speech':'listening — first verdict in seconds'):
-  quiet?'muted / quiet · '+(s.quiet_sec<60?s.quiet_sec+'s':Math.floor(s.quiet_sec/60)+'m'):
-  talk?'speaking':'monitoring';
+ var nameEl=el.querySelector('.sname'); if(nameEl) nameEl.innerHTML=esc(k.replace(/_/g,' '))+you+st;
+ var subEl=el.querySelector('.ssub');
+ if(subEl){
+  subEl.textContent=
+   !s.auth_verdict?(quiet?'muted / quiet · waiting for speech':'listening — first verdict in seconds'):
+   quiet?'muted / quiet · '+(s.quiet_sec<60?s.quiet_sec+'s':Math.floor(s.quiet_sec/60)+'m'):
+   talk?'speaking':'monitoring';
+ }
  var vw=s.auth_verdict?'<span class="vword" style="color:'+vcolor(p)+'">'+esc(s.auth_verdict.toUpperCase())+'</span>'
                       :'<span class="vword" style="color:var(--muted)">PENDING</span>';
- el.querySelector('.smeta').innerHTML='<span>'+esc(s.speech_pct||0)+'% speech</span><span>'+hmsP(s.total_sec)+'</span>'+vw;
+ var metaEl=el.querySelector('.smeta');
+ if(metaEl) metaEl.innerHTML='<span>'+esc(s.speech_pct||0)+'% speech</span><span>'+hmsP(s.total_sec)+'</span>'+vw;
  var sattr=el.querySelector('.sattr');
  if(sattr){
   var h='';
@@ -548,18 +553,23 @@ function panelAnim(){
  var list=document.getElementById('speakers');
  if(list)for(var i=0;i<list.children.length;i++){
   var el=list.children[i],k=el.getAttribute('data-spk');
+  if(!k)continue;
   var t=_pt[k];if(t==null)continue;
   var d=_pd[k]==null?t:_pd[k];d+=(t-d)*0.1;if(Math.abs(t-d)<0.0005)d=t;_pd[k]=d;
   var c=vcolor(d);
-  var f=el.querySelector('.fill');f.style.width=(d*100)+'%';f.style.background=c;
-  var pc=el.querySelector('.spct');pc.style.color=c;
-  if(el.getAttribute('data-v')==='1')pc.textContent=Math.round(d*100)+'%';
+  var f=el.querySelector('.fill');if(f){f.style.width=(d*100)+'%';f.style.background=c;}
+  var pc=el.querySelector('.spct');
+  if(pc){
+   pc.style.color=c;
+   if(el.getAttribute('data-v')==='1')pc.textContent=Math.round(d*100)+'%';
+  }
  }
  requestAnimationFrame(panelAnim);
 }
 requestAnimationFrame(panelAnim);
 function show(id){['signin','live'].forEach(function(x){document.getElementById(x).style.display=x===id?'flex':'none'})}
 async function injectMeetTest(){
+ var btn=document.querySelector('.ft + div button') || document.getElementById('btnSim');
  try{
   var r=await fetch('/api/generator/inject-test',{
    method:'POST',
@@ -571,14 +581,19 @@ async function injectMeetTest(){
    var a=new Audio('data:audio/mp3;base64,'+d.audio_base64);
    a.play().catch(function(){});
   }
-  poll();
- }catch(e){}
+  _connected=true;
+  _connectedSince=_connectedSince||Date.now();
+  await poll();
+ }catch(e){
+  console.error('Inject test failed:', e);
+ }
 }
 
 function boot(){
+ _connectedSince=Date.now();
  if(TOK){show('live');}else{show('signin');}
  poll();
- setInterval(poll,700);
+ setInterval(poll,500);
 }
 boot();
 </script>
