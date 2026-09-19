@@ -190,12 +190,45 @@ def _track(user_id: str, kind: str, **detail) -> None:
         pass
 
 
-def _notify_admin(summary: str) -> None:
-    """Growth pushes (signup / subscription changes) to the founder, off-thread.
-    Each channel is env-gated and silently off until configured."""
+def _send_email(to_email: str, subject: str, text_body: str, html_body: str | None = None) -> None:
+    """Send an off-thread transactional email via configured SMTP relay."""
+    if not to_email or "@" not in to_email:
+        return
+
     def _send():
-        hook = os.environ.get("SONAVE_ADMIN_WEBHOOK", "")
-        if hook:
+        host = os.environ.get("SONAVE_SMTP_HOST", "")
+        user = os.environ.get("SONAVE_SMTP_USER", "")
+        password = os.environ.get("SONAVE_SMTP_PASS", "")
+        sender = (os.environ.get("SONAVE_SMTP_FROM") or user or "alerts@usesonave.com")
+        if not host or not user:
+            logger.info("Email skipped to %s (SMTP not configured): %s", _mask_email(to_email), subject)
+            return
+        try:
+            import smtplib
+            from email.message import EmailMessage
+            msg = EmailMessage()
+            msg["Subject"] = subject
+            msg["From"] = f"Sonave <{sender}>" if "<" not in sender else sender
+            msg["To"] = to_email
+            msg.set_content(text_body)
+            if html_body:
+                msg.add_alternative(html_body, subtype="html")
+            with smtplib.SMTP(host, int(os.environ.get("SONAVE_SMTP_PORT", "587")), timeout=15) as s:
+                s.starttls()
+                s.login(user, password)
+                s.send_message(msg)
+            logger.info("Email delivered to %s: %s", _mask_email(to_email), subject)
+        except Exception as e:
+            logger.warning("Failed sending email to %s: %s", _mask_email(to_email), repr(e)[:100])
+
+    threading.Thread(target=_send, daemon=True).start()
+
+
+def _notify_admin(summary: str) -> None:
+    """Growth pushes (signup / subscription changes) to the founder, off-thread."""
+    hook = os.environ.get("SONAVE_ADMIN_WEBHOOK", "")
+    if hook:
+        def _post_hook():
             try:
                 req = urllib.request.Request(
                     hook, data=json.dumps({"text": summary}).encode(),
@@ -203,30 +236,171 @@ def _notify_admin(summary: str) -> None:
                 urllib.request.urlopen(req, timeout=10).read()
             except Exception as e:
                 logger.warning("admin webhook failed: %s", repr(e)[:80])
-        host = os.environ.get("SONAVE_SMTP_HOST", "")
-        to = os.environ.get("SONAVE_ADMIN_EMAIL", "")
-        if host and to:
-            try:
-                import smtplib
-                from email.message import EmailMessage
-                msg = EmailMessage()
-                msg["Subject"] = f"Sonave: {summary[:120]}"
-                # From is the verified sender address; for providers like Resend the SMTP
-                # login user ("resend") differs from it, so allow a separate SONAVE_SMTP_FROM
-                # (falls back to the login user, which is correct for Gmail-style setups).
-                msg["From"] = (os.environ.get("SONAVE_SMTP_FROM")
-                               or os.environ.get("SONAVE_SMTP_USER", ""))
-                msg["To"] = to
-                msg.set_content(summary)
-                with smtplib.SMTP(host, int(os.environ.get("SONAVE_SMTP_PORT", "587")),
-                                  timeout=15) as s:
-                    s.starttls()
-                    s.login(os.environ.get("SONAVE_SMTP_USER", ""),
-                            os.environ.get("SONAVE_SMTP_PASS", ""))
-                    s.send_message(msg)
-            except Exception as e:
-                logger.warning("admin email failed: %s", repr(e)[:80])
-    threading.Thread(target=_send, daemon=True).start()
+        threading.Thread(target=_post_hook, daemon=True).start()
+
+    to = os.environ.get("SONAVE_ADMIN_EMAIL", "")
+    if to:
+        _send_email(to, f"Sonave: {summary[:120]}", summary)
+
+
+def _send_welcome_email(to_email: str, name: str = "") -> None:
+    """First-run onboarding guide sent to new users upon signing up."""
+    first_name = name.split()[0] if name else "there"
+    subject = "Welcome to Sonave — Voice Authenticity for Google Meet"
+    text = f"""Hi {first_name},
+
+Welcome to Sonave! Your account is active and includes 5 free hours of real-time deepfake voice protection every month.
+
+Getting Started in Google Meet:
+1. Join any Google Meet call (meet.google.com).
+2. Click the Activities icon (shapes icon at the bottom right) and select "Sonave".
+3. Click "Protect this meeting" — all speakers are analyzed in real time with live REAL, SUSPECT, or FAKE authenticity verdicts.
+
+Try the Instant Preview:
+Open the Sonave panel in any meeting and click "Watch simulated detection" to see a 15-second live threat demo and red wire-hold alert.
+
+Your Security Console:
+Visit your dashboard anytime to review past calls, inspect forensics, or manage alerts:
+https://usesonave.com/console
+
+If you have questions or need help setting up auto-protection, simply reply directly to this email.
+
+Best,
+Derek Gallardo
+Founder, Sonave
+https://usesonave.com
+"""
+    html = f"""<!DOCTYPE html>
+<html>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0a0e12;color:#e8eef2;margin:0;padding:24px 16px;">
+  <div style="max-width:540px;margin:0 auto;background:#121820;border:1px solid #1f2a36;border-radius:12px;padding:32px 28px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:24px;">
+      <span style="font-size:20px;font-weight:700;color:#2ee584;letter-spacing:-0.5px;">SONAVE</span>
+      <span style="font-size:11px;color:#8599a8;border:1px solid #233342;padding:2px 8px;border-radius:12px;">Google Meet Voice Security</span>
+    </div>
+    <h1 style="font-size:20px;font-weight:700;color:#ffffff;margin:0 0 16px 0;">Welcome to Sonave, {first_name}</h1>
+    <p style="font-size:14px;line-height:1.6;color:#b0c2ce;margin:0 0 20px 0;">
+      Your account is ready with <strong>5 free hours of live deepfake voice protection</strong> every month.
+    </p>
+
+    <div style="background:#17222c;border:1px solid #233342;border-radius:8px;padding:18px 20px;margin-bottom:24px;">
+      <div style="font-size:13px;font-weight:600;color:#2ee584;margin-bottom:10px;">HOW TO PROTECT A MEETING:</div>
+      <ol style="margin:0;padding-left:20px;font-size:13px;color:#d5e2eb;line-height:1.8;">
+        <li>Join any Google Meet call (<code style="color:#2ee584;">meet.google.com</code>).</li>
+        <li>Click the <strong>Activities</strong> icon (bottom right) and select <strong>Sonave</strong>.</li>
+        <li>Click <strong>Protect this meeting</strong> — speakers get verified authentic in real time.</li>
+      </ol>
+    </div>
+
+    <p style="font-size:13px;line-height:1.6;color:#8599a8;margin:0 0 24px 0;">
+      💡 <em>Tip: You can also click <strong>"Watch simulated detection"</strong> inside the Meet side panel for an instant 15-second preview of what a flagged voice clone looks like.</em>
+    </p>
+
+    <div style="text-align:center;margin:28px 0 20px 0;">
+      <a href="https://usesonave.com/console" style="background:#2ee584;color:#0a0e12;font-size:14px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:6px;display:inline-block;">Open Security Console →</a>
+    </div>
+
+    <div style="border-top:1px solid #1f2a36;margin-top:28px;padding-top:18px;font-size:12px;color:#5a6d7d;line-height:1.5;">
+      Sonave Security Inc. · Real-Time Deepfake Detection for Video Meetings<br>
+      Console: <a href="https://usesonave.com/console" style="color:#2ee584;text-decoration:none;">usesonave.com/console</a>
+    </div>
+  </div>
+</body>
+</html>"""
+    _send_email(to_email, subject, text, html)
+
+
+def _send_quota_warning_email(to_email: str, name: str, percent: int, used_min: float, free_min: float) -> None:
+    """Quota alert sent to users when approaching or exceeding free tier limits."""
+    first_name = name.split()[0] if name else "there"
+    if percent >= 100:
+        subject = "Action Required: Your free Sonave meeting quota is exhausted"
+        lead = f"You have reached 100% of your free allowance ({int(used_min)} of {int(free_min)} minutes) for this month."
+        action_text = "To keep your meetings protected with zero interruptions, add a card to continue at $8 per monitored hour:"
+    else:
+        subject = f"Notice: {percent}% of your free Sonave meeting quota used this month"
+        lead = f"You have used {int(used_min)} of your {int(free_min)} free minutes ({percent}%) for this month. You have approximately {int(free_min - used_min)} minutes remaining."
+        action_text = "You can upgrade or monitor your remaining balance anytime in your console:"
+
+    text = f"""Hi {first_name},
+
+{lead}
+
+{action_text}
+https://usesonave.com/console
+
+Sonave only meters live connected call audio — unused quota resets at the start of each calendar month.
+
+Best,
+The Sonave Team
+https://usesonave.com
+"""
+    html = f"""<!DOCTYPE html>
+<html>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0a0e12;color:#e8eef2;margin:0;padding:24px 16px;">
+  <div style="max-width:540px;margin:0 auto;background:#121820;border:1px solid #1f2a36;border-radius:12px;padding:32px 28px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:24px;">
+      <span style="font-size:20px;font-weight:700;color:{'#ff4d5e' if percent>=100 else '#f5a623'};">SONAVE</span>
+      <span style="font-size:11px;color:#8599a8;border:1px solid #233342;padding:2px 8px;border-radius:12px;">Usage Alert</span>
+    </div>
+    <h1 style="font-size:18px;font-weight:700;color:#ffffff;margin:0 0 16px 0;">{lead}</h1>
+    <p style="font-size:14px;line-height:1.6;color:#b0c2ce;margin:0 0 24px 0;">
+      {action_text}
+    </p>
+    <div style="text-align:center;margin:28px 0 20px 0;">
+      <a href="https://usesonave.com/console" style="background:#2ee584;color:#0a0e12;font-size:14px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:6px;display:inline-block;">Manage Billing in Console →</a>
+    </div>
+    <div style="border-top:1px solid #1f2a36;margin-top:28px;padding-top:18px;font-size:12px;color:#5a6d7d;line-height:1.5;">
+      Your quota resets on the 1st of next month. Free plan includes 5 hours (300 min)/mo.<br>
+      Questions? Contact support at <a href="mailto:support@usesonave.com" style="color:#2ee584;text-decoration:none;">support@usesonave.com</a>.
+    </div>
+  </div>
+</body>
+</html>"""
+    _send_email(to_email, subject, text, html)
+
+
+def _send_incident_alert_email(to_email: str, speaker: str, rolling: float, model: str, hold: bool) -> None:
+    """Urgent email alert sent to users when a sustained synthetic voice is flagged."""
+    subject = f"🚨 URGENT: Synthetic Voice Detected in Meeting ('{speaker}') — Wire Hold Active"
+    text = f"""SECURITY ALERT: Sonave Voice Threat Detection
+
+A synthetic voice clone was detected during your active meeting.
+
+Details:
+• Flagged Speaker: {speaker}
+• Risk Score: {rolling:.1%} Synthetic Confidence
+• Detection Model: {model}
+• Policy Action: WIRE HOLD ACTIVE — Do not authorize financial wire transfers, credential changes, or sensitive transactions until identity is verified via an out-of-band channel.
+
+Review the live incident and audit report:
+https://usesonave.com/console
+
+Sonave Automated Threat Response
+"""
+    html = f"""<!DOCTYPE html>
+<html>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0a0e12;color:#e8eef2;margin:0;padding:24px 16px;">
+  <div style="max-width:540px;margin:0 auto;background:#170f14;border:2px solid #ff4d5e;border-radius:12px;padding:32px 28px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+      <span style="font-size:22px;font-weight:800;color:#ff4d5e;">⚠️ SECURITY INCIDENT ALERT</span>
+    </div>
+    <h2 style="font-size:18px;font-weight:700;color:#ffffff;margin:0 0 16px 0;">Synthetic Voice Detected in Active Meeting</h2>
+    <div style="background:#20141a;border:1px solid #4a1d24;border-radius:8px;padding:16px;margin-bottom:20px;font-size:13px;line-height:1.8;color:#fcd5d9;">
+      <div><strong>Flagged Speaker:</strong> {speaker}</div>
+      <div><strong>Synthetic Confidence:</strong> <span style="color:#ff4d5e;font-weight:700;">{rolling:.1%}</span></div>
+      <div><strong>Security Status:</strong> <span style="background:#ff4d5e;color:#fff;padding:2px 6px;border-radius:4px;font-weight:700;">WIRE HOLD ACTIVE</span></div>
+    </div>
+    <p style="font-size:13px;line-height:1.6;color:#f3b4ba;margin:0 0 24px 0;">
+      <strong>Recommended Action:</strong> Halt all wire transfers, payments, and sensitive access requests immediately. Re-verify the speaker through an out-of-band communication channel (e.g. phone call or SMS).
+    </p>
+    <div style="text-align:center;margin:24px 0 16px 0;">
+      <a href="https://usesonave.com/console" style="background:#ff4d5e;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:6px;display:inline-block;">View Incident in Console →</a>
+    </div>
+  </div>
+</body>
+</html>"""
+    _send_email(to_email, subject, text, html)
 
 
 # Disable /docs, /redoc, /openapi.json in production — CASA AL1 / OWASP ASVS V14.3
@@ -1161,6 +1335,10 @@ def _meter_tick(bot_id: str, user_id: str, sec: float):
 
         def _on_thresh(uid: str, pct: int, used: float, free_m: float):
             _track(uid, "usage_threshold", percent=pct, used_min=round(used, 1), free_min=round(free_m, 1))
+            usr = db.get_user(uid)
+            if usr and usr.get("email"):
+                _send_quota_warning_email(usr["email"], usr.get("name", ""), pct, used, free_m)
+                _track(uid, "email_sent", type=f"quota_{pct}", to=usr["email"])
 
         billing.meter_usage(user_id, role, sec / 60,
                             idempotency_key=f"{bot_id}:{int(time.time() // 60)}",
@@ -1344,6 +1522,10 @@ def _score_and_store(user_id: str, spk: str, wav_bytes: bytes, frac: float = 1.0
             if inc:                       # record() returns a dict only for NEW incidents
                 _track(user_id, "incident_open", speaker=spk)
                 incidents.notify(inc, webhook=db.get_alert_webhook(user_id) or None)
+                usr = db.get_user(user_id)
+                if usr and usr.get("email"):
+                    _send_incident_alert_email(usr["email"], spk, roll, res.get("model_version", "sonave-xlsr-meet-v2"), True)
+                    _track(user_id, "email_sent", type="incident", to=usr["email"], speaker=spk)
     except Exception as e:  # noqa: BLE001 — scoring must never crash capture
         logger.warning("score skip %s: %s", spk, repr(e)[:80])
         _track(user_id, "scorer_error", speaker=spk, error=repr(e)[:120])
@@ -2762,6 +2944,9 @@ def auth_callback(request: Request, code: str = "", state: str = ""):
     if user.get("created_ts") == user.get("last_login_ts"):
         _track(user["id"], "signup", email=user.get("email") or "")
         _notify_admin(f"New signup: {user.get('email')}")
+        if user.get("email"):
+            _send_welcome_email(user["email"], user.get("name", ""))
+            _track(user["id"], "email_sent", type="welcome", to=user["email"])
     else:
         _track(user["id"], "signin", email=user.get("email") or "")
     if user.get("role") == "admin":
@@ -2789,6 +2974,9 @@ def auth_google_credential(req: CredReq):
     if user.get("created_ts") == user.get("last_login_ts"):
         _track(user["id"], "signup", email=user.get("email") or "")
         _notify_admin(f"New signup: {user.get('email')}")
+        if user.get("email"):
+            _send_welcome_email(user["email"], user.get("name", ""))
+            _track(user["id"], "email_sent", type="welcome", to=user["email"])
     else:
         _track(user["id"], "signin", email=user.get("email") or "")
     logger.info("credential login: %s (%s)", _mask_email(user.get("email")), user.get("role"))

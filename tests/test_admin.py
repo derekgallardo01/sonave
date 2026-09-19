@@ -84,7 +84,7 @@ def test_signup_then_signin_then_signout(mod):
     c = TestClient(mod.app, base_url="https://testserver")
     _google_login(mod, c)
     u = mod.db.get_user_by_sub("gsub-adm")
-    assert _kinds(mod, u["id"]) == ["signup"]
+    assert set(_kinds(mod, u["id"])) == {"signup", "email_sent"}
     c2 = TestClient(mod.app, base_url="https://testserver")
     _google_login(mod, c2)
     assert _kinds(mod, u["id"])[0] == "signin"                       # newest first

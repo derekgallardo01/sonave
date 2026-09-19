@@ -959,9 +959,10 @@ a:hover{color:var(--green-hover)}
       <span class="pill" onclick="setAdmKind('signin',this)">Sign-ins</span>
       <span class="pill" onclick="setAdmKind('bot_created',this)">Streams &amp; Meet</span>
       <span class="pill" onclick="setAdmKind('meeting_ended',this)">Meetings</span>
-      <span class="pill" onclick="setAdmKind('subscription_checkout',this)">Billing</span>
+      <span class="pill" onclick="setAdmKind('subscription_checkout,usage_threshold',this)">Billing</span>
       <span class="pill" onclick="setAdmKind('incident_open',this)">Incidents</span>
-      <span class="pill" onclick="setAdmKind('client_error,server_error',this)" style="color:var(--red)">Errors &amp; Bugs</span>
+      <span class="pill" onclick="setAdmKind('email_sent',this)">Emails</span>
+      <span class="pill" onclick="setAdmKind('client_error,server_error,scorer_error',this)" style="color:var(--red)">Errors &amp; Bugs</span>
      </div>
     </div>
     <div id="admFeed" style="padding:6px 20px 14px;max-height:440px;overflow:auto"></div>
@@ -1252,6 +1253,7 @@ function setAdmKind(k,el){_admKind=k;document.querySelectorAll('#admPills .pill'
 function kcol(k){
  if(k=='client_error'||k=='server_error'||k=='scorer_error')return'var(--red)';
  if(k=='signup'||k=='subscription_checkout'||k=='enroll_added'||k=='host_rejoined')return'var(--green)';
+ if(k=='email_sent')return'#38bdf8';
  if(k=='host_left'||k=='usage_threshold')return'var(--amber)';
  if(k=='incident_open'||k=='bot_denied'||k=='subscription_canceled')return'var(--red)';
  if(k=='signin'||k=='signout'||k=='settings_changed'||k=='enroll_deleted')return'var(--ink2)';
@@ -1259,6 +1261,7 @@ function kcol(k){
 }
 function admSummary(k,d){
  try{d=d?JSON.parse(d):{}}catch(e){d={}}
+ if(k=='email_sent')return (d.type||'email')+' sent to '+(d.to||'')+(d.speaker?(' ('+d.speaker+')'):'');
  if(k=='usage_threshold')return 'Reached '+(d.percent||'?')+'% of free quota ('+(d.used_min||0)+'/'+(d.free_min||0)+' min)';
  if(k=='client_error')return (d.page||'client')+' bug: '+(d.message||'')+(d.source?(' @ '+d.source+':'+(d.lineno||0)):'');
  if(k=='server_error')return (d.method||'')+' '+(d.path||'')+': '+(d.error||'');
