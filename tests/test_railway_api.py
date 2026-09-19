@@ -75,3 +75,17 @@ def test_legal_pages_render(railway_mod):
 def test_favicon_served(railway_mod):
     r = client(railway_mod).get("/favicon.svg")
     assert r.status_code == 200 and "svg" in r.headers["content-type"]
+
+
+def test_favicon_ico_served(railway_mod):
+    r = client(railway_mod).get("/favicon.ico")
+    assert r.status_code == 200
+    assert "icon" in r.headers["content-type"]
+    assert len(r.content) > 100
+
+
+def test_apple_touch_icon_served(railway_mod):
+    r = client(railway_mod).get("/apple-touch-icon.png")
+    assert r.status_code == 200
+    assert "png" in r.headers["content-type"]
+    assert len(r.content) > 100

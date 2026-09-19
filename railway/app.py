@@ -134,7 +134,8 @@ def _mask_email(email: str | None) -> str:
 # on top of the DB dashboard feed every _track event already lands in. Signup/subscription
 # push via their own direct _notify_admin calls, so they're intentionally NOT here (no double).
 _NOTIFY_KINDS = {"incident_open", "bot_created", "meeting_started",
-                 "meeting_ended", "host_left", "host_rejoined", "signin"}
+                 "meeting_ended", "host_left", "host_rejoined", "signin",
+                 "client_error", "server_error", "bot_denied", "usage_threshold"}
 
 
 def _now_et() -> str:
@@ -166,6 +167,15 @@ def _format_activity(user_id: str, kind: str, detail: dict) -> str:
         return f"Host rejoined — {email} · {ts}"
     if kind == "signin":
         return f"Sign-in: {email} · {ts}"
+    if kind == "client_error":
+        return f"🚨 Client bug: {detail.get('page', '')} — {str(detail.get('message', ''))[:80]} — {email} · {ts}"
+    if kind == "server_error":
+        return f"🚨 Server error: {detail.get('method', '')} {detail.get('path', '')} — {str(detail.get('error', ''))[:80]} — {email} · {ts}"
+    if kind == "bot_denied":
+        return f"🚫 Bot blocked ({detail.get('code', 'quota')}): {email} · {ts}"
+    if kind == "usage_threshold":
+        return (f"📊 Quota alert: {email} reached {detail.get('percent', '?')}% "
+                f"of free tier ({detail.get('used_min', '?')}/{detail.get('free_min', '?')} min) · {ts}")
     return f"{kind}: {email} · {ts}"
 
 
@@ -252,6 +262,24 @@ def _auth_rate_ok(ip: str) -> bool:
     return True
 
 
+_TELEMETRY_RATE: dict[str, list[float]] = {}
+_TELEMETRY_RATE_LOCK = threading.Lock()
+_TELEMETRY_RATE_WINDOW = 60
+_TELEMETRY_RATE_MAX = 30
+
+
+def _telemetry_rate_ok(ip: str) -> bool:
+    now = time.time()
+    with _TELEMETRY_RATE_LOCK:
+        hits = _TELEMETRY_RATE.get(ip, [])
+        hits = [t for t in hits if now - t < _TELEMETRY_RATE_WINDOW]
+        if len(hits) >= _TELEMETRY_RATE_MAX:
+            return False
+        hits.append(now)
+        _TELEMETRY_RATE[ip] = hits
+    return True
+
+
 @app.middleware("http")
 async def _security_headers(request: Request, call_next):
     # Rate-limit auth endpoints to prevent brute force (OWASP A07)
@@ -266,7 +294,39 @@ async def _security_headers(request: Request, call_next):
                             media_type="application/json",
                             headers={"Retry-After": "60"})
 
-    response = await call_next(request)
+    try:
+        response = await call_next(request)
+    except Exception as exc:
+        if isinstance(exc, HTTPException):
+            raise
+        import traceback, uuid
+        err_id = f"err_{uuid.uuid4().hex[:8]}"
+        tb = traceback.format_exc()
+        logger.exception("Unhandled server exception [%s] on %s %s: %s",
+                         err_id, request.method, request.url.path, exc)
+        uid = "anonymous"
+        email = ""
+        try:
+            p = auth.get_principal(request)
+            if p and p.user_id:
+                uid = p.user_id
+                email = p.email or ""
+        except Exception:
+            pass
+
+        detail = {
+            "error_id": err_id,
+            "method": request.method,
+            "path": request.url.path,
+            "error": str(exc),
+            "email": email,
+            "traceback": tb[-1200:]
+        }
+        _track(uid, "server_error", **detail)
+        return JSONResponse(
+            status_code=500,
+            content={"ok": False, "error": "Internal server error", "error_id": err_id}
+        )
 
     # HSTS — force HTTPS for 1 year, include subdomains (OWASP A02)
     response.headers["Strict-Transport-Security"] = (
@@ -321,6 +381,90 @@ async def _security_headers(request: Request, call_next):
         response.headers["Pragma"] = "no-cache"
     return response
 
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    # FastAPI HTTPExceptions should be handled normally
+    if isinstance(exc, HTTPException):
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+    import traceback, uuid
+    err_id = f"err_{uuid.uuid4().hex[:8]}"
+    tb = traceback.format_exc()
+    logger.exception("Unhandled server exception [%s] on %s %s: %s",
+                     err_id, request.method, request.url.path, exc)
+
+    uid = "anonymous"
+    email = ""
+    try:
+        p = auth.get_principal(request)
+        if p and p.user_id:
+            uid = p.user_id
+            email = p.email or ""
+    except Exception:
+        pass
+
+    detail = {
+        "error_id": err_id,
+        "method": request.method,
+        "path": request.url.path,
+        "error": str(exc),
+        "email": email,
+        "traceback": tb[:800]
+    }
+    _track(uid, "server_error", **detail)
+    return JSONResponse(
+        status_code=500,
+        content={"ok": False, "error": "Internal server error", "error_id": err_id}
+    )
+
+
+class ClientErrorReq(BaseModel):
+    page: str = ""
+    message: str = ""
+    source: str = ""
+    lineno: int = 0
+    colno: int = 0
+    stack: str = ""
+    meet_code: str = ""
+    user_agent: str = ""
+
+
+@app.post("/api/telemetry/client-error", status_code=204)
+def api_telemetry_client_error(req: ClientErrorReq, request: Request):
+    """Receive client-side JS exception and unhandled rejection telemetry."""
+    ip = (request.headers.get("cf-connecting-ip")
+          or (request.client.host if request.client else "unknown"))
+    if not _telemetry_rate_ok(ip):
+        return Response(status_code=204)
+
+    uid = "anonymous"
+    email = ""
+    try:
+        p = auth.get_principal(request)
+        if p and p.user_id:
+            uid = p.user_id
+            email = p.email or ""
+    except Exception:
+        pass
+
+    logger.warning("Client error on %s (%s): %s (%s:%s)",
+                   req.page or "unknown", uid, req.message[:160], req.source, req.lineno)
+
+    detail = {
+        "page": req.page[:100],
+        "message": req.message[:500],
+        "source": req.source[:200],
+        "lineno": req.lineno,
+        "colno": req.colno,
+        "stack": req.stack[:1000],
+        "meet_code": req.meet_code[:50],
+        "email": email,
+        "ip": ip[:45]
+    }
+    _track(uid, "client_error", **detail)
+    return Response(status_code=204)
+
 # Inline favicon: the Sonave scope-pulse mark — green radar scope with a voice
 # pulse and contact blip (matches designs/logo/sonave-logo-master.png).
 _FAVICON_SVG = (
@@ -372,17 +516,28 @@ def _launch_bot(user_id: str, role: str, meeting_url: str,
                 source: str = "manual"):
     murl = meeting_url.strip()
     u = urlparse(murl)
-    if "meet.google.com" in u.netloc or u.netloc == "meet.google.com":
-        # Google Meet is 100% native bot-free via Google Meet Media API
+    if u.scheme not in ("http", "https") or not any(
+            u.netloc == h or u.netloc.endswith("." + h) for h in ALLOWED_MEET_HOSTS):
+        return {"ok": False, "detail": "meeting_url must be a Google Meet / Zoom / Teams link"}
+
+    gate = _bot_gate(user_id, role)
+    if gate is not None:
+        code = gate.get("code") if isinstance(gate, dict) else "quota"
+        _track(user_id, "bot_denied", code=code or "denied", source=source)
+        return gate
+
+    # Google Meet native bot-free via Google Meet Media API (when OAuth is authorized or native mode forced)
+    is_meet = ("meet.google.com" in u.netloc or u.netloc == "meet.google.com")
+    raw_token = (db.get_oauth_token(user_id, "google_meet") or db.get_oauth_token(user_id, "google_calendar")) if is_meet else None
+    if is_meet and (raw_token or os.environ.get("SONAVE_MEET_NATIVE_ONLY")):
         space = murl.split("meet.google.com/")[-1].split("?")[0].strip("/")
         token = ""
-        raw = db.get_oauth_token(user_id, "google_meet") or db.get_oauth_token(user_id, "google_calendar")
-        if raw:
+        if raw_token:
             try:
-                tok_data = json.loads(raw)
+                tok_data = json.loads(raw_token)
                 token = tok_data.get("access_token") or ""
             except Exception:
-                token = raw
+                token = raw_token
         if not token:
             return {
                 "ok": False,
@@ -391,18 +546,19 @@ def _launch_bot(user_id: str, role: str, meeting_url: str,
             }
         sess = meet_media_ingest.get_or_create_session(space, token)
         res = sess.connect()
+        bot_id = f"meet_{space}"
+        _track(user_id, "bot_created", source=source, meeting_url=murl, bot_id=bot_id)
         return {
             "ok": res.get("ok", False),
             "space_id": space,
             "mode": "native_webrtc_botless",
-            "bot_id": f"meet_{space}",
+            "bot_id": bot_id,
             "detail": "Google Meet native bot-free verification active."
         }
+
     if not RECALL_API_KEY:
         return {"error": "SONAVE_RECALL_API_KEY not set on the service"}
-    if u.scheme not in ("http", "https") or not any(
-            u.netloc == h or u.netloc.endswith("." + h) for h in ALLOWED_MEET_HOSTS):
-        return {"ok": False, "detail": "meeting_url must be a Google Meet / Zoom / Teams link"}
+
     existing = db.find_active_bot(user_id, murl)
     if existing:
         # verify against Recall at click time: a kicked/denied bot must never
@@ -417,11 +573,6 @@ def _launch_bot(user_id: str, role: str, meeting_url: str,
         else:
             return {"ok": True, "bot_id": existing["bot_id"], "already": True,
                     "detail": "A Sonave bot is already in this meeting."}
-    gate = _bot_gate(user_id, role)
-    if gate is not None:
-        code = gate.get("code") if isinstance(gate, dict) else "quota"
-        _track(user_id, "bot_denied", code=code or "denied", source=source)
-        return gate
     ws = _ws_url(request)
     # Per-bot single-purpose WS token: bot-scoped, hashed at rest, 24 h expiry —
     # strictly tighter than the old global token in the same slot.
@@ -881,7 +1032,10 @@ async def ws_mic_stream(ws: WebSocket):
         uid = (auth.verify_session(tok)
                or auth.verify_session(ws.cookies.get(auth.SESSION_COOKIE))
                or auth.verify_session(ws.cookies.get(auth.PARTITIONED_COOKIE)))
-        if not uid:
+        if uid is None:
+            if API_TOKEN or auth.google_configured():
+                await ws.close(code=1008)
+                return
             uid = db.first_admin_id() or "admin"
 
     # Validate Origin
@@ -1004,8 +1158,13 @@ def _meter_tick(bot_id: str, user_id: str, sec: float):
         db.add_bot_seconds(bot_id, sec)
         u = db.get_user(user_id)
         role = u.get("role", "member") if u else "member"
+
+        def _on_thresh(uid: str, pct: int, used: float, free_m: float):
+            _track(uid, "usage_threshold", percent=pct, used_min=round(used, 1), free_min=round(free_m, 1))
+
         billing.meter_usage(user_id, role, sec / 60,
-                            idempotency_key=f"{bot_id}:{int(time.time() // 60)}")
+                            idempotency_key=f"{bot_id}:{int(time.time() // 60)}",
+                            on_threshold=_on_thresh)
     except Exception as e:  # noqa: BLE001 — accounting must never break capture
         logger.warning("meter tick failed: %s", repr(e)[:80])
 
@@ -1187,6 +1346,7 @@ def _score_and_store(user_id: str, spk: str, wav_bytes: bytes, frac: float = 1.0
                 incidents.notify(inc, webhook=db.get_alert_webhook(user_id) or None)
     except Exception as e:  # noqa: BLE001 — scoring must never crash capture
         logger.warning("score skip %s: %s", spk, repr(e)[:80])
+        _track(user_id, "scorer_error", speaker=spk, error=repr(e)[:120])
     finally:
         with _STATE_LOCK:
             _INFLIGHT.discard((user_id, spk))
@@ -1265,10 +1425,15 @@ def api_delete_enroll(speaker: str, p: auth.Principal = Depends(require_principa
 
 # --- retrieval ---------------------------------------------------------------
 @app.get("/favicon.ico")
+def favicon_ico():
+    return FileResponse(str(_HERE / "favicon.ico"), media_type="image/x-icon",
+                        headers={"Cache-Control": "public, max-age=86400"})
+
+
 @app.get("/favicon.svg")
-def favicon():
-    from fastapi.responses import Response
-    return Response(content=_FAVICON_SVG, media_type="image/svg+xml")
+def favicon_svg():
+    return Response(content=_FAVICON_SVG, media_type="image/svg+xml",
+                    headers={"Cache-Control": "public, max-age=86400"})
 
 
 class VerdictReq(BaseModel):
@@ -1351,12 +1516,13 @@ def api_quality(request: Request, p: auth.Principal = Depends(require_principal)
                         PRESENCE.pop(k, None)
             return {"_scorer": {"configured": bool(SCORER_URL)}, "_v": _BUILD}
 
+    has_spk = (any(u == uid for (u, s) in QUALITY) or
+               any(u == uid for (u, s) in VERDICTS) or
+               any(u == uid and pr.get("present") for (u, s), pr in PRESENCE.items()))
     if ACTIVE_STREAMS.get(uid, 0) == 0:
-        if last_close_t and now_t - last_close_t > 2:
+        if last_close_t and (now_t - last_close_t) > STREAM_GRACE_SEC:
             return {"_scorer": {"configured": bool(SCORER_URL)}, "_v": _BUILD}
-        if last_frame_t and now_t - last_frame_t > 8:
-            return {"_scorer": {"configured": bool(SCORER_URL)}, "_v": _BUILD}
-        if not any(u == uid for (u, s) in QUALITY):
+        if not has_spk:
             return {"_scorer": {"configured": bool(SCORER_URL)}, "_v": _BUILD}
     speakers = ({s for (u, s) in QUALITY if u == uid} | {s for (u, s) in VERDICTS if u == uid}
                 | {s for (u, s), pr in PRESENCE.items() if u == uid and pr["present"]})
@@ -1377,15 +1543,19 @@ def api_quality(request: Request, p: auth.Principal = Depends(require_principal)
             speaking = pr["speaking"]
             quiet_sec = 0 if speaking else time.time() - pr["ts"]
         elif q:
-            speaking = q.get("state") == "speaking" or (q.get("level", 0) > 0.015 and idle < 1.5)
-            quiet_sec = 0 if speaking else (q.get("quiet_sec", 0.0) or idle)
+            if silent >= 1.0:
+                speaking = False
+                quiet_sec = max(silent, idle)
+            else:
+                speaking = q.get("state") == "speaking" or (q.get("level", 0) > 0.015 and idle < 1.5)
+                quiet_sec = 0 if speaking else (q.get("quiet_sec", 0.0) or idle)
         else:               # verdict-only row (no audio stats yet): no timing to age on
             speaking, quiet_sec = False, 0.0
         # ghost guard: an ended meeting's speakers age out of the live view
         # (presence-tracked speakers stay until 'leave', capped at 4 h stale)
         if quiet_sec > (4 * 3600 if pr else (15 if ACTIVE_STREAMS.get(uid, 0) == 0 else 900)):
             continue
-        row["state"] = "speaking" if speaking else ("muted" if quiet_sec >= 1.2 else "quiet")
+        row["state"] = "speaking" if speaking else "quiet"
         row["quiet_sec"] = round(quiet_sec)
         if q:
             start_t = q.get("start_ts") or q.get("last_audio_ts") or time.time()
@@ -1401,8 +1571,7 @@ def api_quality(request: Request, p: auth.Principal = Depends(require_principal)
         av = VERDICTS.get((uid, spk))
         speech_sec = row.get("speech_sec", 0.0)
         tot_sec = row.get("total_sec", 0)
-        is_sim = "Clone" in spk or "Simulate" in spk or "Test" in spk
-        if av and (tot_sec >= 4.0 or is_sim or av.get("verdict") == "fake"):
+        if av and (q is None or tot_sec >= 4.0 or is_sim or av.get("verdict") == "fake"):
             row["auth_verdict"] = av["verdict"]
             row["auth_p"] = av["rolling"]
             row["checks"] = max(av.get("n", 1), max(1, int(tot_sec // 4)))
@@ -2123,7 +2292,13 @@ def api_meet_session_connect(req: MeetConnectReq, p: auth.Principal = Depends(re
             "model": "sonave-xlsr-meet-v2"
         }
 
-    _track(p.user_id, "meet_media_connect", space=space, ok=res.get("ok", False))
+    err_str = res.get("error", "")
+    code_val = res.get("code", 0)
+    _track(p.user_id, "meet_media_connect", space=space, ok=res.get("ok", False),
+           error=err_str, code=code_val)
+    if not res.get("ok", False):
+        logger.warning("meet_media_connect: space %s failed for %s: %s (code %s)",
+                       space, p.user_id, err_str, code_val)
     return {
         "ok": True,
         "space_id": space,
@@ -2780,6 +2955,32 @@ def icon_128():
     return FileResponse(str(_HERE / "icon-128.png"), media_type="image/png")
 
 
+@app.get("/icon-16.png")
+def icon_16():
+    return FileResponse(str(_HERE / "icon-16.png"), media_type="image/png")
+
+
+@app.get("/icon-32.png")
+def icon_32():
+    return FileResponse(str(_HERE / "icon-32.png"), media_type="image/png")
+
+
+@app.get("/icon-192.png")
+def icon_192():
+    return FileResponse(str(_HERE / "icon-192.png"), media_type="image/png")
+
+
+@app.get("/icon-512.png")
+def icon_512():
+    return FileResponse(str(_HERE / "icon-512.png"), media_type="image/png")
+
+
+@app.get("/apple-touch-icon.png")
+@app.get("/apple-touch-icon-precomposed.png")
+def apple_touch_icon():
+    return FileResponse(str(_HERE / "apple-touch-icon.png"), media_type="image/png")
+
+
 @app.get("/console-shot.png")
 def console_shot():
     return FileResponse(str(_HERE / "console-shot.png"), media_type="image/png")
@@ -2833,12 +3034,14 @@ def llms_txt():
     from fastapi.responses import PlainTextResponse
     return PlainTextResponse(
         "# Sonave\n\n"
-        "> Real-time deepfake-voice detection for video meetings. A visible bot joins "
-        "Google Meet, Zoom or Teams, streams each speaker's audio to a detection model "
-        "trained on meeting-codec audio, and shows a live REAL / SUSPECT / FAKE verdict "
-        "per speaker (~4 s to first verdict, re-scored every 4 s). Sustained red verdicts "
-        "fire a wire-hold webhook that can pause a payment approval, plus an exportable "
-        "forensic report.\n\n"
+        "> Live deepfake-voice detection inside your meetings — every speaker gets a REAL / SUSPECT / FAKE verdict. "
+        "Sonave watches the voices in your meeting and tells you, in real time, whether each one is human. "
+        "Real-time per-speaker audio is streamed to a detection model trained on real meeting-codec audio; "
+        "the side panel shows a live authenticity meter per speaker and a room-level verdict. "
+        "When a voice scores in the red band for three consecutive windows, Sonave raises a wire-hold incident — "
+        "with a webhook that can pause a payment approval and a one-click forensic report for compliance. "
+        "Built for finance teams approving wires on calls, and for anyone who needs to know the voice on the other end is real. "
+        "Free tier: 5 monitored hours per month. Then $8 per monitored hour. Enterprise: usesonave.com.\n\n"
         "Key facts (deployed model, benchmarked 2026-08-12; methodology at /benchmarks):\n"
         "- 95.2% catch on 27 unseen commercial voice-clone tools through meeting audio "
         "(a commodity open-source detector catches 1.9% on the same clips)\n"

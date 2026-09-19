@@ -37,6 +37,8 @@ Thumbs.db
 
 # --- generated cards/reports (regenerable) ---
 results/*.html
+results/demo_video/
+results/google_oauth_e2e_video/
 
 # --- local agent/session dirs ---
 .claude/

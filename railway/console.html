@@ -4,7 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sonave Console — Voice Authenticity</title>
-<link rel="icon" href="data:image/svg+xml;base64,__FAVICON__">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="/icon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/icon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,__FAVICON__">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -957,6 +961,7 @@ a:hover{color:var(--green-hover)}
       <span class="pill" onclick="setAdmKind('meeting_ended',this)">Meetings</span>
       <span class="pill" onclick="setAdmKind('subscription_checkout',this)">Billing</span>
       <span class="pill" onclick="setAdmKind('incident_open',this)">Incidents</span>
+      <span class="pill" onclick="setAdmKind('client_error,server_error',this)" style="color:var(--red)">Errors &amp; Bugs</span>
      </div>
     </div>
     <div id="admFeed" style="padding:6px 20px 14px;max-height:440px;overflow:auto"></div>
@@ -980,6 +985,44 @@ a:hover{color:var(--green-hover)}
 </div>
 
 <script>
+// Telemetry & Error Tracking
+(function initErrorTracking(){
+ var _errs = 0, _lastErr = 0;
+ function sendErr(d){
+  var now = Date.now();
+  if (now - _lastErr < 60000) { if (++_errs > 10) return; }
+  else { _errs = 1; _lastErr = now; }
+  try {
+   var payload = JSON.stringify({
+    page: 'console',
+    message: String(d.message || d.reason || d || ''),
+    source: d.source || d.filename || '',
+    lineno: d.lineno || 0,
+    colno: d.colno || 0,
+    stack: (d.error && d.error.stack) ? String(d.error.stack).slice(0, 1000) : String(d.stack || '').slice(0, 1000),
+    user_agent: navigator.userAgent || ''
+   });
+   if (navigator.sendBeacon) {
+    navigator.sendBeacon('/api/telemetry/client-error', new Blob([payload], {type: 'application/json'}));
+   } else {
+    fetch('/api/telemetry/client-error', {
+     method: 'POST',
+     headers: {'Content-Type': 'application/json'},
+     body: payload,
+     keepalive: true
+    }).catch(function(){});
+   }
+  }catch(x){}
+ }
+ window.addEventListener('error', function(e){
+  sendErr({message: e.message, filename: e.filename, lineno: e.lineno, colno: e.colno, error: e.error});
+ });
+ window.addEventListener('unhandledrejection', function(e){
+  sendErr({message: 'Unhandled Promise Rejection: ' + (e.reason ? (e.reason.message || e.reason) : 'unknown'), error: e.reason});
+ });
+ window._reportError = sendErr;
+})();
+
 /* Tokens never travel in URLs (ASVS 2.1.1): the old ?tok= bootstrap is gone;
    operator sign-in posts the token to /auth/operator, which sets an
    HttpOnly cookie server-side. */
@@ -1207,14 +1250,20 @@ function est(ts){/* seconds -> "Aug 14, 9:48 AM" pinned to US Eastern */
 }
 function setAdmKind(k,el){_admKind=k;document.querySelectorAll('#admPills .pill').forEach(function(p){p.classList.remove('on')});el.classList.add('on');admEvents()}
 function kcol(k){
+ if(k=='client_error'||k=='server_error'||k=='scorer_error')return'var(--red)';
  if(k=='signup'||k=='subscription_checkout'||k=='enroll_added'||k=='host_rejoined')return'var(--green)';
- if(k=='host_left')return'var(--amber)';
+ if(k=='host_left'||k=='usage_threshold')return'var(--amber)';
  if(k=='incident_open'||k=='bot_denied'||k=='subscription_canceled')return'var(--red)';
  if(k=='signin'||k=='signout'||k=='settings_changed'||k=='enroll_deleted')return'var(--ink2)';
  return'#5aa7e8';
 }
 function admSummary(k,d){
  try{d=d?JSON.parse(d):{}}catch(e){d={}}
+ if(k=='usage_threshold')return 'Reached '+(d.percent||'?')+'% of free quota ('+(d.used_min||0)+'/'+(d.free_min||0)+' min)';
+ if(k=='client_error')return (d.page||'client')+' bug: '+(d.message||'')+(d.source?(' @ '+d.source+':'+(d.lineno||0)):'');
+ if(k=='server_error')return (d.method||'')+' '+(d.path||'')+': '+(d.error||'');
+ if(k=='scorer_error')return (d.speaker||'')+' score fail: '+(d.error||'');
+ if(k=='meet_media_connect')return (d.space||'')+' · ok='+d.ok+(d.error?(' ('+d.error+')'):'');
  if(k=='bot_created')return(d.source||'Native Meet Media API')+' · '+(d.meeting_url||'');
  if(k=='meeting_ended')return Math.round((d.duration_sec||0)/60)+' min · '+(d.metered_min||0)+' metered'+(d.cause==='removed_while_active'?' · disconnected by host':d.cause==='everyone_left'?' · call ended':'');
  if(k=='host_left')return'host left — monitoring continues';

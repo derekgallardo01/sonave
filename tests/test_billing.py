@@ -168,3 +168,29 @@ def test_checkout_and_portal_endpoints(mod, monkeypatch):
     assert c.post("/api/billing/portal").json()["ok"] is False   # no customer yet
     mod.db.upsert_subscription(u["id"], "cus_co", "sub_co", "active")
     assert "billing_portal" in c.post("/api/billing/portal").json()["url"]
+
+
+def test_meter_usage_triggers_threshold_milestones(mod):
+    u = _user(mod, sub="s-thresh", email="thresh@x.com")
+    # free tier = 300 minutes; 80% = 240 minutes, 100% = 300 minutes
+    milestones = []
+    cb = lambda uid, pct, used, free: milestones.append((pct, used, free))
+
+    mod.billing.meter_usage(u["id"], "member", 200, "k1", on_threshold=cb)
+    assert milestones == []
+
+    # Crossing 80% (200 -> 245)
+    mod.billing.meter_usage(u["id"], "member", 45, "k2", on_threshold=cb)
+    assert len(milestones) == 1
+    assert milestones[0][0] == 80
+    assert milestones[0][1] == pytest.approx(245.0)
+
+    # Next tick inside (245 -> 280) — no re-fire
+    mod.billing.meter_usage(u["id"], "member", 35, "k3", on_threshold=cb)
+    assert len(milestones) == 1
+
+    # Crossing 100% (280 -> 305)
+    mod.billing.meter_usage(u["id"], "member", 25, "k4", on_threshold=cb)
+    assert len(milestones) == 2
+    assert milestones[1][0] == 100
+    assert milestones[1][1] == pytest.approx(305.0)

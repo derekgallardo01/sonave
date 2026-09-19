@@ -151,8 +151,13 @@ def list_events(user_id: str | None = None, kind: str | None = None,
         where.append("e.user_id=?")
         args.append(user_id)
     if kind:
-        where.append("e.kind=?")
-        args.append(kind)
+        if "," in kind:
+            kinds = [k.strip() for k in kind.split(",") if k.strip()]
+            where.append(f"e.kind IN ({','.join('?' for _ in kinds)})")
+            args.extend(kinds)
+        else:
+            where.append("e.kind=?")
+            args.append(kind)
     if before_id:
         where.append("e.id<?")
         args.append(before_id)

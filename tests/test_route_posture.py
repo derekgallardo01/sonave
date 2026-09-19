@@ -18,7 +18,9 @@ PUBLIC_200 = {
     "/", "/benchmarks", "/guides", "/privacy", "/terms", "/onboarding",
     "/llms.txt", "/robots.txt", "/sitemap.xml", "/console", "/meet-addon", "/cloner",
     "/favicon.ico", "/favicon.svg", "/og.png", "/console-shot.png",
-    "/icon-120.png", "/icon-128.png",
+    "/icon-16.png", "/icon-32.png", "/icon-120.png", "/icon-128.png",
+    "/icon-192.png", "/icon-512.png",
+    "/apple-touch-icon.png", "/apple-touch-icon-precomposed.png",
     "/shot-meet-panel.png", "/shot-wire-hold.png", "/shot-console.png", "/shot-protect.png",
 }
 

@@ -15,8 +15,10 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 
 _HERE = Path(__file__).resolve().parent
-if str(_HERE) not in sys.path:
-    sys.path.insert(0, str(_HERE))
+_ROOT = _HERE.parent
+for p in (str(_ROOT), str(_HERE)):
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
 from models.ensemble import MultiFoundationAcousticEnsemble
 from src.datasets.benchmark_loader import UniversalDeepfakeBenchmarkDataset

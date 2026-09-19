@@ -4,7 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sonave — Meet panel</title>
-<link rel="icon" href="data:image/svg+xml;base64,__FAVICON__">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="/icon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/icon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,__FAVICON__">
 <style>
 :root{--bg:#0b0d10;--panel:#101418;--line:#1b2128;--line2:#242c35;--ink:#e8eef2;--ink2:#9aa9b5;
 --muted:#718695;--green:#2ee584;--green-dark:#0d9e56;--on-green:#06130b;--amber:#ffb224;--red:#ff4d5e;
@@ -266,6 +270,45 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
 </div>
 
 <script>
+// Telemetry & Error Tracking
+(function initErrorTracking(){
+ var _errs = 0, _lastErr = 0;
+ function sendErr(d){
+  var now = Date.now();
+  if (now - _lastErr < 60000) { if (++_errs > 10) return; }
+  else { _errs = 1; _lastErr = now; }
+  try {
+   var payload = JSON.stringify({
+    page: 'meet-addon',
+    message: String(d.message || d.reason || d || ''),
+    source: d.source || d.filename || '',
+    lineno: d.lineno || 0,
+    colno: d.colno || 0,
+    stack: (d.error && d.error.stack) ? String(d.error.stack).slice(0, 1000) : String(d.stack || '').slice(0, 1000),
+    meet_code: window._meetCode || '',
+    user_agent: navigator.userAgent || ''
+   });
+   if (navigator.sendBeacon) {
+    navigator.sendBeacon('/api/telemetry/client-error', new Blob([payload], {type: 'application/json'}));
+   } else {
+    fetch('/api/telemetry/client-error', {
+     method: 'POST',
+     headers: {'Content-Type': 'application/json'},
+     body: payload,
+     keepalive: true
+    }).catch(function(){});
+   }
+  }catch(x){}
+ }
+ window.addEventListener('error', function(e){
+  sendErr({message: e.message, filename: e.filename, lineno: e.lineno, colno: e.colno, error: e.error});
+ });
+ window.addEventListener('unhandledrejection', function(e){
+  sendErr({message: 'Unhandled Promise Rejection: ' + (e.reason ? (e.reason.message || e.reason) : 'unknown'), error: e.reason});
+ });
+ window._reportError = sendErr;
+})();
+
 // Google Meet Add-ons SDK bootstrap (developers.google.com/workspace/meet/add-ons):
 // createAddonSession() signals Meet that the add-on finished loading, then the
 // side-panel client binds this iframe. Guarded so the page also works standalone.
@@ -431,7 +474,12 @@ async function deployTo(url,btn,st){
    body: JSON.stringify({space_id: url})
   });
   var dMeet = await rMeet.json();
- }catch(e){}
+  if (!rMeet.ok) {
+   if (window._reportError) window._reportError({message: 'meet_session_connect HTTP ' + rMeet.status, source: 'meet-addon:deployTo'});
+  }
+ }catch(e){
+  if (window._reportError) window._reportError({message: 'deployTo error: ' + (e.message || e), error: e, source: 'meet-addon:deployTo'});
+ }
  _connected = true;
  _connectedSince = Date.now();
  deployDone();

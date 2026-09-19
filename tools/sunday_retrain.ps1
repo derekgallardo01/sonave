@@ -27,6 +27,10 @@ if ($Pull) {
     Step 'pull captures' { & $py src/pull_captures.py https://sonave-production-3ca2.up.railway.app }
 }
 
+Step 'sync hugging face models & corpora' {
+    & $py -c "from src.pipeline.hf_corpus_harvester import HFCorpusHarvester; h = HFCorpusHarvester(); h.discover_trending_hf_models(limit=25); h.sync_huggingface_manifests()"
+}
+
 # Training writes the new checkpoint over models/sonave_xlsr_meet IN PLACE, so
 # ANY failure after that point (split validation, benchmark, regression gate,
 # fast suite) must preserve the candidate and restore the deployed checkpoint —

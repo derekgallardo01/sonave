@@ -1,11 +1,8 @@
 # Sonave
 
-**Real-time deepfake-voice detection for video meetings — engineered to work on the
-compressed, processed audio real calls actually produce.**
+**Live deepfake-voice detection inside your meetings — every speaker gets a REAL / SUSPECT / FAKE verdict.**
 
-Sonave flags AI-cloned voices on live Google Meet / Zoom calls (wire-fraud / finance
-vertical). A Recall bot captures meeting audio → a fine-tuned **XLS-R + SLS** detector
-scores each speaker → a live **REAL / SUSPECT / FAKE** verdict.
+Sonave watches the voices in your meeting and tells you, in real time, whether each one is human. Real-time per-speaker audio is streamed to a fine-tuned **XLS-R + SLS** detection model trained on real meeting-codec audio; the side panel shows a live authenticity meter per speaker and a room-level verdict. When a voice scores in the red band for three consecutive windows, Sonave raises a wire-hold incident — with a webhook that can pause a payment approval and a one-click forensic report for compliance. Built for finance teams approving wires on calls, and for anyone who needs to know the voice on the other end is real. Free tier: 5 monitored hours per month. Then $8 per monitored hour. Enterprise: [usesonave.com](https://usesonave.com).
 
 ---
 

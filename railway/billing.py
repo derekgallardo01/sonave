@@ -17,6 +17,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from typing import Callable
 
 import db
 
@@ -131,7 +132,8 @@ def report_meter_event(user_id: str, billable_minutes: float, idempotency_key: s
         logger.warning("meter event failed for %s: %s", user_id, repr(e)[:100])
 
 
-def meter_usage(user_id: str, role: str, minutes: float, idempotency_key: str) -> None:
+def meter_usage(user_id: str, role: str, minutes: float, idempotency_key: str,
+                on_threshold: Callable[[str, int, float, float], None] | None = None) -> None:
     """Called from the WS metering tick: bucket locally, then report only the
     slice of this tick that falls beyond the free allowance."""
     month = month_key()
@@ -139,6 +141,18 @@ def meter_usage(user_id: str, role: str, minutes: float, idempotency_key: str) -
     if role == "admin":
         return
     free = float(free_minutes())
+    prev = total_after - minutes
+    if on_threshold and free > 0:
+        if prev < 0.8 * free <= total_after:
+            try:
+                on_threshold(user_id, 80, total_after, free)
+            except Exception as e:
+                logger.warning("on_threshold 80 failed for %s: %s", user_id, e)
+        if prev < free <= total_after:
+            try:
+                on_threshold(user_id, 100, total_after, free)
+            except Exception as e:
+                logger.warning("on_threshold 100 failed for %s: %s", user_id, e)
     billable = min(minutes, max(0.0, total_after - free))
     if billable > 0:
         report_meter_event(user_id, billable, idempotency_key)
