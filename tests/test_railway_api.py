@@ -32,6 +32,23 @@ def test_quality_merges_verdict_and_filters_test_speakers(railway_mod):
     assert "deploycheck" not in out and "HealthCheck" not in out  # SKIP_SPEAKERS
 
 
+def test_quality_speaker_with_active_audio_under_4s(railway_mod):
+    railway_mod.QUALITY[("admin", "Alice")] = {
+        "level": 0.05, "peak": 0.1, "clips": 0, "speech_sec": 1.5, "total_sec": 2.0, "state": "speaking"
+    }
+    railway_mod.VERDICTS[("admin", "Alice")] = {"p_fake": 0.05, "rolling": 0.05, "verdict": "real"}
+    out = client(railway_mod).get("/api/quality").json()
+    assert "Alice" in out
+    assert out["Alice"]["auth_verdict"] is None
+
+    railway_mod.QUALITY[("admin", "Executive Baritone (AI Clone)")] = {
+        "level": 0.05, "peak": 0.1, "clips": 0, "speech_sec": 1.5, "total_sec": 2.0, "state": "speaking"
+    }
+    railway_mod.VERDICTS[("admin", "Executive Baritone (AI Clone)")] = {"p_fake": 0.98, "rolling": 0.98, "verdict": "fake"}
+    out2 = client(railway_mod).get("/api/quality").json()
+    assert out2["Executive Baritone (AI Clone)"]["auth_verdict"] == "fake"
+
+
 def test_data_progress_odometer(railway_mod, tmp_path, monkeypatch):
     monkeypatch.setattr(railway_mod, "DATA_DIR", tmp_path)
     ws = tmp_path / "admin"                                 # the machine principal's workspace

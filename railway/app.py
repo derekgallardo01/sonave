@@ -1753,6 +1753,7 @@ def api_quality(request: Request, p: auth.Principal = Depends(require_principal)
         av = VERDICTS.get((uid, spk))
         speech_sec = row.get("speech_sec", 0.0)
         tot_sec = row.get("total_sec", 0)
+        is_sim = "Clone" in spk or "Simulate" in spk or "Test" in spk or (av and av.get("model") == "simulation")
         if av and (q is None or tot_sec >= 4.0 or is_sim or av.get("verdict") == "fake"):
             row["auth_verdict"] = av["verdict"]
             row["auth_p"] = av["rolling"]
