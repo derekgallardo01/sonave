@@ -35,9 +35,9 @@
   --line:#1c2b3a;
   --line2:#283d52;
   --ink:#f4f8f6;
-  --ink2:#c4d3cb;
-  --muted:#a2b2a8;
-  --dim:#6e8276;
+  --ink2:#cad8d0;
+  --muted:#a6b8ae;
+  --dim:#72877b;
   --green:#2ee584;
   --green-hover:#4deda0;
   --green-dark:#0d9e56;
@@ -51,8 +51,8 @@
   --glow:rgba(46,229,132,0.18);
 }
 *{box-sizing:border-box;margin:0}
-html{scroll-behavior:smooth}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.65;font-size:15.5px;overflow-x:hidden}
+html{scroll-behavior:smooth;overflow-x:hidden}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.65;font-size:15.5px;overflow-x:hidden;width:100%}
 a{color:var(--green);text-decoration:none;transition:color .18s ease}
 a:hover{color:var(--green-hover)}
 .wrap{max-width:1160px;margin:0 auto;padding:0 24px}
@@ -78,20 +78,20 @@ a:hover{color:var(--green-hover)}
 .btn-nav{padding:8px 18px;border-radius:8px;background:var(--green);color:var(--on-green);font-weight:700;font-size:13.5px;display:inline-flex;align-items:center;gap:6px;transition:all .18s ease;box-shadow:0 0 16px rgba(46,229,132,.22);text-decoration:none}
 .btn-nav:hover{background:var(--green-hover);color:var(--on-green);transform:translateY(-1px);box-shadow:0 0 22px rgba(46,229,132,.38)}
 
-/* Hero Section */
-.hero{padding:54px 0 44px;display:grid;grid-template-columns:1.05fr 0.95fr;gap:44px;align-items:center;position:relative}
+/* Hero Section (Tightened Bottom Spacing) */
+.hero{padding:48px 0 24px;display:grid;grid-template-columns:1.05fr 0.95fr;gap:40px;align-items:center;position:relative}
 .hero-content{max-width:100%}
-.hero-badge{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;border:1px solid rgba(46,229,132,.35);background:rgba(46,229,132,.08);font-size:13px;color:var(--green);font-weight:600;margin-bottom:20px}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;border:1px solid rgba(46,229,132,.35);background:rgba(46,229,132,.08);font-size:13px;color:var(--green);font-weight:600;margin-bottom:18px}
 .dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
 .hero h1{font-size:52px;font-weight:800;letter-spacing:-.035em;line-height:1.1;color:#ffffff;text-wrap:balance}
-.hero-sub{font-size:18px;color:var(--ink2);line-height:1.65;margin-top:20px;max-width:560px}
+.hero-sub{font-size:18px;color:var(--ink2);line-height:1.65;margin-top:18px;max-width:560px}
 .v-real{color:var(--green);font-weight:700}
 .v-suspect{color:var(--amber);font-weight:700}
 .v-fake{color:var(--red);font-weight:700}
-.hero-ctas{display:flex;align-items:center;flex-wrap:wrap;gap:14px;margin-top:30px}
+.hero-ctas{display:flex;align-items:center;flex-wrap:wrap;gap:14px;margin-top:28px}
 
 /* Single-Row Platform Bar Directly Beneath CTAs */
-.compat-bar{display:flex;align-items:center;gap:12px;margin-top:28px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:13.5px;flex-wrap:wrap}
+.compat-bar{display:flex;align-items:center;gap:12px;margin-top:24px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:13.5px;flex-wrap:wrap}
 .compat-label{text-transform:uppercase;letter-spacing:.08em;font-weight:700;font-size:12px;color:var(--muted)}
 .compat-pills{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .compat-pill{padding:5px 11px;border-radius:6px;background:var(--panel);border:1px solid var(--line);font-size:13px;color:var(--ink2);display:inline-flex;align-items:center;gap:6px}
@@ -140,8 +140,8 @@ a:hover{color:var(--green-hover)}
 .hud-footer-hint{display:flex;align-items:center;justify-content:space-between;padding-top:12px;font-size:12.5px;font-family:var(--mono);color:var(--muted);border-top:1px solid var(--line)}
 .hud-footer-hint a{color:var(--green);display:inline-flex;align-items:center;gap:5px;font-weight:600}
 
-/* Stats Section with Clear Context & Sources */
-.stats{border:1px solid var(--line);border-radius:16px;background:linear-gradient(180deg,#0e151e 0%,#090e13 100%);padding:32px 36px;display:grid;grid-template-columns:repeat(4,1fr);gap:28px;margin-top:28px;box-shadow:0 12px 36px rgba(0,0,0,.45)}
+/* Stats Section with Clear Context & Sources (Brought Up Higher) */
+.stats{border:1px solid var(--line);border-radius:16px;background:linear-gradient(180deg,#0e151e 0%,#090e13 100%);padding:30px 36px;display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-top:16px;box-shadow:0 12px 36px rgba(0,0,0,.45)}
 .stat-item{position:relative;display:flex;flex-direction:column;justify-content:space-between}
 .stat-num{font-size:38px;font-weight:800;font-family:var(--mono);letter-spacing:-.02em;line-height:1}
 .stat-name{font-size:13.5px;font-family:var(--mono);font-weight:700;color:var(--ink);text-transform:uppercase;letter-spacing:.06em;margin-top:10px}
@@ -152,16 +152,16 @@ a:hover{color:var(--green-hover)}
 .stats-citation-bar a{color:var(--green);font-weight:600}
 
 /* Section Common Styles */
-.section{padding:90px 0 24px}
+.section{padding:84px 0 24px}
 .eyebrow{font-size:13px;color:var(--green);letter-spacing:.12em;font-weight:700;margin-bottom:12px;text-transform:uppercase}
 .section-title{font-size:34px;font-weight:800;letter-spacing:-.025em;line-height:1.2;color:#ffffff}
 .section-desc{font-size:17px;color:var(--ink2);line-height:1.65;margin-top:12px;max-width:700px}
 
 /* Interactive Screenshot Showcase + Tagged Side-Panel Close-Up */
-.showcase{margin-top:42px;background:var(--panel);border:1px solid var(--line2);border-radius:18px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.55)}
+.showcase{margin-top:40px;background:var(--panel);border:1px solid var(--line2);border-radius:18px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.55)}
 .showcase-nav{display:flex;border-bottom:1px solid var(--line);background:#090d12;overflow-x:auto;-webkit-overflow-scrolling:touch;white-space:nowrap;scrollbar-width:none}
 .showcase-nav::-webkit-scrollbar{display:none}
-.showcase-tab{flex:0 0 auto;min-width:190px;padding:16px 20px;border:none;background:transparent;color:var(--ink2);font-family:var(--font);cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:5px;border-right:1px solid var(--line);transition:all .2s ease;position:relative}
+.showcase-tab{flex:1;min-width:180px;padding:16px 20px;border:none;background:transparent;color:var(--ink2);font-family:var(--font);cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:5px;border-right:1px solid var(--line);transition:all .2s ease;position:relative}
 .showcase-tab:last-child{border-right:none}
 .showcase-tab:hover{background:rgba(255,255,255,0.02);color:var(--ink)}
 .showcase-tab.active{background:rgba(46,229,132,0.05);color:#ffffff}
@@ -220,7 +220,7 @@ a:hover{color:var(--green-hover)}
 
 /* Single Authoritative Comparison Matrix (Replaces Uneven 3 Cards) */
 .comp-matrix-wrap{margin-top:40px;border:1px solid var(--line2);border-radius:16px;background:var(--panel);overflow:hidden;box-shadow:0 16px 45px rgba(0,0,0,0.45)}
-.matrix-row{display:grid;grid-template-columns:240px 1fr 1fr 180px;gap:20px;padding:22px 26px;border-bottom:1px solid var(--line);align-items:center}
+.matrix-row{display:grid;grid-template-columns:230px 1.15fr 1.15fr 190px;gap:20px;padding:22px 26px;border-bottom:1px solid var(--line);align-items:center}
 .matrix-row:last-child{border-bottom:none}
 .matrix-row.header{background:#090d12;font-size:13px;font-family:var(--mono);font-weight:700;letter-spacing:.06em;color:var(--muted);text-transform:uppercase;padding:16px 26px}
 
@@ -229,18 +229,18 @@ a:hover{color:var(--green-hover)}
 
 .comm-bad{font-size:15.5px;font-weight:700;color:var(--red-soft);display:flex;align-items:center;gap:8px}
 .bad-num{font-family:var(--mono);font-size:19px;font-weight:800;color:var(--red)}
-.comm-sub{font-size:13.5px;color:var(--muted);margin-top:4px;line-height:1.45}
+.comm-sub{font-size:14px;color:var(--muted);margin-top:4px;line-height:1.45}
 
 .sonave-good{font-size:15.5px;font-weight:700;color:var(--green);display:flex;align-items:center;gap:8px}
 .good-num{font-family:var(--mono);font-size:19px;font-weight:800;color:var(--green)}
-.sonave-sub{font-size:13.5px;color:var(--ink2);margin-top:4px;line-height:1.45}
+.sonave-sub{font-size:14px;color:var(--ink2);margin-top:4px;line-height:1.45}
 
 .impact-pill{font-size:12.5px;font-family:var(--mono);font-weight:700;padding:6px 12px;border-radius:6px;display:inline-block;text-align:center}
 .impact-pill.green{background:rgba(46,229,132,0.12);color:var(--green);border:1px solid rgba(46,229,132,0.3)}
 
-/* Wire Fraud Desk - Dramatic Full-Bleed Breakout (Emotional Peak) */
-.desk-breakout{width:100vw;position:relative;left:50%;right:50%;margin-left:-50vw;margin-right:-50vw;background:radial-gradient(ellipse at 80% 30%, rgba(255, 77, 94, 0.16) 0%, rgba(255, 77, 94, 0.04) 50%, #0d0a0e 100%);border-top:1px solid rgba(255, 77, 94, 0.35);border-bottom:1px solid rgba(255, 77, 94, 0.35);padding:96px 0;margin:90px 0;box-shadow:inset 0 20px 60px rgba(0,0,0,0.5), inset 0 -20px 60px rgba(0,0,0,0.5)}
-.desk-grid{display:grid;grid-template-columns:1.08fr 0.92fr;gap:50px;align-items:center}
+/* Wire Fraud Desk - Flat Dark Red Panel (Bug 1 & Visual Fix) */
+.desk-panel{width:100%;background:#14080b;border-top:1px solid rgba(255,77,94,0.35);border-bottom:1px solid rgba(255,77,94,0.35);padding:84px 0;margin:70px 0}
+.desk-grid{display:grid;grid-template-columns:1.08fr 0.92fr;gap:48px;align-items:center}
 .desk-eyebrow{font-size:13px;color:var(--red-soft);font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:14px;font-family:var(--mono)}
 .desk h2{font-size:36px;font-weight:800;letter-spacing:-.025em;line-height:1.2;color:#ffffff}
 .desk-body{font-size:16px;color:var(--ink2);line-height:1.7;margin-top:18px}
@@ -265,11 +265,13 @@ a:hover{color:var(--green-hover)}
 .spark i{flex:1;border-radius:1.5px;min-height:3px;display:block}
 .hold{margin-top:18px;padding:13px 16px;border-radius:10px;background:rgba(255,77,94,.14);border:1px solid rgba(255,77,94,.4);font-size:14px;color:var(--red-soft);font-weight:600;display:flex;align-items:center;gap:10px}
 
-/* Transparent Pricing Section (Clean, Scannable & Highlighted) */
+/* Transparent Pricing Section (Clean, Scannable & Bug 4 Fix) */
 .pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:40px;align-items:stretch}
 .price-card{border:1px solid var(--line);border-radius:18px;background:var(--panel);padding:34px;display:flex;flex-direction:column;justify-content:space-between;transition:border-color .2s,box-shadow .2s;position:relative}
-.price-card.featured{border:2px solid var(--green);background:linear-gradient(180deg,#101b22 0%,#0c141a 100%);box-shadow:0 0 35px rgba(46,229,132,.12);transform:scale(1.02)}
-.price-pill-featured{position:absolute;top:-13px;left:50%;transform:translateX(-50%);padding:4px 14px;border-radius:999px;background:var(--green);color:var(--on-green);font-size:12px;font-weight:800;font-family:var(--mono);letter-spacing:.06em}
+.price-card.featured{border:2px solid var(--green);background:linear-gradient(180deg,#101b22 0%,#0c141a 100%);box-shadow:0 0 35px rgba(46,229,132,.12);transform:scale(1.02);padding-top:40px}
+
+/* Bug 4 Fix: No clipping, no two-line wrap */
+.price-pill-featured{position:absolute;top:-14px;left:50%;transform:translateX(-50%);padding:5px 16px;border-radius:999px;background:var(--green);color:var(--on-green);font-size:11.5px;font-weight:800;font-family:var(--mono);letter-spacing:.06em;white-space:nowrap;box-shadow:0 4px 14px rgba(46,229,132,0.35);z-index:2}
 
 .price-top{margin-bottom:24px}
 .price-badge{font-size:12.5px;font-family:var(--mono);font-weight:700;letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
@@ -312,17 +314,17 @@ a:hover{color:var(--green-hover)}
 .lightbox-img{width:100%;max-height:80vh;object-fit:contain;border-radius:12px;border:1px solid var(--line2);box-shadow:0 24px 70px rgba(0,0,0,0.85)}
 
 /* High-Scale Closing CTA Section */
-.footer-cta{border-top:1px solid var(--line);padding:100px 0 110px;text-align:center;margin-top:80px;position:relative}
+.footer-cta{border-top:1px solid var(--line);padding:90px 0 100px;text-align:center;margin-top:80px;position:relative}
 .footer-cta h2{font-size:46px;font-weight:800;letter-spacing:-.03em;color:#ffffff;line-height:1.15}
 .footer-sub{font-size:18.5px;color:var(--ink2);margin-top:16px;max-width:640px;margin-left:auto;margin-right:auto;line-height:1.6}
 .footer-ctas{display:flex;gap:16px;justify-content:center;margin-top:36px;flex-wrap:wrap}
 
 /* Prominent Trust Strip (High Contrast & Clear Size) */
-.footer-trust-strip{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;margin:44px 0 0}
-.fts-item{display:inline-flex;align-items:center;gap:9px;font-size:13.5px;font-family:var(--mono);color:var(--ink);padding:9px 18px;border-radius:8px;background:var(--panel);border:1px solid var(--line2)}
-.fts-item svg{color:var(--green);flex-shrink:0;width:16px;height:16px}
+.footer-trust-strip{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;margin:40px 0 0}
+.fts-item{display:inline-flex;align-items:center;gap:10px;font-size:14px;font-family:var(--mono);font-weight:600;color:var(--ink);padding:10px 20px;border-radius:8px;background:#0d141c;border:1px solid var(--line2)}
+.fts-item svg{color:var(--green);flex-shrink:0;width:18px;height:18px}
 
-.footer-line{font-size:13.5px;color:var(--muted);margin-top:58px;font-family:var(--mono)}
+.footer-line{font-size:13.5px;color:var(--muted);margin-top:54px;font-family:var(--mono)}
 .footer-line a{color:var(--muted);margin:0 6px}
 .footer-line a:hover{color:var(--ink)}
 
@@ -340,7 +342,7 @@ a:hover{color:var(--green-hover)}
 @media (max-width:860px){
   .hero h1{font-size:40px}
   .hero-sub{font-size:16.5px}
-  .hero{grid-template-columns:1fr;gap:36px;padding:42px 0 28px}
+  .hero{grid-template-columns:1fr;gap:36px;padding:36px 0 20px}
   .nav-links a.plain{display:none}
   .nav-status{display:none}
   .pricing-grid{grid-template-columns:1fr}
@@ -350,9 +352,19 @@ a:hover{color:var(--green-hover)}
   .footer-cta h2{font-size:36px}
   .footer-cta{padding:72px 0 80px}
 }
+
+/* Mobile specific styling (<768px): Hide unreadable console mock, show zoomed inspection panel */
 @media (max-width:768px){
-  .stats{grid-template-columns:repeat(2,1fr) !important;gap:18px !important;padding:22px !important}
-  .matrix-row{grid-template-columns:1fr;gap:12px}
+  .stats{grid-template-columns:repeat(2,1fr) !important;gap:16px !important;padding:20px !important}
+  
+  /* Demo: Hide unreadable 4-tile video call mock on mobile, show only zoomed inspection panel */
+  .browser-chrome{display:none !important}
+  .showcase-body{grid-template-columns:1fr !important;padding:16px !important}
+  .showcase-inspect-panel{width:100% !important}
+  
+  /* Comparison table on mobile: stacked cleanly with outcome pill leading */
+  .matrix-row{grid-template-columns:1fr !important;gap:12px !important;padding:18px !important}
+  .matrix-impact{order:-1;margin-bottom:4px}
 }
 @media (max-width:540px){
   .stats{grid-template-columns:repeat(2,1fr) !important;gap:12px !important;padding:16px !important}
@@ -362,6 +374,7 @@ a:hover{color:var(--green-hover)}
   .hero h1{font-size:33px}
   .btn-primary, .btn-ghost{width:100%;justify-content:center}
   .hero-ctas{flex-direction:column;align-items:stretch}
+  .desk-panel{padding:54px 0}
 }
 </style>
 </head>
@@ -494,7 +507,7 @@ a:hover{color:var(--green-hover)}
     </div>
   </section>
 
-  <!-- Proof Stats Section with Clear Context & Sources (2x2 Grid on Mobile) -->
+  <!-- Proof Stats Section (Brought Up Higher, 2x2 Grid on Mobile) -->
   <section class="stats" id="results">
     <div class="stat-item">
       <div class="stat-num v-real">97%</div>
@@ -537,7 +550,7 @@ a:hover{color:var(--green-hover)}
     <p class="section-desc">Inspect high-definition captures of in-meeting speaker verification, synthetic voice alerts, and the executive forensic console.</p>
 
     <div class="showcase">
-      <!-- Tabs (Smooth Horizontal Scroll on Mobile) -->
+      <!-- Tabs (Smooth Horizontal Scroll) -->
       <div class="showcase-nav" role="tablist">
         <button class="showcase-tab active" onclick="switchShowcase(0)" id="tab-0" role="tab" aria-selected="true">
           <span class="tab-badge">01 · Google Meet</span>
@@ -581,7 +594,7 @@ a:hover{color:var(--green-hover)}
           </div>
         </div>
 
-        <!-- Tagged Side-Panel Close-Up HUD (Solves Dense Mock Critique) -->
+        <!-- Tagged Side-Panel Close-Up HUD -->
         <div class="showcase-inspect-panel">
           <div class="sip-header">
             <span class="sip-badge">
@@ -648,7 +661,7 @@ a:hover{color:var(--green-hover)}
           <div class="pipe-header-row">
             <span class="pipe-num">01 · INGESTION</span>
             <div class="pipe-icon-wrap">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2z"></path></svg>
             </div>
           </div>
           <div class="pipe-title">Capture</div>
@@ -725,7 +738,7 @@ a:hover{color:var(--green-hover)}
           <div class="sonave-good"><span class="good-num">97%</span> catch rate</div>
           <div class="sonave-sub">Trained directly on codec-compressed meeting audio and packet jitter.</div>
         </div>
-        <div>
+        <div class="matrix-impact">
           <span class="impact-pill green">Fraud caught on call</span>
         </div>
       </div>
@@ -744,7 +757,7 @@ a:hover{color:var(--green-hover)}
           <div class="sonave-good">&lt;4s Live Verdicts</div>
           <div class="sonave-sub">Continuous 4.0s rolling windows while participants are still talking.</div>
         </div>
-        <div>
+        <div class="matrix-impact">
           <span class="impact-pill green">Before wire approval</span>
         </div>
       </div>
@@ -763,7 +776,7 @@ a:hover{color:var(--green-hover)}
           <div class="sonave-good">Automated Wire Hold</div>
           <div class="sonave-sub">Instant webhook pauses treasury approvals + exportable IC3 forensic report.</div>
         </div>
-        <div>
+        <div class="matrix-impact">
           <span class="impact-pill green">Funds frozen in ERP</span>
         </div>
       </div>
@@ -782,7 +795,7 @@ a:hover{color:var(--green-hover)}
           <div class="sonave-good">Zero-Retention Volatile RAM</div>
           <div class="sonave-sub">Audio scored in GPU memory and purged immediately after verdict generation.</div>
         </div>
-        <div>
+        <div class="matrix-impact">
           <span class="impact-pill green">Zero leak liability</span>
         </div>
       </div>
@@ -791,10 +804,10 @@ a:hover{color:var(--green-hover)}
     <div style="font-size:13.5px;color:var(--muted);margin-top:22px">We publish our numbers — including the hard ones. <a href="/benchmarks">See the full benchmark dataset &rarr;</a></div>
   </section>
 
-</div><!-- end wrap for breakout -->
+</div><!-- end wrap before full-width panel -->
 
-<!-- Built for Wire-Fraud Desks (Dramatic Full-Bleed Emotional Peak Section) -->
-<section class="desk-breakout">
+<!-- Built for Wire-Fraud Desks (Flat Dark Red Panel - Bug 1 & Gradient Fix) -->
+<section class="desk-panel">
   <div class="wrap">
     <div class="desk-grid">
       <div>
@@ -845,7 +858,7 @@ a:hover{color:var(--green-hover)}
 
 <div class="wrap">
 
-  <!-- Transparent Pricing Section (Clean, Scannable & Highlighted) -->
+  <!-- Transparent Pricing Section (Clean, Scannable & Bug 4 Fixed) -->
   <section class="section" id="pricing">
     <div class="eyebrow">TRANSPARENT PRICING</div>
     <h2 class="section-title">Start free. Pay for what you monitor.</h2>
@@ -862,11 +875,11 @@ a:hover{color:var(--green-hover)}
           <div class="price-sub"><b>5 hours / mo included</b>. Sign in with Google, drop the bot into meetings, and receive live verdicts. No credit card required.</div>
 
           <ul class="price-feature-list">
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> 5 monitored meeting hours every month</li>
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Google Meet, Zoom &amp; Teams bot</li>
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Live REAL / SUSPECT / FAKE verdicts</li>
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> 4-second continuous sliding window</li>
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Zero browser extension installs</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>5 monitored meeting hours every month</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>Google Meet, Zoom &amp; Teams bot</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>Live REAL / SUSPECT / FAKE verdicts</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>4-second continuous sliding window</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>Zero browser extension installs</span></li>
           </ul>
         </div>
         <div class="price-cta">
@@ -874,11 +887,10 @@ a:hover{color:var(--green-hover)}
         </div>
       </div>
 
-      <!-- Tier 2: Pay As You Go (Highlighted & Recommended) -->
+      <!-- Tier 2: Pay As You Go (Highlighted & Bug 4 Fixed) -->
       <div class="price-card featured">
         <div class="price-pill-featured">RECOMMENDED FOR TEAMS</div>
         <div class="price-top">
-          <span class="price-badge" style="color:var(--green)">PAY AS YOU GO</span>
           <div class="price-num">
             <span class="price-big">$8</span>
             <span class="price-unit">/ monitored hour</span>
@@ -886,10 +898,10 @@ a:hover{color:var(--green-hover)}
           <div class="price-sub">Billed by the minute (~$0.13/min). Pay only while the bot is actively monitoring. Zero monthly seat licenses.</div>
 
           <ul class="price-feature-list">
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <b>Everything in Free</b>, no monthly hour limits</li>
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <b>Instant wire-hold treasury webhooks</b></li>
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Real-time SMS &amp; Slack red alerts</li>
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Exportable PDF forensic certificates</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span><b>Everything in Free</b>, no monthly hour limits</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span><b>Instant wire-hold treasury webhooks</b></span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>Real-time SMS &amp; Slack red alerts</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>Exportable PDF forensic certificates</span></li>
           </ul>
         </div>
         <div class="price-cta">
@@ -907,10 +919,10 @@ a:hover{color:var(--green-hover)}
           <div class="price-sub">Dedicated tenant, custom ERP / Treasury wire-hold webhooks, executive voiceprint enrollment, and 99.9% uptime SLA.</div>
 
           <ul class="price-feature-list">
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> High-volume discounted rates</li>
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Dedicated GPU tenant &amp; VPC peering</li>
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> SOC 2 compliance vault</li>
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Dedicated incident engineer support</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>High-volume discounted rates</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>Dedicated GPU tenant &amp; VPC peering</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>SOC 2 compliance vault</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>Dedicated incident engineer support</span></li>
           </ul>
         </div>
         <div class="price-cta">
@@ -1012,7 +1024,7 @@ a:hover{color:var(--green-hover)}
       <a class="btn-ghost" href="mailto:derekgallardo01@gmail.com?subject=Sonave%20Enterprise">Talk to us</a>
     </div>
 
-    <!-- Prominent Trust Strip (High Contrast & Clear Size) -->
+    <!-- Prominent Trust Strip (High Contrast, Bold Text, 18px Icons) -->
     <div class="footer-trust-strip">
       <span class="fts-item">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
