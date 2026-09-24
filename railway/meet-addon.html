@@ -1064,6 +1064,13 @@ function popoutCloner(){
  var left = (screen.width/2)-(w/2);
  var top = (screen.height/2)-(h/2);
  var u = '/cloner' + (TOK ? '?token=' + encodeURIComponent(TOK) : '');
+ try{
+  fetch('/api/telemetry/event', {
+   method: 'POST',
+   headers: authHeaders({'Content-Type': 'application/json'}),
+   body: JSON.stringify({kind: 'cloner_opened', detail: {source: 'meet_addon_popout'}})
+  }).catch(function(){});
+ }catch(x){}
  if(_clonerWindowRef && !_clonerWindowRef.closed){
   try{ _clonerWindowRef.focus(); }catch(x){}
  } else {
@@ -1219,6 +1226,13 @@ async function startAddonV2V(){
   }
 
   _addonV2VActive = true;
+  try{
+   fetch('/api/telemetry/event', {
+    method: 'POST',
+    headers: authHeaders({'Content-Type': 'application/json'}),
+    body: JSON.stringify({kind: 'cloner_opened', detail: {source: 'meet_addon_panel'}})
+   }).catch(function(){});
+  }catch(x){}
   if(btn){
    btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg><span>Stop Real-Time Voice Cloner</span>';
    btn.style.background = 'rgba(255,77,94,0.18)';
@@ -1310,6 +1324,13 @@ function boot(){
  _connectedSince=Date.now();
  populateAudioOutputs();
  if(TOK){
+  try{
+   fetch('/api/telemetry/event', {
+    method: 'POST',
+    headers: authHeaders({'Content-Type': 'application/json'}),
+    body: JSON.stringify({kind: 'addon_opened', detail: {space: window._meetCode || ''}})
+   }).catch(function(){});
+  }catch(x){}
   show('live');
   var code = window._meetCode || '';
   if(!code && window._sideClient && window._sideClient.getMeetingInfo){

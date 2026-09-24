@@ -135,7 +135,9 @@ def _mask_email(email: str | None) -> str:
 # push via their own direct _notify_admin calls, so they're intentionally NOT here (no double).
 _NOTIFY_KINDS = {"incident_open", "bot_created", "meeting_started",
                  "meeting_ended", "host_left", "host_rejoined", "signin",
-                 "client_error", "server_error", "bot_denied", "usage_threshold"}
+                 "client_error", "server_error", "bot_denied", "usage_threshold",
+                 "meet_media_connect", "meet_media_disconnect", "simulation_run",
+                 "incident_ack", "cloner_opened"}
 
 
 def _now_et() -> str:
@@ -152,6 +154,24 @@ def _format_activity(user_id: str, kind: str, detail: dict) -> str:
     """One-line founder-alert summary for a whitelisted activity event."""
     email = detail.get("email") or (db.get_user(user_id) or {}).get("email") or user_id
     ts = _now_et()
+    if kind == "meet_media_connect":
+        space = detail.get("space") or "Google Meet"
+        ok_str = "connected" if detail.get("ok", True) else f"failed ({detail.get('error', 'unknown')})"
+        return f"📞 Meet Call Joined: space '{space}' ({ok_str}) — {email} · {ts}"
+    if kind == "meet_media_disconnect":
+        space = detail.get("space") or "Google Meet"
+        return f"📴 Meet Call Left: space '{space}' — {email} · {ts}"
+    if kind == "simulation_run":
+        voice = detail.get("voice_name") or detail.get("voice_id") or "AI Voice"
+        conf = detail.get("confidence", "98.5%")
+        type_str = "Real baseline" if detail.get("is_real") else f"Fake clone ({conf})"
+        return f"🧪 Threat Demo Tested: '{voice}' ({type_str}) — {email} · {ts}"
+    if kind == "incident_ack":
+        inc_id = detail.get("incident_id", "")
+        spk = detail.get("speaker") or f"Incident #{inc_id}"
+        return f"✅ Wire Hold Cleared: '{spk}' — {email} · {ts}"
+    if kind == "cloner_opened":
+        return f"🎙️ Live Mic Cloner Opened — {email} · {ts}"
     if kind == "incident_open":
         return f"⚠️ Deepfake flagged: speaker '{detail.get('speaker', '?')}' — {email} · {ts}"
     if kind == "bot_created":
@@ -638,6 +658,35 @@ def api_telemetry_client_error(req: ClientErrorReq, request: Request):
     }
     _track(uid, "client_error", **detail)
     return Response(status_code=204)
+
+
+class ClientEventReq(BaseModel):
+    kind: str
+    detail: dict = {}
+
+
+@app.post("/api/telemetry/event", status_code=204)
+def api_telemetry_event(req: ClientEventReq, request: Request):
+    """Receive high-signal client lifecycle events (cloner started, addon opened, etc.)."""
+    uid = "anonymous"
+    email = ""
+    try:
+        p = auth.get_principal(request)
+        if p:
+            uid = p.user_id
+            u = db.get_user(p.user_id)
+            if u:
+                email = u.get("email") or ""
+    except Exception:
+        pass
+    allowed = {"cloner_opened", "addon_opened", "simulation_run"}
+    if req.kind in allowed:
+        d = dict(req.detail or {})
+        if email and "email" not in d:
+            d["email"] = email
+        _track(uid, req.kind, **d)
+    return Response(status_code=204)
+
 
 # Inline favicon: the Sonave scope-pulse mark — green radar scope with a voice
 # pulse and contact blip (matches designs/logo/sonave-logo-master.png).
@@ -1863,6 +1912,19 @@ def api_admin_events(user_id: str = "", kind: str = "", limit: int = 100,
                                      limit=limit, before_id=before or None)}
 
 
+@app.get("/api/admin/users/{user_id}/telemetry")
+def api_admin_user_telemetry(user_id: str, p: auth.Principal = Depends(require_admin)):
+    """Comprehensive 360-degree telemetry view of a single user."""
+    data = db.get_user_telemetry(user_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="User not found")
+    events = db.list_events(user_id=user_id, limit=200)
+    return {
+        "user": data,
+        "events": events
+    }
+
+
 @app.get("/api/model", dependencies=[Depends(require_auth)])
 def api_model():
     """Metrics of the deployed checkpoint (written by tools/write_metrics.py)."""
@@ -2637,6 +2699,16 @@ async def api_generator_inject_test(req: SynthReq, p: auth.Principal = Depends(r
             )
 
     mp3_b64 = base64.b64encode(mp3_bytes).decode() if mp3_bytes else ""
+    _track(
+        p.user_id,
+        "simulation_run",
+        voice_id=req.voice_id,
+        voice_name=prof.get("name", req.voice_id),
+        speaker=spk,
+        is_real=req.is_real,
+        confidence=f"{p_score:.1%}",
+        engine="Natural Speech Reference" if req.is_real else prof.get("engine", "ElevenLabs v2")
+    )
     return {
         "ok": True,
         "speaker": spk,
@@ -3123,8 +3195,24 @@ def meet_addon():
 
 
 @app.get("/cloner", response_class=HTMLResponse)
-def cloner():
+def cloner(request: Request, token: str = ""):
     """Lightweight standalone companion window for real-time voice-to-voice microphone cloning."""
+    uid = ""
+    if token:
+        try:
+            p = auth.verify_token(token)
+            uid = p.user_id
+        except Exception:
+            pass
+    if not uid:
+        try:
+            p = auth.get_principal(request)
+            if p:
+                uid = p.user_id
+        except Exception:
+            pass
+    if uid:
+        _track(uid, "cloner_opened")
     html = (_HERE / "cloner.html").read_text(encoding="utf-8")
     return HTMLResponse(content=html.replace("__FAVICON__", _FAVICON_B64))
 

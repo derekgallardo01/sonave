@@ -191,8 +191,11 @@ a:hover{color:var(--green-hover)}
 .pill{padding:7px 15px;border-radius:999px;border:1px solid var(--line2);background:transparent;color:var(--ink2);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font);transition:all .15s}
 .pill:hover{border-color:var(--green);color:var(--ink)}
 .pill.on{border-color:rgba(46,229,132,.35);background:rgba(46,229,132,.1);color:var(--green)}
-.adm-grid{display:grid;grid-template-columns:1.6fr 100px 70px 55px 100px 150px 100px;gap:0 12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.adm-grid{display:grid;grid-template-columns:1.8fr 80px 60px 60px 70px 60px 120px;gap:0 10px;align-items:center;padding:8px 6px;border-bottom:1px solid var(--line)}
 .adm-grid:last-child{border-bottom:0}
+.adm-row{cursor:pointer;border-radius:6px;transition:background .15s, border-color .15s;}
+.adm-row:hover{background:rgba(46,229,132,0.06);}
+.badge-num{font-family:var(--mono);font-size:11px;font-weight:700;padding:2px 6px;border-radius:4px;background:rgba(255,255,255,0.04);}
 .evt{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:11.5px}
 .evt:last-child{border-bottom:0}
 .evt-kind{padding:2px 8px;border-radius:6px;font-size:9px;font-weight:700;letter-spacing:.05em;flex-shrink:0;background:rgba(255,255,255,.04);border:1px solid var(--line2)}
@@ -957,10 +960,10 @@ a:hover{color:var(--green-hover)}
       <span class="pill on" onclick="setAdmKind('',this)">All</span>
       <span class="pill" onclick="setAdmKind('signup',this)">Signups</span>
       <span class="pill" onclick="setAdmKind('signin',this)">Sign-ins</span>
-      <span class="pill" onclick="setAdmKind('bot_created',this)">Streams &amp; Meet</span>
-      <span class="pill" onclick="setAdmKind('meeting_ended',this)">Meetings</span>
+      <span class="pill" onclick="setAdmKind('meet_media_connect,meet_media_disconnect,bot_created',this)">Meet Calls</span>
+      <span class="pill" onclick="setAdmKind('simulation_run,cloner_opened',this)" style="color:#c084fc">Simulations</span>
+      <span class="pill" onclick="setAdmKind('incident_open,incident_ack',this)">Threats &amp; Holds</span>
       <span class="pill" onclick="setAdmKind('subscription_checkout,usage_threshold',this)">Billing</span>
-      <span class="pill" onclick="setAdmKind('incident_open',this)">Incidents</span>
       <span class="pill" onclick="setAdmKind('email_sent',this)">Emails</span>
       <span class="pill" onclick="setAdmKind('client_error,server_error,scorer_error',this)" style="color:var(--red)">Errors &amp; Bugs</span>
      </div>
@@ -968,6 +971,102 @@ a:hover{color:var(--green-hover)}
     <div id="admFeed" style="padding:6px 20px 14px;max-height:440px;overflow:auto"></div>
    </div>
   </section>
+</div>
+
+<div class="login-overlay" id="userTelemetryModal" style="display:none;z-index:220" onclick="if(event.target===this)closeUserTelemetry()">
+ <div class="telemetry-box" style="background:#0e1319; border:1px solid #1f2a36; border-radius:16px; width:min(940px, 94vw); max-height:88vh; display:flex; flex-direction:column; box-shadow:0 30px 80px rgba(0,0,0,0.85); overflow:hidden;">
+  <div style="padding:18px 24px; border-bottom:1px solid #1a232f; display:flex; align-items:center; justify-content:space-between; background:#121820;">
+   <div style="display:flex; align-items:center; gap:14px; min-width:0;">
+    <div id="utAvatar" style="width:40px; height:40px; border-radius:50%; background:linear-gradient(135deg, #1f2a36, #2a3b4c); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:16px; color:#2ee584; flex-shrink:0;">U</div>
+    <div style="min-width:0;">
+     <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+      <span id="utEmail" style="font-size:15px; font-weight:700; color:#fff;">user@example.com</span>
+      <span id="utRoleBadge" class="role-badge r-member">member</span>
+      <span id="utPlanBadge" style="font-size:10px; font-weight:700; padding:2px 7px; border-radius:6px; background:rgba(46,229,132,0.12); color:#2ee584; border:1px solid rgba(46,229,132,0.3);">FREE</span>
+     </div>
+     <div style="display:flex; align-items:center; gap:12px; font-size:11px; color:#8599a8; margin-top:3px; flex-wrap:wrap;">
+      <span>ID: <code id="utId" style="font-family:var(--mono); color:#adb5bd; cursor:pointer;" onclick="copyUtId()" title="Click to copy ID">u_...</code></span>
+      <span id="utCreated">Joined: —</span>
+      <span id="utLastLogin">Last login: —</span>
+     </div>
+    </div>
+   </div>
+   <div style="display:flex; align-items:center; gap:8px;">
+    <a id="utEmailBtn" href="#" class="btn" style="padding:6px 12px; font-size:11.5px; text-decoration:none; display:inline-flex; align-items:center; gap:5px;">
+     <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+     Email User
+    </a>
+    <button class="btn" style="padding:6px 10px; font-size:13px;" onclick="closeUserTelemetry()" title="Close (Esc)">&#x2715;</button>
+   </div>
+  </div>
+
+  <div style="padding:20px 24px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:18px;">
+   <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px;">
+    <div style="background:#131a22; border:1px solid #1c2633; border-radius:10px; padding:12px 14px;">
+     <div style="font-size:10px; color:#8599a8; text-transform:uppercase; letter-spacing:0.05em; font-weight:700;">MEET CALLS</div>
+     <div id="utMeets" style="font-size:20px; font-weight:800; color:#38bdf8; margin-top:4px;">0</div>
+     <div style="font-size:10px; color:#556677; margin-top:2px;">Google Meet sessions</div>
+    </div>
+    <div style="background:#131a22; border:1px solid #1c2633; border-radius:10px; padding:12px 14px;">
+     <div style="font-size:10px; color:#8599a8; text-transform:uppercase; letter-spacing:0.05em; font-weight:700;">VOICE SIMULATIONS</div>
+     <div id="utSims" style="font-size:20px; font-weight:800; color:#c084fc; margin-top:4px;">0</div>
+     <div style="font-size:10px; color:#556677; margin-top:2px;">Threat tests run</div>
+    </div>
+    <div style="background:#131a22; border:1px solid #1c2633; border-radius:10px; padding:12px 14px;">
+     <div style="font-size:10px; color:#8599a8; text-transform:uppercase; letter-spacing:0.05em; font-weight:700;">DEEPFAKE THREATS</div>
+     <div id="utIncidents" style="font-size:20px; font-weight:800; color:var(--red); margin-top:4px;">0</div>
+     <div style="font-size:10px; color:#556677; margin-top:2px;">Wire holds triggered</div>
+    </div>
+    <div style="background:#131a22; border:1px solid #1c2633; border-radius:10px; padding:12px 14px;">
+     <div style="font-size:10px; color:#8599a8; text-transform:uppercase; letter-spacing:0.05em; font-weight:700;">HOLDS CLEARED</div>
+     <div id="utAcks" style="font-size:20px; font-weight:800; color:var(--green); margin-top:4px;">0</div>
+     <div style="font-size:10px; color:#556677; margin-top:2px;">Wire transfers verified</div>
+    </div>
+    <div style="background:#131a22; border:1px solid #1c2633; border-radius:10px; padding:12px 14px;">
+     <div style="font-size:10px; color:#8599a8; text-transform:uppercase; letter-spacing:0.05em; font-weight:700;">CLIENT/SRV ERRORS</div>
+     <div id="utErrors" style="font-size:20px; font-weight:800; color:var(--red); margin-top:4px;">0</div>
+     <div style="font-size:10px; color:#556677; margin-top:2px;">Exceptions caught</div>
+    </div>
+    <div style="background:#131a22; border:1px solid #1c2633; border-radius:10px; padding:12px 14px;">
+     <div style="font-size:10px; color:#8599a8; text-transform:uppercase; letter-spacing:0.05em; font-weight:700;">TOTAL TELEMETRY</div>
+     <div id="utTotalEvents" style="font-size:20px; font-weight:800; color:#fff; margin-top:4px;">0</div>
+     <div style="font-size:10px; color:#556677; margin-top:2px;">Audited data points</div>
+    </div>
+   </div>
+
+   <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+    <div style="background:#131a22; border:1px solid #1c2633; border-radius:10px; padding:14px;">
+     <div style="font-size:11px; font-weight:700; color:#8599a8; letter-spacing:0.04em; margin-bottom:8px;">GOOGLE MEET SPACES JOINED</div>
+     <div id="utSpacesList" style="display:flex; flex-wrap:wrap; gap:6px;">
+      <span style="font-size:11px; color:#556677;">None recorded</span>
+     </div>
+    </div>
+    <div style="background:#131a22; border:1px solid #1c2633; border-radius:10px; padding:14px;">
+     <div style="font-size:11px; font-weight:700; color:#8599a8; letter-spacing:0.04em; margin-bottom:8px;">SIMULATED VOICES TESTED</div>
+     <div id="utSimList" style="display:flex; flex-wrap:wrap; gap:6px;">
+      <span style="font-size:11px; color:#556677;">None recorded</span>
+     </div>
+    </div>
+   </div>
+
+   <div style="background:#131a22; border:1px solid #1c2633; border-radius:10px; overflow:hidden;">
+    <div style="padding:12px 16px; border-bottom:1px solid #1c2633; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+     <div style="font-size:11px; font-weight:700; color:#8599a8; letter-spacing:0.04em;">CHRONOLOGICAL TELEMETRY TIMELINE</div>
+     <div class="pills" id="utPills">
+      <span class="pill on" onclick="filterUtEvents('',this)">All</span>
+      <span class="pill" onclick="filterUtEvents('meet_media_connect,meet_media_disconnect,bot_created,meeting_ended',this)">Calls</span>
+      <span class="pill" onclick="filterUtEvents('simulation_run,cloner_opened',this)" style="color:#c084fc">Simulations</span>
+      <span class="pill" onclick="filterUtEvents('incident_open,incident_ack',this)">Threats</span>
+      <span class="pill" onclick="filterUtEvents('client_error,server_error,scorer_error',this)" style="color:var(--red)">Errors</span>
+      <span class="pill" onclick="filterUtEvents('email_sent',this)">Emails</span>
+     </div>
+    </div>
+    <div id="utFeed" style="padding:10px 16px; max-height:360px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;">
+     <div style="color:#556677; font-size:12px; padding:12px 0;">Loading telemetry feed...</div>
+    </div>
+   </div>
+  </div>
+ </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -1252,21 +1351,28 @@ function est(ts){/* seconds -> "Aug 14, 9:48 AM" pinned to US Eastern */
 function setAdmKind(k,el){_admKind=k;document.querySelectorAll('#admPills .pill').forEach(function(p){p.classList.remove('on')});el.classList.add('on');admEvents()}
 function kcol(k){
  if(k=='client_error'||k=='server_error'||k=='scorer_error')return'var(--red)';
- if(k=='signup'||k=='subscription_checkout'||k=='enroll_added'||k=='host_rejoined')return'var(--green)';
+ if(k=='signup'||k=='subscription_checkout'||k=='enroll_added'||k=='host_rejoined'||k=='incident_ack')return'var(--green)';
+ if(k=='simulation_run'||k=='cloner_opened')return'#c084fc';
  if(k=='email_sent')return'#38bdf8';
- if(k=='host_left'||k=='usage_threshold')return'var(--amber)';
+ if(k=='meet_media_connect'||k=='addon_opened')return'#38bdf8';
+ if(k=='meet_media_disconnect'||k=='host_left'||k=='usage_threshold')return'var(--amber)';
  if(k=='incident_open'||k=='bot_denied'||k=='subscription_canceled')return'var(--red)';
  if(k=='signin'||k=='signout'||k=='settings_changed'||k=='enroll_deleted')return'var(--ink2)';
  return'#5aa7e8';
 }
 function admSummary(k,d){
  try{d=d?JSON.parse(d):{}}catch(e){d={}}
+ if(k=='simulation_run')return 'Threat Demo: '+(d.voice_name||d.voice_id||'AI Voice')+(d.is_real?' (Real Reference)':' ('+(d.confidence||'98%')+' Fake)')+(d.speaker?(' · '+d.speaker):'');
+ if(k=='incident_ack')return 'Wire hold cleared for Incident #'+(d.incident_id||'');
+ if(k=='cloner_opened')return 'Opened Live Mic Voice-to-Voice Cloner ('+(d.source||'window')+')';
+ if(k=='addon_opened')return 'Opened Sonave side panel in Meet'+(d.space?(' ('+d.space+')'):'');
+ if(k=='meet_media_connect')return 'Joined Meet space '+(d.space||'')+' · ok='+d.ok+(d.error?(' ('+d.error+')'):'');
+ if(k=='meet_media_disconnect')return 'Left Meet space '+(d.space||'');
  if(k=='email_sent')return (d.type||'email')+' sent to '+(d.to||'')+(d.speaker?(' ('+d.speaker+')'):'');
  if(k=='usage_threshold')return 'Reached '+(d.percent||'?')+'% of free quota ('+(d.used_min||0)+'/'+(d.free_min||0)+' min)';
  if(k=='client_error')return (d.page||'client')+' bug: '+(d.message||'')+(d.source?(' @ '+d.source+':'+(d.lineno||0)):'');
  if(k=='server_error')return (d.method||'')+' '+(d.path||'')+': '+(d.error||'');
  if(k=='scorer_error')return (d.speaker||'')+' score fail: '+(d.error||'');
- if(k=='meet_media_connect')return (d.space||'')+' · ok='+d.ok+(d.error?(' ('+d.error+')'):'');
  if(k=='bot_created')return(d.source||'Native Meet Media API')+' · '+(d.meeting_url||'');
  if(k=='meeting_ended')return Math.round((d.duration_sec||0)/60)+' min · '+(d.metered_min||0)+' metered'+(d.cause==='removed_while_active'?' · disconnected by host':d.cause==='everyone_left'?' · call ended':'');
  if(k=='host_left')return'host left — monitoring continues';
@@ -1297,20 +1403,151 @@ function admUsersFilter(){
  renderAdmUserList(users);
 }
 function renderAdmUserList(users){
- var h='<div class="adm-grid hist-head"><span>USER</span><span>PLAN</span><span>ROLE</span><span class="hide-sm">SESSIONS</span><span>MIN &#183; MO</span><span class="hide-sm">LAST LOGIN</span><span>LAST EVENT</span></div>';
+ var h='<div class="adm-grid hist-head"><span>USER</span><span>PLAN</span><span class="hide-sm">CALLS</span><span>SIMS</span><span>THREATS</span><span class="hide-sm">ERRORS</span><span>LAST ACTIVE</span></div>';
  users.forEach(function(u){
   var roleCls=u.role==='admin'?'r-admin':'r-member';
   var planBadge=u.plan==='admin'?'unlimited':(u.plan||'free');
-  h+='<div class="adm-grid"><span class="hist-spk" style="overflow:hidden;text-overflow:ellipsis">'+esc(u.email||u.id)+'</span>'+
-   '<span class="hist-cell">'+esc(planBadge)+(u.autojoin?' &#183; auto':'')+'</span>'+
-   '<span class="hist-cell"><span class="role-badge '+roleCls+'">'+esc(u.role)+'</span></span>'+
-   '<span class="hist-cell hide-sm">'+(u.bots_total||0)+'</span>'+
-   '<span class="hist-cell">'+Math.round(u.minutes_month||0)+'</span>'+
-   '<span class="hist-cell hide-sm">'+(u.last_login_ts?est(u.last_login_ts):'—')+'</span>'+
-   '<span class="hist-cell">'+(u.last_event_ts?rel(u.last_event_ts)+' ago':'—')+'</span></div>';
+  var calls = (u.meets_total || 0) + (u.bots_total || 0);
+  var sims = u.sims_total || 0;
+  var threats = u.incidents_total || 0;
+  var errors = u.errors_total || 0;
+  var lastActive = u.last_event_ts ? (rel(u.last_event_ts) + ' ago') : (u.last_login_ts ? (rel(u.last_login_ts) + ' ago') : '—');
+  h+='<div class="adm-grid adm-row" onclick="openUserTelemetry(\''+esc(u.id)+'\')" title="Click to view full user telemetry &amp; timeline">'+
+   '<span class="hist-spk" style="overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px">'+
+    '<span style="width:7px;height:7px;border-radius:50%;background:'+(u.last_event_ts && (Date.now()/1000 - u.last_event_ts < 86400)?'var(--green)':'var(--line)')+';flex-shrink:0"></span>'+
+    '<span>'+esc(u.email||u.id)+'</span>'+
+   '</span>'+
+   '<span class="hist-cell">'+esc(planBadge)+'</span>'+
+   '<span class="hist-cell hide-sm"><span class="badge-num" style="color:'+(calls>0?'#38bdf8':'var(--muted)')+'">'+calls+'</span></span>'+
+   '<span class="hist-cell"><span class="badge-num" style="color:'+(sims>0?'#c084fc':'var(--muted)')+'">'+sims+'</span></span>'+
+   '<span class="hist-cell"><span class="badge-num" style="color:'+(threats>0?'var(--red)':'var(--muted)')+'">'+threats+'</span></span>'+
+   '<span class="hist-cell hide-sm"><span class="badge-num" style="color:'+(errors>0?'var(--red)':'var(--muted)')+'">'+errors+'</span></span>'+
+   '<span class="hist-cell" style="font-size:11px;color:var(--muted)">'+lastActive+'</span></div>';
  });
  document.getElementById('admUserRows').innerHTML=h||'<div class="empty-st" style="padding:16px 0">No matching users found.</div>';
 }
+
+var _utCache = null;
+var _utFilterKind = '';
+async function openUserTelemetry(userId){
+ var modal = document.getElementById('userTelemetryModal');
+ if(!modal) return;
+ modal.style.display = 'flex';
+ document.body.style.overflow = 'hidden';
+
+ document.getElementById('utEmail').textContent = 'Loading...';
+ document.getElementById('utId').textContent = userId;
+ document.getElementById('utMeets').textContent = '—';
+ document.getElementById('utSims').textContent = '—';
+ document.getElementById('utIncidents').textContent = '—';
+ document.getElementById('utAcks').textContent = '—';
+ document.getElementById('utErrors').textContent = '—';
+ document.getElementById('utTotalEvents').textContent = '—';
+ document.getElementById('utFeed').innerHTML = '<div style="color:var(--muted);font-size:12px;padding:12px 0">Loading telemetry...</div>';
+ document.getElementById('utSpacesList').innerHTML = '<span style="font-size:11px;color:#556677;">Loading...</span>';
+ document.getElementById('utSimList').innerHTML = '<span style="font-size:11px;color:#556677;">Loading...</span>';
+
+ try {
+  var d = await jget('/api/admin/users/' + encodeURIComponent(userId) + '/telemetry');
+  _utCache = d;
+  var u = d.user || {};
+  document.getElementById('utEmail').textContent = u.email || userId;
+  document.getElementById('utId').textContent = u.id || userId;
+  document.getElementById('utAvatar').textContent = ((u.name || u.email || 'U')[0]).toUpperCase();
+  document.getElementById('utRoleBadge').className = 'role-badge ' + (u.role === 'admin' ? 'r-admin' : 'r-member');
+  document.getElementById('utRoleBadge').textContent = u.role || 'member';
+  document.getElementById('utPlanBadge').textContent = (u.role === 'admin' ? 'ADMIN' : (u.sub_status === 'active' ? 'METERED' : 'FREE'));
+  document.getElementById('utCreated').textContent = 'Joined: ' + (u.created_ts ? est(u.created_ts) : '—');
+  document.getElementById('utLastLogin').textContent = 'Last login: ' + (u.last_login_ts ? est(u.last_login_ts) : '—');
+  document.getElementById('utEmailBtn').href = 'mailto:' + encodeURIComponent(u.email || '') + '?subject=' + encodeURIComponent('Sonave Voice Security — Following up');
+
+  document.getElementById('utMeets').textContent = (u.meets_total || 0);
+  document.getElementById('utSims').textContent = (u.sims_total || 0);
+  document.getElementById('utIncidents').textContent = (u.incidents_total || 0);
+  document.getElementById('utAcks').textContent = (u.acks_total || 0);
+  document.getElementById('utErrors').textContent = (u.errors_total || 0);
+  document.getElementById('utTotalEvents').textContent = (u.total_events || (d.events || []).length || 0);
+
+  var spH = '';
+  (u.recent_spaces || []).forEach(function(sp){
+   spH += '<span style="background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.3);color:#38bdf8;font-size:11px;padding:3px 8px;border-radius:6px;font-family:var(--mono)">' + esc(sp) + '</span>';
+  });
+  document.getElementById('utSpacesList').innerHTML = spH || '<span style="font-size:11px;color:#556677;">No Google Meet spaces recorded</span>';
+
+  var simH = '';
+  (u.recent_simulations || []).forEach(function(sm){
+   simH += '<span style="background:rgba(192,132,252,0.12);border:1px solid rgba(192,132,252,0.3);color:#c084fc;font-size:11px;padding:3px 8px;border-radius:6px;">' + esc(sm) + '</span>';
+  });
+  document.getElementById('utSimList').innerHTML = simH || '<span style="font-size:11px;color:#556677;">No simulated threat tests run</span>';
+
+  renderUtFeed();
+ } catch(e) {
+  document.getElementById('utFeed').innerHTML = '<div style="color:var(--red);font-size:12px;padding:12px 0">Failed to load telemetry: ' + esc(String(e)) + '</div>';
+ }
+}
+
+function filterUtEvents(kind, el){
+ _utFilterKind = kind;
+ document.querySelectorAll('#utPills .pill').forEach(function(p){ p.classList.remove('on'); });
+ if(el) el.classList.add('on');
+ renderUtFeed();
+}
+
+function renderUtFeed(){
+ if(!_utCache) return;
+ var evs = _utCache.events || [];
+ var kinds = _utFilterKind ? _utFilterKind.split(',') : [];
+ var filtered = evs.filter(function(e){
+  return !kinds.length || kinds.includes(e.kind);
+ });
+ if(!filtered.length){
+  document.getElementById('utFeed').innerHTML = '<div style="color:var(--muted);font-size:11.5px;padding:12px 0">No events match the selected filter.</div>';
+  return;
+ }
+ var h = '';
+ filtered.forEach(function(ev, idx){
+  var summary = admSummary(ev.kind, ev.detail);
+  var col = kcol(ev.kind);
+  var rawJson = '';
+  try{ rawJson = JSON.stringify(JSON.parse(ev.detail||'{}'), null, 2); }catch(x){ rawJson = ev.detail || ''; }
+  h += '<div style="border-bottom:1px solid #18222d;padding:8px 0;display:flex;flex-direction:column;gap:4px;">' +
+   '<div style="display:flex;align-items:center;gap:10px;font-size:11.5px;">' +
+    '<span class="evt-kind" style="color:' + col + ';border-color:' + col + '44;background:' + col + '15">' + esc(String(ev.kind).replace(/_/g,' ').toUpperCase()) + '</span>' +
+    '<span style="color:var(--muted);font-family:var(--mono);font-size:10.5px;flex-shrink:0" title="' + est(ev.ts) + '">' + rel(ev.ts) + ' ago</span>' +
+    '<span style="color:#d1d5db;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(summary) + '</span>' +
+    (rawJson && rawJson !== '{}' ? '<button onclick="toggleUtRaw(' + idx + ')" style="background:none;border:none;color:#8599a8;font-size:10.5px;cursor:pointer;padding:2px 6px;">inspect</button>' : '') +
+   '</div>' +
+   (rawJson && rawJson !== '{}' ? '<pre id="utRaw_' + idx + '" style="display:none;margin:4px 0 2px 0;padding:8px 10px;background:#090d12;border:1px solid #1a2430;border-radius:6px;font-size:10.5px;color:#a3b3c2;overflow-x:auto;font-family:var(--mono);">' + esc(rawJson) + '</pre>' : '') +
+  '</div>';
+ });
+ document.getElementById('utFeed').innerHTML = h;
+}
+
+function toggleUtRaw(idx){
+ var el = document.getElementById('utRaw_' + idx);
+ if(el){ el.style.display = (el.style.display === 'none' ? 'block' : 'none'); }
+}
+
+function closeUserTelemetry(){
+ var modal = document.getElementById('userTelemetryModal');
+ if(modal){ modal.style.display = 'none'; }
+ document.body.style.overflow = '';
+}
+
+function copyUtId(){
+ var id = document.getElementById('utId').textContent;
+ if(navigator.clipboard && id){
+  navigator.clipboard.writeText(id);
+  toast('User ID copied to clipboard: ' + id, 'ok');
+ }
+}
+
+window.addEventListener('keydown', function(e){
+ if(e.key === 'Escape'){
+  var modal = document.getElementById('userTelemetryModal');
+  if(modal && modal.style.display === 'flex'){ closeUserTelemetry(); }
+ }
+});
 async function admUsersFn(){
  try{
   var d=await jget('/api/admin/users');

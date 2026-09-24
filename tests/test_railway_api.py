@@ -106,3 +106,46 @@ def test_apple_touch_icon_served(railway_mod):
     assert r.status_code == 200
     assert "png" in r.headers["content-type"]
     assert len(r.content) > 100
+
+
+def test_user_telemetry_and_events(railway_mod):
+    c = client(railway_mod)
+    # Test _format_activity
+    fmt = railway_mod._format_activity("u_test", "meet_media_connect", {"space": "abc-defg-hij", "ok": True, "email": "test@sonave.com"})
+    assert "Meet Call Joined" in fmt and "abc-defg-hij" in fmt
+
+    fmt_sim = railway_mod._format_activity("u_test", "simulation_run", {"voice_name": "ElevenLabs CEO", "is_real": False, "confidence": "98.5%", "email": "test@sonave.com"})
+    assert "Threat Demo Tested" in fmt_sim and "ElevenLabs CEO" in fmt_sim
+
+    fmt_ack = railway_mod._format_activity("u_test", "incident_ack", {"incident_id": 42, "speaker": "CEO", "email": "test@sonave.com"})
+    assert "Wire Hold Cleared" in fmt_ack
+
+    fmt_cloner = railway_mod._format_activity("u_test", "cloner_opened", {"email": "test@sonave.com"})
+    assert "Live Mic Cloner Opened" in fmt_cloner
+
+    # Test /api/telemetry/event endpoint
+    r = c.post("/api/telemetry/event", json={"kind": "cloner_opened", "detail": {"source": "test"}})
+    assert r.status_code == 204
+
+    # Test db.get_user_telemetry
+    user = railway_mod.db.upsert_google_user("sub_test_123", "telemetry_test@sonave.com", "Test User", "", "member")
+    uid = user["id"]
+    railway_mod.db.add_event(uid, "meet_media_connect", '{"space": "xyz-test-space", "ok": true}')
+    railway_mod.db.add_event(uid, "simulation_run", '{"voice_name": "ElevenLabs CEO clone", "is_real": false}')
+
+    telem = railway_mod.db.get_user_telemetry(uid)
+    assert telem["meets_total"] >= 1
+    assert telem["sims_total"] >= 1
+    assert "xyz-test-space" in telem["recent_spaces"]
+    assert "ElevenLabs CEO clone" in telem["recent_simulations"]
+
+    # Test /api/admin/users/{user_id}/telemetry
+    admin_user = railway_mod.db.upsert_google_user("sub_admin_456", "admin@sonave.com", "Admin User", "", "admin")
+    admin_sess = railway_mod.auth.sign_session(admin_user["id"])
+    r = c.get(f"/api/admin/users/{uid}/telemetry", headers={"Authorization": f"Bearer {admin_sess}"})
+    assert r.status_code == 200
+    data = r.json()
+    assert "user" in data and "events" in data
+    assert data["user"]["meets_total"] >= 1
+    assert len(data["events"]) >= 2
+

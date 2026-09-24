@@ -6,6 +6,7 @@ Single-web-worker deployment assumed (also required by app.py's in-memory state)
 """
 from __future__ import annotations
 
+import json
 import os
 import secrets
 import sqlite3
@@ -181,7 +182,11 @@ def admin_user_rollup(month: str) -> list[dict]:
             "       u.ical_url, s.status AS sub_status, "
             "       (SELECT COUNT(*) FROM bots b WHERE b.user_id = u.id) AS bots_total, "
             "       COALESCE(g.minutes, 0) AS minutes_month, "
-            "       (SELECT MAX(ts) FROM events e WHERE e.user_id = u.id) AS last_event_ts "
+            "       (SELECT MAX(ts) FROM events e WHERE e.user_id = u.id) AS last_event_ts, "
+            "       (SELECT COUNT(*) FROM events e WHERE e.user_id = u.id AND e.kind = 'simulation_run') AS sims_total, "
+            "       (SELECT COUNT(*) FROM events e WHERE e.user_id = u.id AND e.kind = 'meet_media_connect') AS meets_total, "
+            "       (SELECT COUNT(*) FROM events e WHERE e.user_id = u.id AND e.kind = 'incident_open') AS incidents_total, "
+            "       (SELECT COUNT(*) FROM events e WHERE e.user_id = u.id AND e.kind IN ('client_error', 'server_error', 'scorer_error')) AS errors_total "
             "FROM users u "
             "LEFT JOIN subscriptions s ON s.user_id = u.id "
             "LEFT JOIN usage g ON g.user_id = u.id AND g.month = ? "
@@ -195,6 +200,59 @@ def admin_user_rollup(month: str) -> list[dict]:
             d["autojoin"] = bool(d.pop("ical_url", None))
             out.append(d)
         return out
+    finally:
+        c.close()
+
+
+def get_user_telemetry(user_id: str) -> dict:
+    """Detailed telemetry and activity summary for an individual user."""
+    c = _conn()
+    try:
+        u = c.execute("SELECT id, email, name, role, created_ts, last_login_ts, google_sub, picture, alert_webhook FROM users WHERE id=?", (user_id,)).fetchone()
+        if not u:
+            return {}
+        res = dict(u)
+        res["total_events"] = c.execute("SELECT COUNT(*) FROM events WHERE user_id=?", (user_id,)).fetchone()[0]
+        res["sims_total"] = c.execute("SELECT COUNT(*) FROM events WHERE user_id=? AND kind = 'simulation_run'", (user_id,)).fetchone()[0]
+        res["meets_total"] = c.execute("SELECT COUNT(*) FROM events WHERE user_id=? AND kind = 'meet_media_connect'", (user_id,)).fetchone()[0]
+        res["incidents_total"] = c.execute("SELECT COUNT(*) FROM events WHERE user_id=? AND kind = 'incident_open'", (user_id,)).fetchone()[0]
+        res["acks_total"] = c.execute("SELECT COUNT(*) FROM events WHERE user_id=? AND kind = 'incident_ack'", (user_id,)).fetchone()[0]
+        res["errors_total"] = c.execute("SELECT COUNT(*) FROM events WHERE user_id=? AND kind IN ('client_error', 'server_error', 'scorer_error')", (user_id,)).fetchone()[0]
+        res["emails_total"] = c.execute("SELECT COUNT(*) FROM events WHERE user_id=? AND kind = 'email_sent'", (user_id,)).fetchone()[0]
+
+        # Recent distinct meet spaces
+        space_rows = c.execute(
+            "SELECT detail, ts FROM events WHERE user_id=? AND kind='meet_media_connect' ORDER BY id DESC LIMIT 25",
+            (user_id,)
+        ).fetchall()
+        spaces = []
+        for r in space_rows:
+            try:
+                det = json.loads(r["detail"]) if r["detail"] else {}
+                sp = det.get("space")
+                if sp and sp not in spaces:
+                    spaces.append(sp)
+            except Exception:
+                pass
+        res["recent_spaces"] = spaces
+
+        # Recent simulations tested
+        sim_rows = c.execute(
+            "SELECT detail, ts FROM events WHERE user_id=? AND kind='simulation_run' ORDER BY id DESC LIMIT 25",
+            (user_id,)
+        ).fetchall()
+        simulations = []
+        for r in sim_rows:
+            try:
+                det = json.loads(r["detail"]) if r["detail"] else {}
+                vname = det.get("voice_name") or det.get("voice_id")
+                if vname and vname not in simulations:
+                    simulations.append(vname)
+            except Exception:
+                pass
+        res["recent_simulations"] = simulations
+
+        return res
     finally:
         c.close()
 
