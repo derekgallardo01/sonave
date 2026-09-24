@@ -73,7 +73,7 @@ body{
 }
 .nav-link:hover{color:var(--green)}
 .main-container{
-  max-width:580px;
+  max-width:680px;
   width:100%;
   text-align:center;
   margin:auto 0;
@@ -124,7 +124,8 @@ p.subtext{
   border:1px solid var(--border);
   border-radius:12px;
   padding:16px 20px;
-  margin-bottom:32px;
+  margin:0 auto 32px;
+  max-width:520px;
   font-family:var(--mono);
   font-size:12.5px;
   text-align:left;
@@ -141,7 +142,7 @@ p.subtext{
 .actions{
   display:flex;
   flex-wrap:wrap;
-  gap:12px;
+  gap:10px;
   justify-content:center;
 }
 .btn{
@@ -149,9 +150,9 @@ p.subtext{
   align-items:center;
   justify-content:center;
   gap:8px;
-  font-size:14px;
+  font-size:13.5px;
   font-weight:600;
-  padding:11px 22px;
+  padding:10px 18px;
   border-radius:8px;
   text-decoration:none;
   transition:all .15s ease;
@@ -180,8 +181,11 @@ footer{
   text-align:center;
   padding-top:20px;
   border-top:1px solid var(--border);
-  font-size:12.5px;
+  font-size:12px;
   color:var(--muted);
+  display:flex;
+  flex-direction:column;
+  gap:6px;
 }
 footer a{color:var(--muted);text-decoration:none}
 footer a:hover{color:var(--green)}
@@ -189,7 +193,7 @@ footer a:hover{color:var(--green)}
   h1{font-size:28px}
   p.subtext{font-size:14.5px}
   .actions{flex-direction:column;width:100%}
-  .btn{width:100%}
+  .btn{width:100%;padding:12px 18px;font-size:14px}
 }
 </style>
 </head>
@@ -227,7 +231,12 @@ footer a:hover{color:var(--green)}
 </main>
 
 <footer>
-  Sonave &bull; Voice Authenticity Engine &bull; <a href="/benchmarks">Benchmarks</a> &bull; <a href="/guides">Guides</a> &bull; <a href="/privacy">Privacy</a> &bull; <a href="/terms">Terms</a>
+  <div class="footer-links">
+    <a href="/benchmarks">Benchmarks</a> &bull; <a href="/guides">Guides</a> &bull; <a href="/privacy">Privacy</a> &bull; <a href="/terms">Terms</a>
+  </div>
+  <div class="footer-brand">
+    Sonave &bull; Voice Authenticity Engine
+  </div>
 </footer>
 
 </body>
