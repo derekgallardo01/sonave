@@ -17,7 +17,8 @@ def test_public_pages_render(mod):
     c = TestClient(mod.app)
     for path, marker in (("/", "FAQPage"), ("/benchmarks", "97.6%"),
                          ("/guides", "Guides"), ("/privacy", "Privacy"),
-                         ("/llms.txt", "Sonave"), ("/robots.txt", "Sitemap:")):
+                         ("/llms.txt", "Sonave"), ("/llms-full.txt", "Sonave"),
+                         ("/robots.txt", "Sitemap:")):
         r = c.get(path)
         assert r.status_code == 200 and marker in r.text, path
         assert "__FAVICON__" not in r.text, path
