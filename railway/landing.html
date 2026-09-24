@@ -24,373 +24,337 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,__FAVICON__">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#0a0e12;--panel:#0d1319;--panel-hover:#111922;--chip:#131b22;--line:#161e25;--line2:#1e2830;
-  --ink:#e8eef2;--ink2:#8a99a5;--muted:#5d6d79;--dim:#3d4a54;
-  --green:#2ee584;--green-hover:#4deda0;--green-dark:#0d9e56;--on-green:#06130b;
-  --amber:#ffb224;--red:#ff4d5e;--red-soft:#ff8a95;
+  --bg:#080c10;
+  --panel:#0e151d;
+  --panel-hover:#131c26;
+  --panel-elevated:#162230;
+  --chip:#15202c;
+  --line:#1c2836;
+  --line2:#27374a;
+  --ink:#f0f5f9;
+  --ink2:#b8c7d3;
+  --muted:#8698a8;
+  --dim:#5a6d7d;
+  --green:#2ee584;
+  --green-hover:#4deda0;
+  --green-dark:#0d9e56;
+  --on-green:#06130b;
+  --amber:#ffb224;
+  --amber-soft:#ffd074;
+  --red:#ff4d5e;
+  --red-soft:#ff8a95;
   --font:'Sora',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
   --glow:rgba(46,229,132,0.18);
 }
 *{box-sizing:border-box;margin:0}
 html{scroll-behavior:smooth}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.5;overflow-x:hidden}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.6;font-size:15px;overflow-x:hidden}
 a{color:var(--green);text-decoration:none;transition:color .18s ease}
 a:hover{color:var(--green-hover)}
-.wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+.wrap{max-width:1140px;margin:0 auto;padding:0 24px}
 
 /* Navigation */
-.nav-header{position:sticky;top:0;background:rgba(10,14,18,0.85);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid rgba(22,30,37,0.7);z-index:100}
-.nav{display:flex;align-items:center;justify-content:space-between;padding:18px 0}
-.brand{display:flex;align-items:center;gap:10px}
+.nav-header{position:sticky;top:0;background:rgba(8,12,16,0.88);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid rgba(28,40,54,0.75);z-index:100}
+.nav{display:flex;align-items:center;justify-content:space-between;padding:16px 0}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-link{display:flex;align-items:center;gap:10px;text-decoration:none}
 .brand-tile{width:32px;height:32px;display:flex;align-items:center;justify-content:center}
-.brand-name{font-size:17px;font-weight:700;color:var(--ink);letter-spacing:-.01em}
-.nav-status{display:inline-flex;align-items:center;gap:7px;padding:4px 10px;border-radius:999px;background:rgba(46,229,132,.07);border:1px solid rgba(46,229,132,.2);font-size:11px;font-family:var(--mono);color:var(--green);margin-left:14px}
+.brand-name{font-size:18px;font-weight:700;color:var(--ink);letter-spacing:-.01em}
+.nav-status{display:inline-flex;align-items:center;gap:7px;padding:4px 10px;border-radius:999px;background:rgba(46,229,132,.08);border:1px solid rgba(46,229,132,.25);font-size:12px;font-family:var(--mono);color:var(--green);margin-left:10px}
 .nav-status .dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s infinite}
-.nav-links{display:flex;align-items:center;gap:22px;font-size:13px;color:var(--ink2)}
-.nav-links a.plain{color:var(--ink2);transition:color .15s ease}
+.nav-links{display:flex;align-items:center;gap:26px;font-size:14px;color:var(--ink2)}
+.nav-links a.plain{color:var(--ink2);font-weight:500;transition:color .15s ease}
 .nav-links a.plain:hover{color:var(--ink)}
-.btn-console{padding:8px 18px;border-radius:8px;background:var(--green);color:var(--on-green);font-weight:700;font-size:12.5px;display:inline-flex;align-items:center;gap:6px;transition:all .18s ease;box-shadow:0 0 16px rgba(46,229,132,.2)}
-.btn-console:hover{background:var(--green-hover);color:var(--on-green);transform:translateY(-1px);box-shadow:0 0 20px rgba(46,229,132,.35)}
+
+/* Primary and Secondary CTA Buttons */
+.btn-primary{padding:12px 22px;border-radius:9px;background:var(--green);color:var(--on-green);font-weight:700;font-size:14px;display:inline-flex;align-items:center;gap:8px;transition:all .18s ease;box-shadow:0 0 20px rgba(46,229,132,.28);border:none;cursor:pointer;text-decoration:none}
+.btn-primary:hover{background:var(--green-hover);color:var(--on-green);transform:translateY(-1px);box-shadow:0 0 26px rgba(46,229,132,.42)}
+.btn-ghost{padding:11px 20px;border-radius:9px;border:1px solid var(--line2);color:var(--ink);font-weight:600;font-size:14px;display:inline-flex;align-items:center;gap:8px;background:rgba(21,32,44,0.6);transition:all .18s ease;text-decoration:none}
+.btn-ghost:hover{border-color:var(--green);color:var(--green);background:rgba(46,229,132,0.06)}
+.btn-nav{padding:8px 18px;border-radius:8px;background:var(--green);color:var(--on-green);font-weight:700;font-size:13px;display:inline-flex;align-items:center;gap:6px;transition:all .18s ease;box-shadow:0 0 16px rgba(46,229,132,.22);text-decoration:none}
+.btn-nav:hover{background:var(--green-hover);color:var(--on-green);transform:translateY(-1px);box-shadow:0 0 22px rgba(46,229,132,.38)}
 
 /* Hero */
-.hero{padding:68px 0 54px;display:grid;grid-template-columns:1.08fr 0.92fr;gap:44px;align-items:center;position:relative}
+.hero{padding:72px 0 56px;display:grid;grid-template-columns:1.05fr 0.95fr;gap:48px;align-items:center;position:relative}
 .hero-content{max-width:100%}
-.hero-badge{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;border:1px solid rgba(46,229,132,.3);background:rgba(46,229,132,.06);font-size:12px;color:var(--green);font-weight:600;margin-bottom:24px;box-shadow:0 0 20px rgba(46,229,132,.08)}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;border:1px solid rgba(46,229,132,.35);background:rgba(46,229,132,.08);font-size:12.5px;color:var(--green);font-weight:600;margin-bottom:22px}
 .dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
-.hero h1{font-size:50px;font-weight:800;letter-spacing:-.035em;line-height:1.08;text-wrap:balance;color:#ffffff}
-.hero-sub{font-size:16.5px;color:var(--ink2);line-height:1.65;margin-top:20px;max-width:580px;text-wrap:pretty}
+.hero h1{font-size:52px;font-weight:800;letter-spacing:-.035em;line-height:1.1;color:#ffffff;text-wrap:balance}
+.hero-sub{font-size:17.5px;color:var(--ink2);line-height:1.65;margin-top:20px;max-width:560px}
 .v-real{color:var(--green);font-weight:700}
 .v-suspect{color:var(--amber);font-weight:700}
 .v-fake{color:var(--red);font-weight:700}
-.hero-ctas{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-top:30px}
-.btn-primary{padding:13px 24px;border-radius:10px;background:var(--green);color:var(--on-green);font-weight:700;font-size:13.5px;display:inline-flex;align-items:center;gap:8px;transition:all .18s ease;box-shadow:0 0 24px rgba(46,229,132,.25)}
-.btn-primary:hover{background:var(--green-hover);color:var(--on-green);transform:translateY(-1px);box-shadow:0 0 30px rgba(46,229,132,.4)}
-.btn-ghost{padding:12px 20px;border-radius:10px;border:1px solid var(--line2);color:#c7d2da;font-weight:600;font-size:13.5px;display:inline-flex;align-items:center;gap:8px;background:rgba(19,27,34,0.5);transition:all .18s ease}
-.btn-ghost:hover{border-color:var(--green);color:var(--green);background:rgba(46,229,132,0.05)}
-
-/* Hero Visual Mockup */
-.hero-visual{position:relative;cursor:pointer}
-.hero-window{border-radius:14px;overflow:hidden;border:1px solid #1e2830;background:#0d1319;box-shadow:0 24px 60px rgba(0,0,0,0.6),0 0 40px rgba(46,229,132,0.08);transition:transform .25s ease,box-shadow .25s ease}
-.hero-window:hover{transform:translateY(-3px);box-shadow:0 30px 70px rgba(0,0,0,0.7),0 0 50px rgba(46,229,132,0.15)}
-.hero-window-top{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#0a0f14;border-bottom:1px solid #161e25}
-.hero-window-title{font-size:11px;font-family:var(--mono);color:var(--muted);display:flex;align-items:center;gap:6px}
-.hero-window-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:6px;background:rgba(46,229,132,.1);border:1px solid rgba(46,229,132,.25);font-size:10px;font-family:var(--mono);color:var(--green);font-weight:700}
-.hero-window-badge .dot{width:5px;height:5px;background:var(--green);border-radius:50%;animation:pulse 1.8s infinite}
-.hero-img-wrap{position:relative;overflow:hidden;background:#050709}
-.hero-img-wrap img{width:100%;height:auto;display:block;aspect-ratio:16/10;object-fit:cover;object-position:top}
-.hero-floating-tag{position:absolute;bottom:14px;left:14px;padding:7px 12px;border-radius:8px;background:rgba(10,14,18,0.88);border:1px solid #1e2830;color:#e8eef2;font-size:11px;font-weight:600;display:flex;align-items:center;gap:7px;backdrop-filter:blur(8px);box-shadow:0 8px 20px rgba(0,0,0,0.4)}
-.hero-floating-tag-right{position:absolute;top:14px;right:14px;padding:6px 10px;border-radius:8px;background:rgba(10,14,18,0.88);border:1px solid rgba(46,229,132,0.3);color:var(--green);font-size:10.5px;font-weight:700;font-family:var(--mono);display:flex;align-items:center;gap:6px;backdrop-filter:blur(8px)}
+.hero-ctas{display:flex;align-items:center;flex-wrap:wrap;gap:14px;margin-top:32px}
 
 /* Compatibility Bar */
-.compat-bar{display:flex;align-items:center;gap:16px;margin-top:32px;padding-top:22px;border-top:1px solid rgba(22,30,37,0.7);color:var(--muted);font-size:12px;flex-wrap:wrap}
-.compat-label{text-transform:uppercase;letter-spacing:.08em;font-weight:700;font-size:10.5px;color:var(--dim)}
+.compat-bar{display:flex;align-items:center;gap:14px;margin-top:34px;padding-top:22px;border-top:1px solid var(--line);color:var(--muted);font-size:13px;flex-wrap:wrap}
+.compat-label{text-transform:uppercase;letter-spacing:.08em;font-weight:700;font-size:11.5px;color:var(--muted)}
 .compat-pills{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.compat-pill{padding:4px 9px;border-radius:6px;background:#10171f;border:1px solid #1a232c;font-size:11px;color:var(--ink2);display:inline-flex;align-items:center;gap:5px}
-.compat-pill svg{width:12px;height:12px}
+.compat-pill{padding:5px 10px;border-radius:6px;background:var(--panel);border:1px solid var(--line);font-size:12px;color:var(--ink2);display:inline-flex;align-items:center;gap:6px}
+.compat-pill svg{width:13px;height:13px}
 
-/* Stats */
-.stats{border:1px solid var(--line);border-radius:16px;background:linear-gradient(180deg,#0d1319 0%,#090d11 100%);padding:28px 32px;display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-top:20px;box-shadow:0 12px 36px rgba(0,0,0,.4)}
-.stat-item{position:relative}
-.stat-num{font-size:34px;font-weight:800;font-family:var(--mono);letter-spacing:-.02em}
-.stat-sub{font-size:12px;color:var(--muted);line-height:1.55;margin-top:6px}
-
-/* General Sections */
-.section{padding:84px 0 20px}
-.eyebrow{font-size:11px;color:var(--green);letter-spacing:.12em;font-weight:700;margin-bottom:12px;text-transform:uppercase}
-.section-title{font-size:32px;font-weight:800;letter-spacing:-.025em;line-height:1.2;color:#ffffff}
-.section-desc{font-size:15px;color:var(--ink2);line-height:1.65;margin-top:12px;max-width:620px}
-
-/* Interactive Screenshot Showcase */
-.showcase{margin-top:40px;background:var(--panel);border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.5)}
-.showcase-nav{display:flex;border-bottom:1px solid var(--line);background:#0a0e13;overflow-x:auto;-webkit-overflow-scrolling:touch}
-.showcase-tab{flex:1;min-width:180px;padding:16px 18px;border:none;background:transparent;color:var(--ink2);font-family:var(--font);cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:4px;border-right:1px solid var(--line);transition:all .2s ease;position:relative}
-.showcase-tab:last-child{border-right:none}
-.showcase-tab:hover{background:rgba(255,255,255,0.02);color:var(--ink)}
-.showcase-tab.active{background:rgba(46,229,132,0.04);color:#ffffff}
-.showcase-tab.active::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--green);box-shadow:0 0 10px var(--green)}
-.tab-badge{display:inline-block;font-size:9.5px;font-weight:700;font-family:var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-.showcase-tab.active .tab-badge{color:var(--green)}
-.tab-title{font-size:13.5px;font-weight:700}
-
-.showcase-body{padding:20px;background:#090d11}
-.browser-chrome{border-radius:12px;overflow:hidden;border:1px solid #1e2830;background:#0d1319;box-shadow:0 10px 30px rgba(0,0,0,0.4)}
-.browser-top{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#0a0f14;border-bottom:1px solid #161e25}
+/* Hero Live In-Call Verdict HUD (High Legibility & Contrast) */
+.hero-hud{border-radius:16px;border:1px solid var(--line2);background:var(--panel);box-shadow:0 24px 60px rgba(0,0,0,0.65),0 0 45px rgba(46,229,132,0.09);overflow:hidden;transition:transform .25s ease,box-shadow .25s ease;cursor:pointer}
+.hero-hud:hover{transform:translateY(-3px);box-shadow:0 30px 75px rgba(0,0,0,0.75),0 0 55px rgba(46,229,132,0.16)}
+.hud-chrome{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;background:#090d12;border-bottom:1px solid var(--line)}
 .browser-dots{display:flex;gap:6px}
 .b-dot{width:10px;height:10px;border-radius:50%;background:#222c36}
 .b-dot.red{background:#ff5f56}.b-dot.yellow{background:#ffbd2e}.b-dot.green{background:#27c93f}
-.browser-url{padding:3px 14px;border-radius:6px;background:#111820;border:1px solid #1b242e;font-size:11px;font-family:var(--mono);color:var(--muted)}
-.browser-action{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--green);cursor:pointer}
+.hud-url{font-size:12px;font-family:var(--mono);color:var(--muted);display:flex;align-items:center;gap:7px}
+.hud-live-tag{display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:6px;background:rgba(46,229,132,.12);border:1px solid rgba(46,229,132,.3);font-size:11px;font-family:var(--mono);color:var(--green);font-weight:700}
+.hud-live-tag .dot{width:5px;height:5px}
+
+.hud-body{padding:22px;background:radial-gradient(ellipse at top right, rgba(46,229,132,0.06) 0%, #090e13 70%)}
+.hud-card{background:#0e161f;border:1px solid var(--line2);border-radius:12px;padding:16px 18px;margin-bottom:12px;transition:border-color .2s}
+.hud-card.active-safe{border-color:rgba(46,229,132,0.4);background:linear-gradient(180deg,#101923 0%,#0c131a 100%)}
+.hud-card.alert-fake{border-color:rgba(255,77,94,0.5);background:linear-gradient(180deg,#1a1114 0%,#120c0e 100%)}
+
+.hud-speaker-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.hud-speaker-info{display:flex;align-items:center;gap:12px}
+.hud-avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+.hud-avatar.safe{background:rgba(46,229,132,0.15);border:1px solid rgba(46,229,132,0.35);color:var(--green)}
+.hud-avatar.fake{background:rgba(255,77,94,0.15);border:1px solid rgba(255,77,94,0.35);color:var(--red)}
+.hud-speaker-name{font-size:14.5px;font-weight:700;color:#ffffff}
+.hud-speaker-role{font-size:12px;color:var(--muted)}
+
+.verdict-pill{padding:5px 12px;border-radius:6px;font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.04em;display:inline-flex;align-items:center;gap:6px}
+.verdict-pill.real{background:rgba(46,229,132,0.15);color:var(--green);border:1px solid rgba(46,229,132,0.35)}
+.verdict-pill.fake{background:rgba(255,77,94,0.15);color:var(--red);border:1px solid rgba(255,77,94,0.35)}
+
+.hud-meter-row{display:flex;align-items:center;justify-content:space-between;font-size:12px;font-family:var(--mono);color:var(--muted);margin-top:6px}
+.hud-waveform{display:flex;align-items:center;gap:3px;height:18px}
+.hud-waveform span{width:3px;background:var(--green);border-radius:1px;animation:wave 1.2s infinite ease-in-out}
+.hud-waveform span:nth-child(1){height:6px;animation-delay:0.1s}
+.hud-waveform span:nth-child(2){height:14px;animation-delay:0.2s}
+.hud-waveform span:nth-child(3){height:18px;animation-delay:0.3s}
+.hud-waveform span:nth-child(4){height:10px;animation-delay:0.4s}
+.hud-waveform span:nth-child(5){height:5px;animation-delay:0.5s}
+
+.hud-alert-banner{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:8px;background:rgba(255,77,94,0.12);border:1px solid rgba(255,77,94,0.35);margin-top:10px;font-size:12.5px;color:var(--red-soft);font-weight:600}
+.hud-alert-banner svg{width:16px;height:16px;flex-shrink:0}
+
+.hud-footer-hint{display:flex;align-items:center;justify-content:space-between;padding-top:12px;font-size:12px;font-family:var(--mono);color:var(--muted);border-top:1px solid var(--line)}
+.hud-footer-hint a{color:var(--green);display:inline-flex;align-items:center;gap:5px;font-weight:600}
+
+/* Stats Section with Clear Context & Sources */
+.stats{border:1px solid var(--line);border-radius:16px;background:linear-gradient(180deg,#0e151e 0%,#090e13 100%);padding:32px 36px;display:grid;grid-template-columns:repeat(4,1fr);gap:28px;margin-top:28px;box-shadow:0 12px 36px rgba(0,0,0,.45)}
+.stat-item{position:relative;display:flex;flex-direction:column;justify-content:space-between}
+.stat-num{font-size:38px;font-weight:800;font-family:var(--mono);letter-spacing:-.02em;line-height:1}
+.stat-name{font-size:13px;font-family:var(--mono);font-weight:700;color:var(--ink);text-transform:uppercase;letter-spacing:.06em;margin-top:10px}
+.stat-sub{font-size:14px;color:var(--ink2);line-height:1.5;margin-top:6px}
+.stat-source{margin-top:10px;font-size:12px;font-family:var(--mono);color:var(--muted);display:flex;align-items:center;gap:6px;border-top:1px solid var(--line);padding-top:8px}
+
+.stats-citation-bar{font-size:12.5px;color:var(--muted);margin-top:14px;font-family:var(--mono);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.stats-citation-bar a{color:var(--green);font-weight:600}
+
+/* Section Common Styles */
+.section{padding:92px 0 24px}
+.eyebrow{font-size:12px;color:var(--green);letter-spacing:.12em;font-weight:700;margin-bottom:12px;text-transform:uppercase}
+.section-title{font-size:34px;font-weight:800;letter-spacing:-.025em;line-height:1.2;color:#ffffff}
+.section-desc{font-size:16.5px;color:var(--ink2);line-height:1.65;margin-top:12px;max-width:680px}
+
+/* Interactive Screenshot Showcase */
+.showcase{margin-top:42px;background:var(--panel);border:1px solid var(--line2);border-radius:18px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.55)}
+.showcase-nav{display:flex;border-bottom:1px solid var(--line);background:#090d12;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.showcase-tab{flex:1;min-width:190px;padding:16px 20px;border:none;background:transparent;color:var(--ink2);font-family:var(--font);cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:5px;border-right:1px solid var(--line);transition:all .2s ease;position:relative}
+.showcase-tab:last-child{border-right:none}
+.showcase-tab:hover{background:rgba(255,255,255,0.02);color:var(--ink)}
+.showcase-tab.active{background:rgba(46,229,132,0.05);color:#ffffff}
+.showcase-tab.active::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--green);box-shadow:0 0 10px var(--green)}
+.tab-badge{display:inline-block;font-size:11px;font-weight:700;font-family:var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.showcase-tab.active .tab-badge{color:var(--green)}
+.tab-title{font-size:14.5px;font-weight:700}
+
+.showcase-body{padding:22px;background:#080c10}
+.browser-chrome{border-radius:12px;overflow:hidden;border:1px solid var(--line2);background:#0c1218;box-shadow:0 12px 36px rgba(0,0,0,0.5)}
+.browser-top{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;background:#090d12;border-bottom:1px solid var(--line)}
+.browser-url{padding:4px 16px;border-radius:6px;background:#10171f;border:1px solid var(--line);font-size:12px;font-family:var(--mono);color:var(--muted)}
+.browser-action{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--green);cursor:pointer;font-weight:600}
 .browser-action:hover{text-decoration:underline}
 
 .screenshot-view{position:relative;cursor:zoom-in;background:#050709;display:block}
 .screenshot-view img{width:100%;height:auto;display:block;aspect-ratio:16/10;object-fit:cover;object-position:top;transition:opacity .25s ease}
-.screenshot-overlay-hint{position:absolute;bottom:14px;right:16px;padding:6px 12px;border-radius:6px;background:rgba(10,14,18,.85);border:1px solid #1e2830;color:#c7d2da;font-size:11px;display:flex;align-items:center;gap:6px;backdrop-filter:blur(6px);pointer-events:none;transition:opacity .2s ease}
+.screenshot-overlay-hint{position:absolute;bottom:16px;right:18px;padding:7px 14px;border-radius:8px;background:rgba(8,12,16,.88);border:1px solid var(--line2);color:#e2ecf4;font-size:12.5px;display:flex;align-items:center;gap:8px;backdrop-filter:blur(8px);pointer-events:none}
 
-.showcase-footer{padding:18px 24px;border-top:1px solid var(--line);background:#0d1319;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px}
-.showcase-explanation{display:flex;align-items:flex-start;gap:14px;max-width:740px}
-.showcase-icon{width:34px;height:34px;border-radius:8px;background:rgba(46,229,132,.1);border:1px solid rgba(46,229,132,.25);display:flex;align-items:center;justify-content:center;color:var(--green);flex-shrink:0;font-size:15px}
-.showcase-text-title{font-size:14px;font-weight:700;color:#ffffff}
-.showcase-text-desc{font-size:13px;color:var(--ink2);line-height:1.55;margin-top:2px}
+.showcase-footer{padding:20px 26px;border-top:1px solid var(--line);background:var(--panel);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:18px}
+.showcase-explanation{display:flex;align-items:flex-start;gap:16px;max-width:740px}
+.showcase-icon{width:38px;height:38px;border-radius:9px;background:rgba(46,229,132,.1);border:1px solid rgba(46,229,132,.28);display:flex;align-items:center;justify-content:center;color:var(--green);flex-shrink:0;font-size:16px}
+.showcase-text-title{font-size:15.5px;font-weight:700;color:#ffffff}
+.showcase-text-desc{font-size:14px;color:var(--ink2);line-height:1.6;margin-top:3px}
 .showcase-cta{flex-shrink:0}
 
-/* Steps (How it Works) */
-.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:36px}
-.step{border:1px solid var(--line);border-radius:16px;background:var(--panel);padding:26px;position:relative;display:flex;flex-direction:column;justify-content:space-between;transition:border-color .2s,transform .2s}
+/* How It Works - Connected Architecture Visual (Moved from FAQ) */
+.pipeline-diagram{margin:36px 0 32px;border:1px solid var(--line2);border-radius:16px;background:linear-gradient(180deg,#0d141c 0%,#090e13 100%);padding:26px;box-shadow:0 14px 36px rgba(0,0,0,0.4)}
+.pipeline-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:22px;border-bottom:1px solid var(--line);padding-bottom:14px}
+.pipeline-badge{display:flex;align-items:center;gap:8px;font-size:12px;font-family:var(--mono);font-weight:700;color:var(--green);letter-spacing:.05em}
+.pipeline-sub{font-size:13px;color:var(--muted)}
+.pipeline-grid{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:16px;align-items:center}
+.pipeline-node{background:#0e161f;border:1px solid var(--line);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:8px}
+.pipeline-node.active{border-color:rgba(46,229,132,0.38);background:rgba(46,229,132,0.03)}
+.pipeline-icon{width:38px;height:38px;border-radius:8px;background:rgba(46,229,132,0.1);border:1px solid rgba(46,229,132,0.25);display:flex;align-items:center;justify-content:center;color:var(--green);margin-bottom:4px}
+.pipeline-title{font-size:14.5px;font-weight:700;color:#ffffff}
+.pipeline-desc{font-size:13px;color:var(--ink2);line-height:1.55}
+.pipeline-tag{font-size:11.5px;font-family:var(--mono);font-weight:600;padding:3px 8px;border-radius:5px;background:#141e28;color:var(--muted);align-self:flex-start;margin-top:6px}
+.pipeline-tag.active{background:rgba(46,229,132,0.12);color:var(--green);border:1px solid rgba(46,229,132,0.25)}
+.pipeline-arrow{color:var(--dim);display:flex;align-items:center;justify-content:center}
+
+/* Clean Step Cards (Mini-UIs cut for scannability) */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:20px}
+.step{border:1px solid var(--line);border-radius:16px;background:var(--panel);padding:28px;position:relative;display:flex;flex-direction:column;justify-content:space-between;transition:border-color .2s,transform .2s}
 .step:hover{border-color:var(--line2);transform:translateY(-2px);background:var(--panel-hover)}
 .step-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
-.step-num{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--green);padding:4px 8px;border-radius:6px;background:rgba(46,229,132,.08);border:1px solid rgba(46,229,132,.2)}
-.step-tag{font-size:11px;font-family:var(--mono);color:var(--muted)}
-.step-title{font-size:17px;font-weight:700;margin-bottom:10px;color:#ffffff}
-.step-body{font-size:13.5px;color:var(--ink2);line-height:1.65}
-.step-visual{margin-top:20px;padding:12px 14px;border-radius:10px;background:#090d11;border:1px solid #161e25;font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:8px}
+.step-num{font-family:var(--mono);font-size:13.5px;font-weight:700;color:var(--green);padding:4px 9px;border-radius:6px;background:rgba(46,229,132,.08);border:1px solid rgba(46,229,132,.22)}
+.step-tag{font-size:12px;font-family:var(--mono);font-weight:700;color:var(--muted);letter-spacing:.05em}
+.step-title{font-size:19px;font-weight:700;margin-bottom:12px;color:#ffffff}
+.step-body{font-size:14.5px;color:var(--ink2);line-height:1.65}
+.step-key-badge{margin-top:20px;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-family:var(--mono);color:var(--green);background:rgba(46,229,132,0.08);padding:5px 10px;border-radius:6px;border:1px solid rgba(46,229,132,0.2)}
 
-/* Comparison Matrix (Why us) */
-.comparison-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:36px}
-.comp-card{border:1px solid var(--line);border-radius:16px;background:var(--panel);padding:26px;transition:border-color .2s}
+/* Lab vs Real-World Section */
+.comparison-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:36px}
+.comp-card{border:1px solid var(--line);border-radius:16px;background:var(--panel);padding:28px;display:flex;flex-direction:column;justify-content:space-between;transition:border-color .2s}
 .comp-card:hover{border-color:var(--line2)}
-.comp-tag{font-family:var(--mono);font-size:11.5px;font-weight:700;margin-bottom:14px;display:inline-block}
-.comp-title{font-size:17px;font-weight:700;margin-bottom:12px;color:#ffffff}
-.comp-body{font-size:13.5px;color:var(--ink2);line-height:1.65}
-.comp-pill{margin-top:18px;display:inline-flex;align-items:center;gap:6px;font-size:11px;font-family:var(--mono);padding:5px 10px;border-radius:6px}
+.comp-tag{font-family:var(--mono);font-size:12px;font-weight:700;margin-bottom:14px;display:inline-block;letter-spacing:.05em}
+.comp-title{font-size:19px;font-weight:700;margin-bottom:12px;color:#ffffff}
+.comp-body{font-size:14.5px;color:var(--ink2);line-height:1.65}
+.comp-pill{margin-top:20px;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-family:var(--mono);padding:5px 10px;border-radius:6px}
 
-/* Wire Fraud Desk */
-.desk{padding:70px 0}
-.desk-card{border:1px solid var(--line);border-radius:18px;background:linear-gradient(180deg,#0d1319 0%,#090d11 100%);padding:36px;display:grid;grid-template-columns:1fr 390px;gap:40px;align-items:center;box-shadow:0 16px 40px rgba(0,0,0,.4)}
-.desk h2{font-size:26px;font-weight:800;letter-spacing:-.02em;line-height:1.25;text-wrap:balance;color:#ffffff}
-.desk-body{font-size:14px;color:var(--ink2);line-height:1.7;margin-top:16px;text-wrap:pretty}
-.desk-points{margin-top:20px;display:flex;flex-direction:column;gap:10px}
-.desk-point{display:flex;align-items:center;gap:10px;font-size:13px;color:#c7d2da}
-.desk-point svg{width:16px;height:16px;color:var(--green);flex-shrink:0}
+/* One Focused Visual: The Codec Collapse Chart */
+.comp-visual-chart{margin-top:22px;background:#090d12;border:1px solid var(--line);border-radius:12px;padding:16px}
+.cvc-row{display:flex;flex-direction:column;gap:8px}
+.cvc-format{font-size:12px;font-family:var(--mono);color:var(--ink);font-weight:700}
+.cvc-bars{display:flex;flex-direction:column;gap:6px}
+.cvc-bar-wrapper{display:flex;align-items:center;gap:10px;font-size:11.5px;font-family:var(--mono)}
+.cvc-name{width:80px;color:var(--muted);flex-shrink:0}
+.cvc-track{flex:1;height:8px;background:#141d26;border-radius:4px;overflow:hidden}
+.cvc-fill{height:100%;border-radius:4px}
+.cvc-fill.cvc-green{background:var(--green);box-shadow:0 0 8px rgba(46,229,132,0.4)}
+.cvc-fill.cvc-red{background:var(--red);box-shadow:0 0 8px rgba(255,77,94,0.4)}
+.cvc-fill.cvc-gray{background:#546473}
+.cvc-val{width:46px;text-align:right;font-weight:700;color:var(--ink)}
+.cvc-divider{height:1px;background:#16202c;margin:12px 0}
 
-.demo{border:1px solid rgba(255,77,94,.4);border-radius:14px;background:#090d11;padding:22px;box-shadow:0 0 25px rgba(255,77,94,.08)}
+/* Wire Fraud Desk - Emotional Peak (High Differentiation) */
+.desk{padding:84px 0}
+.desk-card{border:1px solid rgba(255,77,94,.35);border-radius:20px;background:radial-gradient(ellipse at 85% 20%, rgba(255, 77, 94, 0.12) 0%, rgba(255, 77, 94, 0.02) 55%, #0b1016 100%);padding:42px;display:grid;grid-template-columns:1.08fr 0.92fr;gap:46px;align-items:center;box-shadow:0 24px 60px rgba(0,0,0,.65),0 0 50px rgba(255,77,94,0.08)}
+.desk-eyebrow{font-size:12px;color:var(--red-soft);font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:12px;font-family:var(--mono)}
+.desk h2{font-size:30px;font-weight:800;letter-spacing:-.025em;line-height:1.22;color:#ffffff}
+.desk-body{font-size:15px;color:var(--ink2);line-height:1.7;margin-top:18px}
+.desk-points{margin-top:22px;display:flex;flex-direction:column;gap:12px}
+.desk-point{display:flex;align-items:center;gap:12px;font-size:14px;color:var(--ink)}
+.desk-point svg{width:18px;height:18px;color:var(--green);flex-shrink:0}
+
+/* Wire Fraud Demo Card */
+.demo{border:1px solid rgba(255,77,94,.45);border-radius:16px;background:#090d12;padding:24px;box-shadow:0 0 35px rgba(255,77,94,.12)}
 .demo-top{display:flex;align-items:center;justify-content:space-between}
-.demo-who{display:flex;align-items:center;gap:10px}
-.avatar{width:34px;height:34px;border-radius:50%;background:var(--chip);border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--ink2)}
-.demo-name{font-size:13.5px;font-weight:700}
-.demo-sub{font-size:10.5px;color:var(--muted)}
-.badge-fake{font-size:10px;font-weight:800;letter-spacing:.05em;padding:4px 10px;border-radius:6px;background:rgba(255,77,94,.12);color:var(--red);border:1px solid rgba(255,77,94,.35)}
-.risk-row{display:flex;align-items:baseline;justify-content:space-between;margin-top:14px}
-.risk-label{font-size:10px;color:var(--muted);letter-spacing:.07em;font-weight:600}
-.risk-pct{font-family:var(--mono);font-size:18px;font-weight:700;color:var(--red)}
-.risk-track{height:6px;background:var(--chip);border-radius:3px;margin-top:6px;overflow:hidden}
-.risk-fill{height:100%;width:84%;background:var(--red);border-radius:3px}
-.spark{display:flex;align-items:flex-end;gap:2.5px;height:28px;margin-top:12px}
-.spark i{flex:1;border-radius:1.5px;min-height:2px;display:block}
-.hold{margin-top:14px;padding:11px 13px;border-radius:9px;background:rgba(255,77,94,.09);border:1px solid rgba(255,77,94,.28);font-size:11.5px;color:var(--red-soft);font-weight:600;display:flex;align-items:center;gap:8px}
+.demo-who{display:flex;align-items:center;gap:12px}
+.avatar{width:38px;height:38px;border-radius:50%;background:rgba(255,77,94,0.12);border:1px solid rgba(255,77,94,0.3);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--red)}
+.demo-name{font-size:15px;font-weight:700;color:#ffffff}
+.demo-sub{font-size:12px;color:var(--muted)}
+.badge-fake{font-size:11px;font-weight:800;letter-spacing:.06em;padding:5px 12px;border-radius:6px;background:rgba(255,77,94,.15);color:var(--red);border:1px solid rgba(255,77,94,.4)}
+.risk-row{display:flex;align-items:baseline;justify-content:space-between;margin-top:16px}
+.risk-label{font-size:11.5px;color:var(--muted);letter-spacing:.07em;font-weight:700;font-family:var(--mono)}
+.risk-pct{font-family:var(--mono);font-size:22px;font-weight:800;color:var(--red)}
+.risk-track{height:8px;background:#16202b;border-radius:4px;margin-top:8px;overflow:hidden}
+.risk-fill{height:100%;width:94%;background:var(--red);border-radius:4px;box-shadow:0 0 10px rgba(255,77,94,0.5)}
+.spark{display:flex;align-items:flex-end;gap:3px;height:32px;margin-top:14px}
+.spark i{flex:1;border-radius:1.5px;min-height:3px;display:block}
+.hold{margin-top:16px;padding:12px 14px;border-radius:10px;background:rgba(255,77,94,.12);border:1px solid rgba(255,77,94,.35);font-size:13px;color:var(--red-soft);font-weight:600;display:flex;align-items:center;gap:10px}
 
-/* Pricing */
-.pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:36px}
-.price-card{border:1px solid var(--line);border-radius:16px;background:var(--panel);padding:30px;display:flex;flex-direction:column;justify-content:space-between;transition:border-color .2s}
-.price-card.featured{border-color:rgba(46,229,132,.4);background:linear-gradient(180deg,#101a1f 0%,#0c141a 100%);box-shadow:0 0 30px rgba(46,229,132,.08)}
-.price-top{margin-bottom:20px}
-.price-badge{font-size:11px;font-family:var(--mono);font-weight:700;letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
-.price-title{font-size:22px;font-weight:800;color:#ffffff;margin-top:6px}
-.price-sub{font-size:13.5px;color:var(--ink2);line-height:1.6;margin-top:12px}
-.price-cta{margin-top:26px}
-.price-btn{display:block;text-align:center;padding:11px 18px;border-radius:8px;font-size:13px;font-weight:700;transition:all .18s ease}
-.price-btn.primary{background:var(--green);color:var(--on-green)}
-.price-btn.primary:hover{background:var(--green-hover);color:var(--on-green)}
-.price-btn.ghost{border:1px solid var(--line2);color:#c7d2da}
+/* Pricing - Scannable & Clear */
+.pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:40px;align-items:stretch}
+.price-card{border:1px solid var(--line);border-radius:18px;background:var(--panel);padding:34px;display:flex;flex-direction:column;justify-content:space-between;transition:border-color .2s,box-shadow .2s;position:relative}
+.price-card.featured{border:2px solid var(--green);background:linear-gradient(180deg,#101b22 0%,#0c141a 100%);box-shadow:0 0 35px rgba(46,229,132,.12);transform:scale(1.02)}
+.price-pill-featured{position:absolute;top:-13px;left:50%;transform:translateX(-50%);padding:4px 14px;border-radius:999px;background:var(--green);color:var(--on-green);font-size:11.5px;font-weight:800;font-family:var(--mono);letter-spacing:.06em}
+
+.price-top{margin-bottom:24px}
+.price-badge{font-size:12px;font-family:var(--mono);font-weight:700;letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
+.price-num{display:flex;align-items:baseline;gap:8px;margin-top:12px}
+.price-big{font-size:38px;font-weight:800;color:#ffffff;font-family:var(--mono);line-height:1}
+.price-unit{font-size:14px;color:var(--ink2)}
+.price-sub{font-size:14px;color:var(--ink2);line-height:1.6;margin-top:12px}
+
+.price-feature-list{list-style:none;margin:24px 0 0;padding:0;display:flex;flex-direction:column;gap:12px}
+.price-feature-list li{display:flex;align-items:flex-start;gap:10px;font-size:14px;color:var(--ink);line-height:1.5}
+.price-feature-list svg{width:16px;height:16px;color:var(--green);flex-shrink:0;margin-top:3px}
+
+.price-cta{margin-top:30px}
+.price-btn{display:block;text-align:center;padding:12px 20px;border-radius:9px;font-size:14px;font-weight:700;transition:all .18s ease;text-decoration:none}
+.price-btn.primary{background:var(--green);color:var(--on-green);box-shadow:0 0 20px rgba(46,229,132,.25)}
+.price-btn.primary:hover{background:var(--green-hover);color:var(--on-green);box-shadow:0 0 26px rgba(46,229,132,.4)}
+.price-btn.ghost{border:1px solid var(--line2);color:var(--ink);background:rgba(21,32,44,0.5)}
 .price-btn.ghost:hover{border-color:var(--green);color:var(--green)}
 
-/* Accordion FAQ */
-.faq-list{max-width:840px;margin:32px 0 0;display:flex;flex-direction:column;gap:12px}
+/* Accordion FAQ (Cleaned & High Contrast) */
+.faq-list{max-width:860px;margin:36px 0 0;display:flex;flex-direction:column;gap:14px}
 .faq-item{border:1px solid var(--line);border-radius:12px;background:var(--panel);overflow:hidden;transition:border-color .2s}
 .faq-item:hover{border-color:var(--line2)}
-.faq-item[open]{border-color:rgba(46,229,132,.3);background:#0f151c}
-.faq-question{padding:18px 20px;font-size:15.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none;color:#ffffff;list-style:none}
+.faq-item[open]{border-color:rgba(46,229,132,.35);background:#0e1620}
+.faq-question{padding:20px 24px;font-size:16.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none;color:#ffffff;list-style:none}
 .faq-question::-webkit-details-marker{display:none}
-.faq-chevron{width:18px;height:18px;color:var(--muted);transition:transform .2s ease;flex-shrink:0;margin-left:14px}
+.faq-chevron{width:20px;height:20px;color:var(--muted);transition:transform .2s ease;flex-shrink:0;margin-left:16px}
 .faq-item[open] .faq-chevron{transform:rotate(180deg);color:var(--green)}
-.faq-answer{padding:0 20px 20px;color:var(--ink2);font-size:14px;line-height:1.65}
+.faq-answer{padding:0 24px 22px;color:var(--ink2);font-size:15px;line-height:1.7}
+.faq-answer a{color:var(--green);font-weight:600}
 
 /* Lightbox Modal */
-.lightbox-modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(6,9,12,0.92);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);z-index:999;display:none;align-items:center;justify-content:center;padding:24px}
+.lightbox-modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(6,9,12,0.94);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);z-index:999;display:none;align-items:center;justify-content:center;padding:24px}
 .lightbox-modal.open{display:flex}
-.lightbox-content{max-width:1200px;width:100%;max-height:90vh;display:flex;flex-direction:column;gap:12px}
+.lightbox-content{max-width:1200px;width:100%;max-height:92vh;display:flex;flex-direction:column;gap:14px}
 .lightbox-top{display:flex;align-items:center;justify-content:space-between;color:#ffffff}
-.lightbox-title{font-size:14px;font-weight:700}
-.lightbox-close{background:transparent;border:1px solid #1e2830;color:var(--ink2);width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
+.lightbox-title{font-size:15px;font-weight:700}
+.lightbox-close{background:transparent;border:1px solid var(--line2);color:var(--ink);width:36px;height:36px;border-radius:8px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center}
 .lightbox-close:hover{border-color:var(--green);color:var(--green)}
-.lightbox-img{width:100%;max-height:80vh;object-fit:contain;border-radius:12px;border:1px solid #1e2830;box-shadow:0 20px 60px rgba(0,0,0,0.8)}
+.lightbox-img{width:100%;max-height:80vh;object-fit:contain;border-radius:12px;border:1px solid var(--line2);box-shadow:0 24px 70px rgba(0,0,0,0.85)}
 
-/* Footer CTA */
-.footer-cta{border-top:1px solid var(--line);padding:70px 0 90px;text-align:center;margin-top:70px}
-.footer-cta h2{font-size:32px;font-weight:800;letter-spacing:-.02em;color:#ffffff}
-.footer-sub{font-size:15px;color:var(--ink2);margin-top:12px}
-.footer-ctas{display:flex;gap:14px;justify-content:center;margin-top:28px;flex-wrap:wrap}
-.footer-line{font-size:12px;color:var(--dim);margin-top:54px;font-family:var(--mono)}
+/* High-Scale Closing CTA Section */
+.footer-cta{border-top:1px solid var(--line);padding:100px 0 110px;text-align:center;margin-top:80px;position:relative}
+.footer-cta h2{font-size:44px;font-weight:800;letter-spacing:-.03em;color:#ffffff;line-height:1.15}
+.footer-sub{font-size:18px;color:var(--ink2);margin-top:16px;max-width:620px;margin-left:auto;margin-right:auto;line-height:1.6}
+.footer-ctas{display:flex;gap:16px;justify-content:center;margin-top:36px;flex-wrap:wrap}
+
+/* Redesigned Prominent Trust Strip */
+.footer-trust-strip{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;margin:44px 0 0}
+.fts-item{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-family:var(--mono);color:var(--ink2);padding:8px 16px;border-radius:8px;background:var(--panel);border:1px solid var(--line)}
+.fts-item svg{color:var(--green);flex-shrink:0;width:15px;height:15px}
+
+.footer-line{font-size:13px;color:var(--muted);margin-top:58px;font-family:var(--mono)}
+.footer-line a{color:var(--muted);margin:0 6px}
+.footer-line a:hover{color:var(--ink)}
 
 @keyframes pulse{0%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(0.85)}100%{opacity:1;transform:scale(1)}}
 @keyframes wave{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
 
-/* Stats Visuals */
-.stat-track{height:5px;background:#141c24;border-radius:3px;margin:12px 0 8px;overflow:hidden;position:relative}
-.stat-fill{height:100%;border-radius:3px}
-.stat-pill-label{font-family:var(--mono);font-size:10.5px;color:var(--muted);display:flex;align-items:center;gap:5px}
-.stat-pulse-track{display:flex;align-items:flex-end;gap:3px;height:12px;margin:12px 0 8px}
-.pulse-bar{flex:1;background:var(--green);border-radius:1px;min-height:3px}
-
-/* Step Graphics (How It Works) */
-.step-card-visual{margin-top:22px;border:1px solid #1a242e;border-radius:12px;background:#080c10;overflow:hidden}
-.scv-header{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#0d141b;border-bottom:1px solid #16202a}
-.scv-header-left{display:flex;align-items:center;gap:6px}
-.scv-dot-green{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green)}
-.scv-dot-red{width:6px;height:6px;border-radius:50%;background:var(--red);box-shadow:0 0 6px var(--red)}
-.scv-title{font-size:10px;font-family:var(--mono);font-weight:700;letter-spacing:.06em;color:var(--muted)}
-.scv-badge{font-size:9.5px;font-family:var(--mono);padding:2px 6px;border-radius:4px;background:rgba(46,229,132,0.1);color:var(--green);border:1px solid rgba(46,229,132,0.2)}
-.scv-body{padding:12px}
-.scv-participant-row{display:flex;align-items:center;gap:10px;background:#0d1319;padding:8px 10px;border-radius:8px;border:1px solid #1a232c}
-.scv-avatar{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#1f3b30,#11221b);color:var(--green);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;border:1px solid rgba(46,229,132,0.3)}
-.scv-user-info{flex:1}
-.scv-name{font-size:11.5px;font-weight:700;color:#fff}
-.scv-meta{font-size:9.5px;color:var(--muted)}
-.scv-wave{display:flex;align-items:center;gap:2px;height:14px}
-.scv-wave span{width:2.5px;background:var(--green);border-radius:1px;animation:wave 1.2s infinite ease-in-out}
-.scv-wave span:nth-child(1){height:6px;animation-delay:0.1s}
-.scv-wave span:nth-child(2){height:12px;animation-delay:0.2s}
-.scv-wave span:nth-child(3){height:14px;animation-delay:0.3s}
-.scv-wave span:nth-child(4){height:9px;animation-delay:0.4s}
-.scv-wave span:nth-child(5){height:5px;animation-delay:0.5s}
-.scv-flow-arrow{display:flex;align-items:center;justify-content:center;gap:6px;font-size:10px;font-family:var(--mono);color:var(--dim);margin:6px 0}
-.scv-bot-row{display:flex;align-items:center;gap:10px;background:#0e1720;padding:8px 10px;border-radius:8px;border:1px solid rgba(46,229,132,0.25)}
-.scv-bot-icon{width:26px;height:26px;border-radius:6px;background:rgba(46,229,132,0.15);display:flex;align-items:center;justify-content:center;font-size:12px}
-.scv-bot-info{flex:1}
-.scv-status-live{font-size:9.5px;font-family:var(--mono);font-weight:700;padding:2px 7px;border-radius:4px;background:rgba(46,229,132,0.15);color:var(--green)}
-
-/* Step 2 Detect */
-.scv-spectrogram{background:#0a0f14;padding:10px;border-radius:8px;border:1px solid #16202a;position:relative}
-.spec-track{position:relative}
-.spec-bars{display:flex;align-items:flex-end;gap:3px;height:36px}
-.spec-bars span{flex:1;border-radius:1px}
-.spec-window-box{position:absolute;top:0;left:10%;right:10%;bottom:0;border:1px dashed rgba(46,229,132,0.5);background:rgba(46,229,132,0.05);border-radius:4px;display:flex;align-items:center;justify-content:center;pointer-events:none}
-.spec-window-label{font-size:9.5px;font-family:var(--mono);color:var(--green);font-weight:700;background:rgba(10,15,20,0.85);padding:2px 6px;border-radius:4px}
-.scv-features-row{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
-.scv-feat-tag{font-size:9.5px;font-family:var(--mono);padding:2px 6px;border-radius:4px;background:#10171f;color:var(--ink2);border:1px solid #18222d}
-.scv-metrics-footer{display:flex;align-items:center;justify-content:space-between;margin-top:8px;font-size:10px;font-family:var(--mono);color:var(--muted);border-top:1px solid #141d26;padding-top:6px}
-
-/* Step 3 Act */
-.scv-code-block{background:#070a0d;border-radius:8px;border:1px solid #1a222a;padding:8px 10px;font-family:var(--mono);font-size:10.5px;line-height:1.5}
-.scv-code-line{display:flex;gap:6px}
-.c-key{color:#ff8383;font-weight:700}
-.c-val{color:#8ec07c}
-.c-prop{color:var(--muted)}
-.c-alert{color:var(--red);font-weight:700}
-.c-num{color:#fabd2f}
-.c-action{color:#fe8019;font-weight:700}
-.scv-alert-pill{margin-top:8px;display:flex;align-items:center;gap:6px;padding:6px 9px;border-radius:6px;background:rgba(255,77,94,0.1);border:1px solid rgba(255,77,94,0.25);font-size:10.5px;color:var(--red-soft);font-weight:600}
-
-/* Comparison Matrix Visuals */
-.comp-visual-chart{margin-top:20px;background:#090d11;border:1px solid #18222c;border-radius:10px;padding:12px}
-.cvc-row{display:flex;flex-direction:column;gap:6px}
-.cvc-format{font-size:10.5px;font-family:var(--mono);color:var(--ink2);font-weight:700}
-.cvc-bars{display:flex;flex-direction:column;gap:5px}
-.cvc-bar-wrapper{display:flex;align-items:center;gap:8px;font-size:10px;font-family:var(--mono)}
-.cvc-name{width:68px;color:var(--muted);flex-shrink:0}
-.cvc-track{flex:1;height:6px;background:#141d26;border-radius:3px;overflow:hidden}
-.cvc-fill{height:100%;border-radius:3px}
-.cvc-fill.cvc-green{background:var(--green);box-shadow:0 0 6px rgba(46,229,132,0.4)}
-.cvc-fill.cvc-red{background:var(--red);box-shadow:0 0 6px rgba(255,77,94,0.4)}
-.cvc-fill.cvc-gray{background:#546473}
-.cvc-val{width:42px;text-align:right;font-weight:700;color:var(--ink2)}
-.cvc-divider{height:1px;background:#141e28;margin:10px 0}
-
-/* Card 2 Timeline */
-.comp-visual-timeline{margin-top:20px;display:flex;flex-direction:column;gap:10px}
-.cvt-item{background:#090d11;border:1px solid #18222c;border-radius:10px;padding:10px 12px}
-.cvt-item.fail{border-color:rgba(255,77,94,0.2)}
-.cvt-item.success{border-color:rgba(46,229,132,0.25);background:rgba(46,229,132,0.03)}
-.cvt-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;font-size:11px;font-weight:700}
-.cvt-bad{color:var(--red-soft)}
-.cvt-good{color:var(--green)}
-.cvt-time{font-family:var(--mono);font-size:9.5px;color:var(--muted)}
-.cvt-flow{display:flex;align-items:center;gap:5px;font-size:9.5px;font-family:var(--mono);overflow-x:auto}
-.cvt-step{padding:3px 6px;border-radius:4px;background:#111922;color:var(--ink2);white-space:nowrap}
-.cvt-step.alert{background:rgba(255,77,94,0.15);color:var(--red);border:1px solid rgba(255,77,94,0.3)}
-.cvt-step.active{background:rgba(46,229,132,0.12);color:var(--green);border:1px solid rgba(46,229,132,0.25)}
-.cvt-step.held{background:rgba(46,229,132,0.2);color:var(--green);font-weight:700;border:1px solid var(--green)}
-.cvt-arr{color:var(--dim)}
-
-/* Card 3 Forensic Seal */
-.comp-visual-forensic{margin-top:20px;background:#090d11;border:1px solid rgba(255,77,94,0.25);border-radius:10px;padding:12px}
-.cvf-badge{display:flex;align-items:center;gap:6px;font-size:10px;font-family:var(--mono);font-weight:700;color:var(--red-soft)}
-.cvf-hash{font-family:var(--mono);font-size:10px;color:var(--muted);margin:8px 0;background:#06080b;padding:5px 8px;border-radius:4px;border:1px solid #161e26}
-.cvf-actions{display:flex;gap:6px;flex-wrap:wrap}
-.cvf-pill{font-size:10px;font-family:var(--mono);padding:3px 7px;border-radius:5px;background:#111922;border:1px solid #1c2734;color:var(--ink2);display:inline-flex;align-items:center;gap:4px}
-
-/* Built for Wire Fraud Desks Forensic Box */
-.forensic-cert-box{margin-top:24px;border:1px solid rgba(46,229,132,0.25);border-radius:12px;background:rgba(10,16,21,0.7);padding:14px;box-shadow:0 8px 24px rgba(0,0,0,0.3)}
-.fcb-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-.fcb-title{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:#ffffff}
-.fcb-status{font-size:9.5px;font-family:var(--mono);padding:2px 7px;border-radius:4px;background:rgba(46,229,132,0.12);color:var(--green);font-weight:700;border:1px solid rgba(46,229,132,0.3)}
-.fcb-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;background:#080c10;padding:8px 10px;border-radius:8px;border:1px solid #151e27}
-.fcb-col{display:flex;flex-direction:column;gap:3px}
-.fcb-k{font-size:9px;font-family:var(--mono);color:var(--muted);letter-spacing:.05em}
-.fcb-v{font-size:11px;font-weight:700;color:var(--ink)}
-.fcb-v.mono{font-family:var(--mono);font-size:10px;color:var(--ink2)}
-
-/* Pricing Visual Meters & Checklists */
-.price-visual-meter{margin-top:16px;background:#090d11;border:1px solid #16202a;border-radius:10px;padding:12px}
-.price-visual-meter.featured-meter{background:rgba(46,229,132,0.03);border-color:rgba(46,229,132,0.25)}
-.pvm-top{display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--ink2);margin-bottom:6px}
-.pvm-val{font-family:var(--mono);font-weight:700;color:var(--green)}
-.pvm-bar{height:6px;background:#141d26;border-radius:3px;overflow:hidden;margin-bottom:6px}
-.pvm-fill{height:100%;border-radius:3px}
-.pvm-note{font-size:10.5px;color:var(--muted)}
-.pvm-rate-tag{display:flex;align-items:baseline;gap:6px}
-.rate-huge{font-family:var(--mono);font-size:24px;font-weight:800;color:#ffffff}
-.rate-unit{font-size:11.5px;color:var(--muted)}
-.pvm-calc-pill{margin-top:6px;font-size:10.5px;font-family:var(--mono);color:var(--green);background:rgba(46,229,132,0.1);padding:4px 8px;border-radius:5px;display:inline-block}
-.enterprise-stack{display:flex;flex-direction:column;gap:5px}
-.estack-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ink2)}
-.estack-dot{width:5px;height:5px;border-radius:50%;background:var(--green)}
-.price-feature-list{list-style:none;margin:18px 0 0;padding:0;display:flex;flex-direction:column;gap:9px}
-.price-feature-list li{display:flex;align-items:flex-start;gap:8px;font-size:12.5px;color:#c7d2da;line-height:1.4}
-.price-feature-list svg{width:14px;height:14px;color:var(--green);flex-shrink:0;margin-top:2px}
-
-/* FAQ Architecture Diagram */
-.faq-security-diagram{margin:36px 0 28px;border:1px solid #1b242e;border-radius:14px;background:#090d12;padding:22px;box-shadow:0 12px 30px rgba(0,0,0,0.35)}
-.fsd-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:20px;border-bottom:1px solid #141d26;padding-bottom:12px}
-.fsd-badge{display:flex;align-items:center;gap:7px;font-size:11px;font-family:var(--mono);font-weight:700;color:var(--green);letter-spacing:.05em}
-.fsd-sub{font-size:11.5px;color:var(--muted)}
-.fsd-pipeline{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:12px;align-items:center}
-.fsd-node{background:#0d131a;border:1px solid #19232e;border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:6px}
-.fsd-node.active{border-color:rgba(46,229,132,0.35);background:rgba(46,229,132,0.03)}
-.fsd-icon{width:34px;height:34px;border-radius:8px;background:rgba(46,229,132,0.08);border:1px solid rgba(46,229,132,0.2);display:flex;align-items:center;justify-content:center;color:var(--green);margin-bottom:6px}
-.fsd-icon svg{width:18px;height:18px}
-.fsd-title{font-size:12.5px;font-weight:700;color:#ffffff}
-.fsd-desc{font-size:11px;color:var(--ink2);line-height:1.45}
-.fsd-tag{font-size:9.5px;font-family:var(--mono);padding:2px 6px;border-radius:4px;background:#121b23;color:var(--muted);align-self:flex-start;margin-top:4px}
-.fsd-tag.active{background:rgba(46,229,132,0.12);color:var(--green);border:1px solid rgba(46,229,132,0.25)}
-.fsd-connector{color:var(--dim);display:flex;align-items:center;justify-content:center}
-
-/* Footer Trust Strip */
-.footer-trust-strip{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin:28px 0 0}
-.fts-item{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-family:var(--mono);color:var(--muted);padding:6px 13px;border-radius:6px;background:#0d1319;border:1px solid #161f28}
-.fts-item svg{color:var(--green);flex-shrink:0}
-
-/* Responsiveness */
-@media (max-width:1100px){
-  .desk-card{grid-template-columns:1fr;gap:28px}
-  .stats{grid-template-columns:repeat(2,1fr);padding:24px}
+/* Responsive Media Queries */
+@media (max-width:1080px){
+  .desk-card{grid-template-columns:1fr;gap:32px}
+  .stats{grid-template-columns:repeat(2,1fr);padding:28px}
+  .hero{grid-template-columns:1fr;gap:40px}
   .comparison-grid{grid-template-columns:1fr}
-  .hero{grid-template-columns:1fr;gap:36px}
-}
-@media (max-width:840px){
-  .hero h1{font-size:38px}
-  .hero{padding:42px 0 32px}
-  .steps{grid-template-columns:1fr}
+  .pipeline-grid{grid-template-columns:1fr;gap:12px}
+  .pipeline-arrow{transform:rotate(90deg);padding:6px 0}
   .pricing-grid{grid-template-columns:1fr}
+  .price-card.featured{transform:none}
+}
+@media (max-width:860px){
+  .hero h1{font-size:40px}
+  .hero-sub{font-size:16px}
+  .hero{padding:48px 0 32px}
+  .steps{grid-template-columns:1fr}
   .nav-links a.plain{display:none}
-  .showcase-tab{min-width:140px;padding:12px}
+  .showcase-tab{min-width:150px;padding:14px}
   .showcase-footer{flex-direction:column;align-items:stretch}
-  .fsd-pipeline{grid-template-columns:1fr;gap:10px}
-  .fsd-connector{transform:rotate(90deg);padding:4px 0}
-  .fcb-grid{grid-template-columns:1fr}
+  .footer-cta h2{font-size:34px}
+  .footer-cta{padding:72px 0 80px}
+}
+@media (max-width:600px){
+  .stats{grid-template-columns:1fr;gap:22px;padding:22px}
+  .hero h1{font-size:34px}
+  .btn-primary, .btn-ghost{width:100%;justify-content:center}
+  .hero-ctas{flex-direction:column;align-items:stretch}
 }
 </style>
 </head>
@@ -400,7 +364,7 @@ a:hover{color:var(--green-hover)}
   <div class="wrap">
     <nav class="nav">
       <div class="brand">
-        <a href="/" style="display:flex;align-items:center;gap:11px">
+        <a class="brand-link" href="/">
           <div class="brand-tile">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M12 3.4v17.2M3.4 12h17.2" stroke="var(--green)" stroke-width=".7" opacity=".55"></path><circle cx="12" cy="12" r="5.6" stroke="var(--green)" stroke-width=".7" opacity=".55"></circle><circle cx="12" cy="12" r="8.6" stroke="var(--green)" stroke-width="2.2"></circle><path d="M6.9 12h.9l.6-1.4.7 2.9.8-4.1.9 5.4.9-7.2.9 8.3.8-6.9.7 4.8.7-2.9.6 1.6.5-.5h1.2" stroke="var(--green)" stroke-width="1.15" stroke-linejoin="round" stroke-linecap="round"></path><circle cx="18.1" cy="5.9" r="2.6" fill="var(--bg)"></circle><circle cx="18.1" cy="5.9" r="1.8" fill="var(--green)"></circle></svg>
           </div>
@@ -408,7 +372,7 @@ a:hover{color:var(--green-hover)}
         </a>
         <div class="nav-status">
           <span class="dot"></span>
-          <span>Engine Online · 4s rolling windows</span>
+          <span>Engine Online · 4s windows</span>
         </div>
       </div>
       <div class="nav-links">
@@ -417,7 +381,7 @@ a:hover{color:var(--green-hover)}
         <a class="plain" href="#results">Results</a>
         <a class="plain" href="#pricing">Pricing</a>
         <a class="plain" href="#faq">FAQ</a>
-        <a class="btn-console" href="/console">
+        <a class="btn-nav" href="/console">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
           Open console
         </a>
@@ -428,22 +392,23 @@ a:hover{color:var(--green-hover)}
 
 <div class="wrap">
 
+  <!-- Hero Section -->
   <section class="hero">
     <div class="hero-content">
       <div class="hero-badge"><span class="dot"></span>Live on Google Meet, Zoom &amp; Teams</div>
       <h1>Catch cloned voices on the calls that move money.</h1>
-      <p class="hero-sub">Real-time deepfake-voice detection for video meetings — engineered to work on the compressed, processed audio real calls actually produce. Every speaker gets a live <b class="v-real">REAL</b> / <b class="v-suspect">SUSPECT</b> / <b class="v-fake">FAKE</b> verdict, and a wire hold fires before the fraud clears.</p>
+      <p class="hero-sub">Real-time deepfake-voice detection built for compressed meeting audio. Every speaker receives an immediate <b class="v-real">REAL</b> / <b class="v-suspect">SUSPECT</b> / <b class="v-fake">FAKE</b> verdict, and an automated wire hold fires before fraudulent transfers clear.</p>
       
       <div class="hero-ctas">
         <a class="btn-primary" href="/console">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-          See the live console
+          Open console
         </a>
         <a class="btn-ghost" href="mailto:derekgallardo01@gmail.com?subject=Sonave%20Enterprise">Talk to us</a>
       </div>
 
       <div class="compat-bar">
-        <span class="compat-label">Supported platforms &amp; hooks:</span>
+        <span class="compat-label">Supported platforms:</span>
         <div class="compat-pills">
           <span class="compat-pill">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
@@ -451,88 +416,118 @@ a:hover{color:var(--green-hover)}
           </span>
           <span class="compat-pill">Zoom</span>
           <span class="compat-pill">Microsoft Teams</span>
-          <span class="compat-pill">Slack Alerts</span>
           <span class="compat-pill">Wire-Hold Webhooks</span>
-          <span class="compat-pill" style="border-color:rgba(46,229,132,0.3);color:var(--green)">IC3 / Audit Ready</span>
+          <span class="compat-pill" style="border-color:rgba(46,229,132,0.35);color:var(--green)">Audit Ready</span>
         </div>
       </div>
     </div>
 
-    <div class="hero-visual" onclick="openHeroLightbox()" title="Click to view live in-call protection full size">
-      <div class="hero-window">
-        <div class="hero-window-top">
-          <div class="browser-dots">
-            <span class="b-dot red"></span>
-            <span class="b-dot yellow"></span>
-            <span class="b-dot green"></span>
-          </div>
-          <div class="hero-window-title">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-            meet.google.com/wire-approval-q3
-          </div>
-          <span class="hero-window-badge">
-            <span class="dot"></span>
-            LIVE PROTECTION
-          </span>
+    <!-- Hero Visual: Clean, High-Contrast Live In-Call Verdict HUD -->
+    <div class="hero-hud" onclick="openHeroLightbox()" title="Click to view live in-call protection screenshot full size">
+      <div class="hud-chrome">
+        <div class="browser-dots">
+          <span class="b-dot red"></span>
+          <span class="b-dot yellow"></span>
+          <span class="b-dot green"></span>
         </div>
-        <div class="hero-img-wrap">
-          <img src="/shot-meet-panel.png" alt="Sonave live Google Meet voice authenticity protection">
-          <div class="hero-floating-tag">
-            <span style="color:var(--green)">●</span>
-            <span>Real-time per-speaker authenticity score</span>
+        <div class="hud-url">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          meet.google.com/wire-approval-q3
+        </div>
+        <span class="hud-live-tag">
+          <span class="dot"></span>
+          LIVE VERDICT
+        </span>
+      </div>
+
+      <div class="hud-body">
+        <!-- Verified Speaker Card -->
+        <div class="hud-card active-safe">
+          <div class="hud-speaker-top">
+            <div class="hud-speaker-info">
+              <div class="hud-avatar safe">SJ</div>
+              <div>
+                <div class="hud-speaker-name">Sarah Jenkins</div>
+                <div class="hud-speaker-role">Chief Financial Officer</div>
+              </div>
+            </div>
+            <span class="verdict-pill real">● REAL · 99.2%</span>
           </div>
-          <div class="hero-floating-tag-right">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-            <span>4s Rolling Windows</span>
+          <div class="hud-meter-row">
+            <div class="hud-waveform">
+              <span></span><span></span><span></span><span></span><span></span>
+            </div>
+            <span>Opus Codec Match · 4.0s Window</span>
           </div>
+        </div>
+
+        <!-- Cloned Voice Alert Card -->
+        <div class="hud-card alert-fake">
+          <div class="hud-speaker-top">
+            <div class="hud-speaker-info">
+              <div class="hud-avatar fake">!</div>
+              <div>
+                <div class="hud-speaker-name">Unknown Caller</div>
+                <div class="hud-speaker-role">Phone Dial-in · +1 (415) •••-••92</div>
+              </div>
+            </div>
+            <span class="verdict-pill fake">● FAKE · 94.0%</span>
+          </div>
+          <div class="hud-alert-banner">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            <span>Treasury wire hold triggered — re-authentication required</span>
+          </div>
+        </div>
+
+        <div class="hud-footer-hint">
+          <span>Continuous sliding-window evaluation</span>
+          <a href="#screenshots">Explore live console &rarr;</a>
         </div>
       </div>
     </div>
   </section>
 
+  <!-- Proof Stats Section with Clear Context & Sources -->
   <section class="stats" id="results">
     <div class="stat-item">
       <div class="stat-num v-real">97%</div>
-      <div class="stat-track"><div class="stat-fill" style="width:97%;background:var(--green);box-shadow:0 0 10px rgba(46,229,132,0.4)"></div></div>
-      <div class="stat-sub">catch rate on 27 unseen commercial voice-clone tools</div>
-      <div class="stat-pill-label" style="margin-top:6px"><span style="color:var(--green)">●</span> 27 / 27 tool families caught</div>
+      <div class="stat-name">Sonave Catch Rate</div>
+      <div class="stat-sub">Catches 27 out of 27 commercial voice-clone tools through live meeting codecs.</div>
+      <div class="stat-source"><span style="color:var(--green)">●</span> Benchmark: 27 clone families</div>
     </div>
+
     <div class="stat-item">
-      <div class="stat-num" style="color:var(--muted)">2%</div>
-      <div class="stat-track"><div class="stat-fill" style="width:2%;background:var(--red);box-shadow:0 0 10px rgba(255,77,94,0.4)"></div></div>
-      <div class="stat-sub">what commodity detectors catch on the same meeting fakes</div>
-      <div class="stat-pill-label" style="margin-top:6px;color:var(--red-soft)"><span style="color:var(--red)">●</span> 98% collapse on Opus</div>
+      <div class="stat-num" style="color:var(--red)">2%</div>
+      <div class="stat-name">Commodity Detectors</div>
+      <div class="stat-sub">Generic detectors collapse from 99% down to 2% once audio passes through meeting compression.</div>
+      <div class="stat-source"><span style="color:var(--red)">●</span> 98% collapse on Opus codec</div>
     </div>
+
     <div class="stat-item">
       <div class="stat-num v-real">94%</div>
-      <div class="stat-track"><div class="stat-fill" style="width:94%;background:var(--green);box-shadow:0 0 10px rgba(46,229,132,0.4)"></div></div>
-      <div class="stat-sub">real-voice accuracy through Google Meet's Opus codec</div>
-      <div class="stat-pill-label" style="margin-top:6px"><span style="color:var(--green)">●</span> Zero false-alarm bias</div>
+      <div class="stat-name">Real-Voice Accuracy</div>
+      <div class="stat-sub">Authentic voices confirmed without false alarms, preventing disruption to legitimate calls.</div>
+      <div class="stat-source"><span style="color:var(--green)">●</span> Production model: sonave_xlsr_meet</div>
     </div>
+
     <div class="stat-item">
       <div class="stat-num">&lt;1s</div>
-      <div class="stat-pulse-track">
-        <span class="pulse-bar" style="height:35%"></span>
-        <span class="pulse-bar" style="height:65%"></span>
-        <span class="pulse-bar" style="height:100%"></span>
-        <span class="pulse-bar" style="height:55%"></span>
-        <span class="pulse-bar" style="height:85%"></span>
-        <span class="pulse-bar" style="height:45%"></span>
-      </div>
-      <div class="stat-sub">from spoken word to verdict — ~100 ms GPU inference per window</div>
-      <div class="stat-pill-label" style="margin-top:6px;color:var(--green)"><span style="color:var(--green)">●</span> ~98ms GPU inference</div>
+      <div class="stat-name">Time-to-Verdict</div>
+      <div class="stat-sub">From spoken word to on-screen verdict, powered by ~98ms GPU inference per window.</div>
+      <div class="stat-source"><span style="color:var(--green)">●</span> 4.0s rolling analysis</div>
     </div>
   </section>
-  <div style="font-size:11.5px;color:var(--dim);margin-top:12px;font-family:var(--mono);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-    <span>Benchmarked Aug 2026 on the deployed production checkpoint (`sonave_xlsr_meet`).</span>
-    <a href="/benchmarks" style="color:var(--green)">Read full benchmark methodology &rarr;</a>
+
+  <div class="stats-citation-bar">
+    <span>Tested against deployed production checkpoint (`sonave_xlsr_meet`).</span>
+    <a href="/benchmarks">Read complete benchmark methodology &rarr;</a>
   </div>
 
   <!-- Interactive Screenshot Showcase -->
   <section class="section" id="screenshots">
     <div class="eyebrow">SEE IT IN ACTION</div>
     <h2 class="section-title">The moment the wire gets held.</h2>
-    <p class="section-desc">Inspect the actual Sonave interface during live calls. High-definition captures of in-meeting speaker verification, synthetic voice alerts, and the executive forensic console.</p>
+    <p class="section-desc">Inspect high-definition captures of in-meeting speaker verification, synthetic voice alerts, and the executive forensic console.</p>
 
     <div class="showcase">
       <!-- Tabs -->
@@ -566,14 +561,14 @@ a:hover{color:var(--green-hover)}
             </div>
             <div class="browser-url" id="showcase-url">https://meet.google.com/wire-approval-q3 · Sonave Active</div>
             <div class="browser-action" onclick="openActiveLightbox()">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
               Enlarge
             </div>
           </div>
           <div class="screenshot-view" onclick="openActiveLightbox()">
             <img id="showcase-img" src="/shot-meet-panel.png" alt="Google Meet with live Sonave Voice Authenticity side panel">
             <div class="screenshot-overlay-hint">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
               Click to view high-resolution
             </div>
           </div>
@@ -583,27 +578,72 @@ a:hover{color:var(--green-hover)}
       <!-- Showcase Footer Callout -->
       <div class="showcase-footer">
         <div class="showcase-explanation">
-          <div class="showcase-icon" id="showcase-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg></div>
+          <div class="showcase-icon" id="showcase-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg></div>
           <div>
             <div class="showcase-text-title" id="showcase-title">In-Meeting Google Meet Side Panel</div>
             <div class="showcase-text-desc" id="showcase-desc">Sonave scores every participant concurrently directly in the Google Meet panel. Green badges confirm verified authentic voices with rolling confidence scores.</div>
           </div>
         </div>
         <div class="showcase-cta">
-          <a class="btn-console" href="/console" style="padding:10px 18px">
-            Test simulated call &rarr;
+          <a class="btn-primary" href="/console">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            Open console
           </a>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- How It Works Section -->
+  <!-- How It Works Section (Connected Architecture Visual + 3 Focused Steps) -->
   <section class="section" id="how">
     <div class="eyebrow">HOW IT WORKS</div>
     <h2 class="section-title">A bot joins. Every voice is scored. Suspicion holds the wire.</h2>
-    <p class="section-desc">Zero installs for meeting participants. Sonave connects seamlessly at the audio ingestion layer to evaluate voices in real time.</p>
+    <p class="section-desc">Zero installs for meeting participants. Sonave connects at the audio ingestion layer to evaluate voices in real time.</p>
     
+    <!-- Unified Zero-Retention Streaming Architecture Flow -->
+    <div class="pipeline-diagram">
+      <div class="pipeline-header">
+        <div class="pipeline-badge">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          <span>ZERO-RETENTION STREAMING SECURITY PIPELINE</span>
+        </div>
+        <span class="pipeline-sub">End-to-end memory isolation · Ephemeral processing</span>
+      </div>
+      <div class="pipeline-grid">
+        <div class="pipeline-node">
+          <div class="pipeline-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+          </div>
+          <div class="pipeline-title">1. Meeting Ingestion</div>
+          <div class="pipeline-desc">Calendar bot joins visible call and ingests speaker stream over encrypted WebRTC/PCM.</div>
+          <div class="pipeline-tag">Zero Client Install</div>
+        </div>
+        <div class="pipeline-arrow">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+        </div>
+        <div class="pipeline-node active">
+          <div class="pipeline-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="14" x2="23" y2="14"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="14" x2="4" y2="14"></line></svg>
+          </div>
+          <div class="pipeline-title">2. Volatile GPU RAM</div>
+          <div class="pipeline-desc">4s neural tensor window scored in memory. Never written to disk or permanent storage.</div>
+          <div class="pipeline-tag active">98ms TensorRT Inference</div>
+        </div>
+        <div class="pipeline-arrow">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+        </div>
+        <div class="pipeline-node">
+          <div class="pipeline-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="9 12 11 14 15 10"></polyline></svg>
+          </div>
+          <div class="pipeline-title">3. Instant Flush &amp; Action</div>
+          <div class="pipeline-desc">Buffer immediately purged from memory. Real-time verdict and wire-hold webhook emitted.</div>
+          <div class="pipeline-tag">Immutable Audit Log</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3 Clean Step Cards (Uncluttered, High Contrast) -->
     <div class="steps">
       <div class="step">
         <div>
@@ -612,43 +652,9 @@ a:hover{color:var(--green-hover)}
             <span class="step-tag">INGESTION</span>
           </div>
           <div class="step-title">Capture</div>
-          <div class="step-body">A verified meeting bot joins the call as a visible participant and streams per-speaker PCM audio out in real time — no plugins, no Chrome extensions, and zero installs for anyone on the call.</div>
+          <div class="step-body">A verified meeting bot joins the call as a visible participant and streams per-speaker audio in real time. No browser extensions, no attendee configuration, and zero client software to distribute.</div>
         </div>
-        <div class="step-card-visual">
-          <div class="scv-header">
-            <div class="scv-header-left">
-              <span class="scv-dot-green"></span>
-              <span class="scv-title">AUDIO INGESTION PIPELINE</span>
-            </div>
-            <span class="scv-badge">16kHz PCM</span>
-          </div>
-          <div class="scv-body">
-            <div class="scv-participant-row">
-              <div class="scv-avatar">SJ</div>
-              <div class="scv-user-info">
-                <div class="scv-name">Sarah Jenkins (CFO)</div>
-                <div class="scv-meta">Active speaker · Google Meet</div>
-              </div>
-              <div class="scv-wave">
-                <span></span><span></span><span></span><span></span><span></span>
-              </div>
-            </div>
-            <div class="scv-flow-arrow">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>
-              <span>Encrypted audio pipeline (TLS 1.3)</span>
-            </div>
-            <div class="scv-bot-row">
-              <div class="scv-bot-icon">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path><line x1="8" y1="16" x2="8.01" y2="16"></line><line x1="16" y1="16" x2="16.01" y2="16"></line></svg>
-              </div>
-              <div class="scv-bot-info">
-                <div class="scv-name">Sonave Security Bot</div>
-                <div class="scv-meta">Streams uncompressed isolated audio</div>
-              </div>
-              <span class="scv-status-live">STREAMING</span>
-            </div>
-          </div>
-        </div>
+        <div class="step-key-badge">● Zero client software required</div>
       </div>
 
       <div class="step">
@@ -658,49 +664,9 @@ a:hover{color:var(--green-hover)}
             <span class="step-tag">INFERENCE</span>
           </div>
           <div class="step-title">Detect</div>
-          <div class="step-body">A fine-tuned XLS-R neural detector scores 4-second windows of each speaker's voice. Unlike lab benchmarks, Sonave is trained on real meeting-codec audio (Opus compression, room acoustics, and packet loss).</div>
+          <div class="step-body">A fine-tuned XLS-R neural detector evaluates 4-second rolling windows of each speaker. Sonave is trained on compressed meeting-codec audio (Opus compression, packet jitter, and room reverberation).</div>
         </div>
-        <div class="step-card-visual">
-          <div class="scv-header">
-            <div class="scv-header-left">
-              <span class="scv-dot-green"></span>
-              <span class="scv-title">XLS-R NEURAL INFERENCE</span>
-            </div>
-            <span class="scv-badge">98ms LATENCY</span>
-          </div>
-          <div class="scv-body">
-            <div class="scv-spectrogram">
-              <div class="spec-track">
-                <div class="spec-bars">
-                  <span style="height:35%;background:var(--green)"></span>
-                  <span style="height:55%;background:var(--green)"></span>
-                  <span style="height:85%;background:var(--green)"></span>
-                  <span style="height:60%;background:var(--green)"></span>
-                  <span style="height:90%;background:var(--green)"></span>
-                  <span style="height:75%;background:var(--green)"></span>
-                  <span style="height:50%;background:var(--green)"></span>
-                  <span style="height:70%;background:var(--green)"></span>
-                  <span style="height:40%;background:var(--green)"></span>
-                  <span style="height:65%;background:var(--green)"></span>
-                  <span style="height:80%;background:var(--green)"></span>
-                  <span style="height:60%;background:var(--green)"></span>
-                </div>
-                <div class="spec-window-box">
-                  <div class="spec-window-label">4.0s Sliding Window</div>
-                </div>
-              </div>
-            </div>
-            <div class="scv-features-row">
-              <span class="scv-feat-tag">Acoustic Phase</span>
-              <span class="scv-feat-tag">Opus Codec</span>
-              <span class="scv-feat-tag">Vector Match</span>
-            </div>
-            <div class="scv-metrics-footer">
-              <span>Window: <b>4.0s</b></span>
-              <span>Verdict: <b style="color:var(--green)">99.2% REAL</b></span>
-            </div>
-          </div>
-        </div>
+        <div class="step-key-badge">● 98ms inference latency</div>
       </div>
 
       <div class="step">
@@ -710,77 +676,57 @@ a:hover{color:var(--green-hover)}
             <span class="step-tag">ENFORCEMENT</span>
           </div>
           <div class="step-title">Act</div>
-          <div class="step-body">Continuous verdicts drive live participant badges, automated SMS/Slack alerts, and an instant webhook that holds the wire transfer in your treasury management system before money leaves the bank.</div>
+          <div class="step-body">Verdicts trigger real-time on-screen badges, automated alerts, and an instant webhook that pauses wire approvals in your treasury management system before funds clear the bank.</div>
         </div>
-        <div class="step-card-visual" style="border-color:rgba(255,77,94,0.35)">
-          <div class="scv-header" style="background:rgba(255,77,94,0.06)">
-            <div class="scv-header-left">
-              <span class="scv-dot-red"></span>
-              <span class="scv-title" style="color:var(--red-soft)">TREASURY WIRE-HOLD TRIGGER</span>
-            </div>
-            <span class="scv-badge" style="background:rgba(255,77,94,0.15);color:var(--red);border-color:rgba(255,77,94,0.3)">ENFORCED</span>
-          </div>
-          <div class="scv-body">
-            <div class="scv-code-block">
-              <div class="scv-code-line"><span class="c-key">POST</span> <span class="c-val">/v1/treasury/hold</span></div>
-              <div class="scv-code-line"><span class="c-prop">"verdict"</span>: <span class="c-alert">"FAKE"</span>, <span class="c-prop">"risk"</span>: <span class="c-num">0.94</span></div>
-              <div class="scv-code-line"><span class="c-prop">"action"</span>: <span class="c-action">"PAUSE_APPROVAL"</span></div>
-            </div>
-            <div class="scv-alert-pill">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-              <span>Wire #9281-Q frozen in ERP before release</span>
-            </div>
-            <div class="scv-metrics-footer">
-              <span>Webhook: <b style="color:var(--green)">HTTP 200 OK</b></span>
-              <span>Latency: <b>14ms</b></span>
-            </div>
-          </div>
-        </div>
+        <div class="step-key-badge">● Automated ERP / treasury freeze</div>
       </div>
     </div>
   </section>
 
-  <!-- Why Lab Accuracy is Not Meeting Accuracy -->
+  <!-- Lab vs Real-World Section (Single Focused Visual) -->
   <section class="section" id="why-us">
     <div class="eyebrow">THE REAL-WORLD DIFFERENCE</div>
     <h2 class="section-title">Lab accuracy is not meeting accuracy.</h2>
-    <p class="section-desc">Why off-the-shelf voice clone detectors fail catastrophically inside live Google Meet and Zoom conferences.</p>
+    <p class="section-desc">Why commodity voice clone detectors fail catastrophically inside live Google Meet and Zoom conferences.</p>
 
     <div class="comparison-grid">
+      <!-- Card 1: Features the One Clear Visual Comparison -->
       <div class="comp-card">
-        <span class="comp-tag" style="color:var(--amber)">99% LAB &ne; 95% MEETING</span>
-        <div class="comp-title">Same audio, different codec</div>
-        <div class="comp-body">Generic detectors advertise 99%+ lab numbers on uncompressed WAV files. When played through Google Meet's Opus codec, commodity detectors plummet to <b>2%</b>. Sonave catches <b>97%</b> because it was trained directly on codec-compressed meeting audio.</div>
-        
-        <div class="comp-visual-chart">
-          <div class="cvc-row">
-            <span class="cvc-format">Clean Lab WAV</span>
-            <div class="cvc-bars">
-              <div class="cvc-bar-wrapper">
-                <span class="cvc-name">Commodity</span>
-                <div class="cvc-track"><div class="cvc-fill cvc-gray" style="width:99%"></div></div>
-                <span class="cvc-val">99%</span>
-              </div>
-              <div class="cvc-bar-wrapper">
-                <span class="cvc-name">Sonave</span>
-                <div class="cvc-track"><div class="cvc-fill cvc-green" style="width:98%"></div></div>
-                <span class="cvc-val">98%</span>
+        <div>
+          <span class="comp-tag" style="color:var(--amber)">99% LAB &ne; 95% MEETING</span>
+          <div class="comp-title">Same audio, different codec</div>
+          <div class="comp-body">Generic detectors advertise 99%+ accuracy on clean WAV files. Once compressed through Google Meet's Opus codec, commodity detectors plummet to <b>2%</b>. Sonave catches <b>97%</b> because it was trained directly on codec-compressed meeting audio.</div>
+          
+          <div class="comp-visual-chart">
+            <div class="cvc-row">
+              <span class="cvc-format">Clean Lab WAV (Uncompressed)</span>
+              <div class="cvc-bars">
+                <div class="cvc-bar-wrapper">
+                  <span class="cvc-name">Commodity</span>
+                  <div class="cvc-track"><div class="cvc-fill cvc-gray" style="width:99%"></div></div>
+                  <span class="cvc-val">99%</span>
+                </div>
+                <div class="cvc-bar-wrapper">
+                  <span class="cvc-name">Sonave</span>
+                  <div class="cvc-track"><div class="cvc-fill cvc-green" style="width:98%"></div></div>
+                  <span class="cvc-val">98%</span>
+                </div>
               </div>
             </div>
-          </div>
-          <div class="cvc-divider"></div>
-          <div class="cvc-row">
-            <span class="cvc-format" style="color:var(--amber)">Google Meet Opus Codec</span>
-            <div class="cvc-bars">
-              <div class="cvc-bar-wrapper">
-                <span class="cvc-name">Commodity</span>
-                <div class="cvc-track"><div class="cvc-fill cvc-red" style="width:2%"></div></div>
-                <span class="cvc-val" style="color:var(--red)">2%</span>
-              </div>
-              <div class="cvc-bar-wrapper">
-                <span class="cvc-name">Sonave</span>
-                <div class="cvc-track"><div class="cvc-fill cvc-green" style="width:97%"></div></div>
-                <span class="cvc-val" style="color:var(--green)">97%</span>
+            <div class="cvc-divider"></div>
+            <div class="cvc-row">
+              <span class="cvc-format" style="color:var(--amber)">Google Meet Opus Codec</span>
+              <div class="cvc-bars">
+                <div class="cvc-bar-wrapper">
+                  <span class="cvc-name">Commodity</span>
+                  <div class="cvc-track"><div class="cvc-fill cvc-red" style="width:2%"></div></div>
+                  <span class="cvc-val" style="color:var(--red)">2%</span>
+                </div>
+                <div class="cvc-bar-wrapper">
+                  <span class="cvc-name">Sonave</span>
+                  <div class="cvc-track"><div class="cvc-fill cvc-green" style="width:97%"></div></div>
+                  <span class="cvc-val" style="color:var(--green)">97%</span>
+                </div>
               </div>
             </div>
           </div>
@@ -791,38 +737,12 @@ a:hover{color:var(--green-hover)}
         </div>
       </div>
 
+      <!-- Card 2: Clean, Scannable Focus on In-Call Defense -->
       <div class="comp-card">
-        <span class="comp-tag" style="color:var(--green)">IN-CALL &bull; NOT POST-MORTEM</span>
-        <div class="comp-title">In the call, per speaker</div>
-        <div class="comp-body">Detectors that analyze file uploads 30 seconds after a call ends are post-mortems. In a real wire fraud attempt, the verbal confirmation takes 60 seconds. Sonave scores continuously while participants are still talking.</div>
-        
-        <div class="comp-visual-timeline">
-          <div class="cvt-item fail">
-            <div class="cvt-header">
-              <span class="cvt-bad" style="display:flex;align-items:center;gap:5px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg> Post-Mortem Upload</span>
-              <span class="cvt-time">30m+ Post-Call</span>
-            </div>
-            <div class="cvt-flow">
-              <div class="cvt-step">Meeting Ends</div>
-              <div class="cvt-arr">&rarr;</div>
-              <div class="cvt-step">Upload MP3</div>
-              <div class="cvt-arr">&rarr;</div>
-              <div class="cvt-step alert">Wire Cleared</div>
-            </div>
-          </div>
-          <div class="cvt-item success">
-            <div class="cvt-header">
-              <span class="cvt-good" style="display:flex;align-items:center;gap:5px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Sonave In-Call</span>
-              <span class="cvt-time">&lt;4s Live Verdict</span>
-            </div>
-            <div class="cvt-flow">
-              <div class="cvt-step">Voice Spoken</div>
-              <div class="cvt-arr">&rarr;</div>
-              <div class="cvt-step active">4s Scoring</div>
-              <div class="cvt-arr">&rarr;</div>
-              <div class="cvt-step held">Wire Held On Screen</div>
-            </div>
-          </div>
+        <div>
+          <span class="comp-tag" style="color:var(--green)">IN-CALL · NOT POST-MORTEM</span>
+          <div class="comp-title">In the call, per speaker</div>
+          <div class="comp-body">Detectors that analyze file uploads 30 seconds after a call ends are post-mortems. In a real wire fraud attempt, the verbal confirmation takes 60 seconds. Sonave scores continuously while participants are still talking.</div>
         </div>
 
         <div class="comp-pill" style="background:rgba(46,229,132,0.1);color:var(--green);border:1px solid rgba(46,229,132,0.25)">
@@ -830,38 +750,29 @@ a:hover{color:var(--green-hover)}
         </div>
       </div>
 
+      <!-- Card 3: Clean, Actionable Enforcement Focus -->
       <div class="comp-card">
-        <span class="comp-tag" style="color:var(--red-soft)">ACTIONABLE DEFENSE</span>
-        <div class="comp-title">A verdict wired to action</div>
-        <div class="comp-body">Detection that ends at a dashboard score protects nothing. Sonave's red band raises an immediate wire-hold webhook into your payment approval pipeline and generates an exportable forensic audit certificate with audio snippets.</div>
-        
-        <div class="comp-visual-forensic">
-          <div class="cvf-badge">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-            <span>IMMUTABLE FORENSIC SEAL</span>
-          </div>
-          <div class="cvf-hash">SHA-256: 7f3b8a90e4c19...b72e</div>
-          <div class="cvf-actions">
-            <span class="cvf-pill"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> PDF Audit Log</span>
-            <span class="cvf-pill"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg> Raw Snippet</span>
-          </div>
+        <div>
+          <span class="comp-tag" style="color:var(--ink2)">ACTIONABLE ENFORCEMENT</span>
+          <div class="comp-title">A verdict wired to action</div>
+          <div class="comp-body">Detection that ends at a dashboard score protects nothing. Sonave's red alert triggers an immediate wire-hold webhook into your payment approval pipeline and generates an exportable forensic audit certificate.</div>
         </div>
 
-        <div class="comp-pill" style="background:rgba(255,77,94,0.1);color:var(--red-soft);border:1px solid rgba(255,77,94,0.25)">
+        <div class="comp-pill" style="background:rgba(255,255,255,0.06);color:var(--ink);border:1px solid var(--line2)">
           Immutable forensic audit log
         </div>
       </div>
     </div>
-    <div style="font-size:12.5px;color:var(--muted);margin-top:20px">We publish our numbers — including the hard ones. <a href="/benchmarks">See the full benchmark dataset &rarr;</a></div>
+    <div style="font-size:13px;color:var(--muted);margin-top:22px">We publish our numbers — including the hard ones. <a href="/benchmarks">See the full benchmark dataset &rarr;</a></div>
   </section>
 
-  <!-- Built for Wire-Fraud Desks -->
+  <!-- Built for Wire-Fraud Desks (Emotional Peak Section) -->
   <section class="desk">
     <div class="desk-card">
       <div>
-        <div class="eyebrow">BUILT FOR WIRE-FRAUD DESKS</div>
+        <div class="desk-eyebrow">CRITICAL INCIDENT DEFENSE</div>
         <h2>When a deepfaked CEO asks for $2M, the verdict is on screen before the approval.</h2>
-        <p class="desk-body">Every scored window lands in an immutable forensic log — score, verdict, timestamp, audio snippet — with a one-click exportable report per meeting. Voiceprint enrollment adds a second factor: is this even the executive's voice?</p>
+        <p class="desk-body">Every scored window lands in an immutable forensic log — score, verdict, timestamp, audio snippet — with a one-click exportable report per meeting. Voiceprint enrollment adds a second factor: confirming whether the voice truly belongs to your authorized executive.</p>
         <div class="desk-points">
           <div class="desk-point">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
@@ -869,35 +780,20 @@ a:hover{color:var(--green-hover)}
           </div>
           <div class="desk-point">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-            <span>One-click IC3 / insurance legal certificate of authenticity</span>
+            <span>One-click IC3 and insurance legal certificate of authenticity</span>
           </div>
           <div class="desk-point">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-            <span>Voiceprint enrollment verifies biometric identity + liveness</span>
-          </div>
-        </div>
-
-        <!-- Visual Forensic Certificate Seal -->
-        <div class="forensic-cert-box">
-          <div class="fcb-header">
-            <div class="fcb-title">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="9 12 11 14 15 10"></polyline></svg>
-              <span>Tamper-Evident Forensic Incident Certificate #8402</span>
-            </div>
-            <span class="fcb-status">SEALED</span>
-          </div>
-          <div class="fcb-grid">
-            <div class="fcb-col"><span class="fcb-k">TIMESTAMP</span><span class="fcb-v">2026-08-18 14:32:04 UTC</span></div>
-            <div class="fcb-col"><span class="fcb-k">VERDICT</span><span class="fcb-v" style="color:var(--red)">SYNTHETIC (94%)</span></div>
-            <div class="fcb-col"><span class="fcb-k">CRYPTO PROOF</span><span class="fcb-v mono">ed25519:6a0f...88b2</span></div>
+            <span>Voiceprint enrollment verifies biometric identity and liveness</span>
           </div>
         </div>
       </div>
       
+      <!-- Focused Visual: High-Impact Alert Card -->
       <div class="demo">
         <div class="demo-top">
           <div class="demo-who">
-            <div class="avatar">U</div>
+            <div class="avatar">!</div>
             <div>
               <div class="demo-name">Unknown caller</div>
               <div class="demo-sub">Joined by phone · +1 (415) •••-••92</div>
@@ -913,34 +809,29 @@ a:hover{color:var(--green-hover)}
         <div class="spark">
           <i style="height:12%;background:var(--green)"></i><i style="height:18%;background:var(--green)"></i><i style="height:30%;background:var(--green)"></i><i style="height:26%;background:var(--green)"></i><i style="height:44%;background:var(--amber)"></i><i style="height:58%;background:var(--amber)"></i><i style="height:52%;background:var(--amber)"></i><i style="height:70%;background:var(--red)"></i><i style="height:78%;background:var(--red)"></i><i style="height:84%;background:var(--red)"></i><i style="height:80%;background:var(--red)"></i><i style="height:88%;background:var(--red)"></i><i style="height:74%;background:var(--red)"></i><i style="height:82%;background:var(--red)"></i><i style="height:90%;background:var(--red)"></i><i style="height:86%;background:var(--red)"></i><i style="height:78%;background:var(--red)"></i><i style="height:84%;background:var(--red)"></i><i style="height:88%;background:var(--red)"></i><i style="height:94%;background:var(--red)"></i>
         </div>
-        <div class="hold"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg> Wire hold triggered — re-authentication required</div>
+        <div class="hold"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg> Wire hold triggered — re-authentication required</div>
       </div>
     </div>
   </section>
 
-  <!-- Pricing -->
+  <!-- Transparent Pricing Section (Clean, Scannable & Highlighted) -->
   <section class="section" id="pricing">
     <div class="eyebrow">TRANSPARENT PRICING</div>
     <h2 class="section-title">Start free. Pay for what you monitor.</h2>
     <p class="section-desc">No seat licenses, no enterprise dark patterns. Monitor your calls with confidence.</p>
 
     <div class="pricing-grid">
+      <!-- Tier 1: Free Tier -->
       <div class="price-card">
         <div class="price-top">
           <span class="price-badge">FREE TIER</span>
-          <div class="price-title">5 hours / mo</div>
-          <div class="price-sub">Sign in with Google, drop the bot into scheduled meetings, get live REAL / SUSPECT / FAKE verdicts. Every month, on the house.</div>
-          
-          <div class="price-visual-meter">
-            <div class="pvm-top">
-              <span>Monthly Monitored Quota</span>
-              <span class="pvm-val">5 hrs included</span>
-            </div>
-            <div class="pvm-bar"><div class="pvm-fill" style="width:100%;background:var(--green)"></div></div>
-            <div class="pvm-note">Resets on the 1st of every month · 100% free</div>
+          <div class="price-num">
+            <span class="price-big">Free</span>
           </div>
+          <div class="price-sub"><b>5 hours / mo included</b>. Sign in with Google, drop the bot into meetings, and receive live verdicts. No credit card required.</div>
 
           <ul class="price-feature-list">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> 5 monitored meeting hours every month</li>
             <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Google Meet, Zoom &amp; Teams bot</li>
             <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Live REAL / SUSPECT / FAKE verdicts</li>
             <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> 4-second continuous sliding window</li>
@@ -948,112 +839,61 @@ a:hover{color:var(--green-hover)}
           </ul>
         </div>
         <div class="price-cta">
-          <a class="price-btn ghost" href="/console">Start free now</a>
+          <a class="price-btn ghost" href="/console">Start free</a>
         </div>
       </div>
 
+      <!-- Tier 2: Pay As You Go (Highlighted & Recommended) -->
       <div class="price-card featured">
+        <div class="price-pill-featured">RECOMMENDED FOR TEAMS</div>
         <div class="price-top">
           <span class="price-badge" style="color:var(--green)">PAY AS YOU GO</span>
-          <div class="price-title">$8 / hr</div>
-          <div class="price-sub">Add a card and keep monitoring past free hours — billed by the minute, strictly for time the bot is in the call. Zero monthly seat fees.</div>
-          
-          <div class="price-visual-meter featured-meter">
-            <div class="pvm-rate-tag">
-              <span class="rate-huge">$8.00</span>
-              <span class="rate-unit">/ monitored hour</span>
-            </div>
-            <div class="pvm-calc-pill">≈ $0.13 per minute · Exact-second metering</div>
+          <div class="price-num">
+            <span class="price-big">$8</span>
+            <span class="price-unit">/ monitored hour</span>
           </div>
+          <div class="price-sub">Billed by the minute (~$0.13/min). Pay only while the bot is actively monitoring. Zero monthly seat licenses.</div>
 
           <ul class="price-feature-list">
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <b>Everything in Free</b>, no monthly limits</li>
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Instant wire-hold treasury webhooks</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <b>Everything in Free</b>, no monthly hour limits</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <b>Instant wire-hold treasury webhooks</b></li>
             <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Real-time SMS &amp; Slack red alerts</li>
             <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Exportable PDF forensic certificates</li>
           </ul>
         </div>
         <div class="price-cta">
-          <a class="price-btn primary" href="/console">Add card &amp; monitor</a>
+          <a class="price-btn primary" href="/console">Open console</a>
         </div>
       </div>
 
+      <!-- Tier 3: Enterprise -->
       <div class="price-card">
         <div class="price-top">
           <span class="price-badge">ENTERPRISE</span>
-          <div class="price-title">Custom Volume</div>
-          <div class="price-sub">Dedicated tenant, custom ERP / Treasury wire-hold webhooks, executive voiceprint enrollment at scale, SOC 2 compliance vault, and 99.9% SLA.</div>
-          
-          <div class="price-visual-meter">
-            <div class="enterprise-stack">
-              <div class="estack-item"><span class="estack-dot"></span> Dedicated Tenant &amp; VPC Peering</div>
-              <div class="estack-item"><span class="estack-dot"></span> Custom ERP / Treasury Wire Hooks</div>
-              <div class="estack-item"><span class="estack-dot"></span> Executive Voiceprint Enrollment</div>
-            </div>
+          <div class="price-num">
+            <span class="price-big">Custom</span>
           </div>
+          <div class="price-sub">Dedicated tenant, custom ERP / Treasury wire-hold webhooks, executive voiceprint enrollment, and 99.9% uptime SLA.</div>
 
           <ul class="price-feature-list">
             <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> High-volume discounted rates</li>
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> 99.9% uptime SLA &amp; dedicated GPU pool</li>
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> SOC 2 compliance audit vault</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Dedicated GPU tenant &amp; VPC peering</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> SOC 2 compliance vault</li>
             <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Dedicated incident engineer support</li>
           </ul>
         </div>
         <div class="price-cta">
-          <a class="price-btn ghost" href="mailto:derekgallardo01@gmail.com?subject=Sonave%20Enterprise">Contact sales</a>
+          <a class="price-btn ghost" href="mailto:derekgallardo01@gmail.com?subject=Sonave%20Enterprise">Talk to us</a>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Collapsible FAQ Accordion -->
+  <!-- Collapsible FAQ Accordion (Cleaned, High Contrast) -->
   <section class="section" id="faq">
     <div class="eyebrow">QUESTIONS</div>
     <h2 class="section-title">Straight answers.</h2>
     <p class="section-desc">Everything you need to know about how Sonave intercepts synthetic voice attacks.</p>
-
-    <!-- Visual Zero-Retention Security Architecture Diagram -->
-    <div class="faq-security-diagram">
-      <div class="fsd-header">
-        <div class="fsd-badge">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-          <span>ZERO-RETENTION STREAMING SECURITY ARCHITECTURE</span>
-        </div>
-        <span class="fsd-sub">End-to-end memory isolation &amp; ephemeral processing</span>
-      </div>
-      <div class="fsd-pipeline">
-        <div class="fsd-node">
-          <div class="fsd-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-          </div>
-          <div class="fsd-title">1. Meeting Ingestion</div>
-          <div class="fsd-desc">Calendar bot joins visible call and ingests speaker stream over encrypted WebRTC/PCM.</div>
-          <div class="fsd-tag">Zero Client Install</div>
-        </div>
-        <div class="fsd-connector">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-        </div>
-        <div class="fsd-node active">
-          <div class="fsd-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="14" x2="23" y2="14"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="14" x2="4" y2="14"></line></svg>
-          </div>
-          <div class="fsd-title">2. Volatile GPU RAM</div>
-          <div class="fsd-desc">4s neural tensor window scored in RAM. Never written to disk or permanent storage.</div>
-          <div class="fsd-tag active">98ms TensorRT Inference</div>
-        </div>
-        <div class="fsd-connector">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-        </div>
-        <div class="fsd-node">
-          <div class="fsd-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="9 12 11 14 15 10"></polyline></svg>
-          </div>
-          <div class="fsd-title">3. Instant Flush &amp; Action</div>
-          <div class="fsd-desc">Audio buffer immediately purged from memory. Real-time verdict &amp; webhook emitted.</div>
-          <div class="fsd-tag">Immutable Audit Log</div>
-        </div>
-      </div>
-    </div>
 
     <div class="faq-list">
       <details class="faq-item" open>
@@ -1129,40 +969,44 @@ a:hover{color:var(--green-hover)}
     </div>
   </div>
 
+  <!-- High-Scale Closing CTA Section -->
   <section class="footer-cta">
-    <h2>Put a verdict on every voice.</h2>
-    <p class="footer-sub">Fully hosted — no laptop in the loop. Design-partner slots open for finance teams.</p>
+    <h2>Put a live verdict on every voice.</h2>
+    <p class="footer-sub">Catch voice clones before the wire leaves the bank. Zero installs for participants, fully automated verification.</p>
     <div class="footer-ctas">
-      <a class="btn-primary" href="/console">Open the console</a>
-      <a class="btn-ghost" href="mailto:derekgallardo01@gmail.com?subject=Sonave%20Pilot">Schedule a pilot</a>
+      <a class="btn-primary" href="/console">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+        Open console
+      </a>
+      <a class="btn-ghost" href="mailto:derekgallardo01@gmail.com?subject=Sonave%20Enterprise">Talk to us</a>
     </div>
 
-    <!-- Visual Trust Strip -->
+    <!-- Prominent Trust Strip -->
     <div class="footer-trust-strip">
       <span class="fts-item">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
-        Google Workspace Compatible
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+        Google Workspace Ready
       </span>
       <span class="fts-item">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2z"/></svg>
-        Zoom Marketplace Ready
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2z"/></svg>
+        Zoom Marketplace
       </span>
       <span class="fts-item">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
         Microsoft Teams Bot
       </span>
       <span class="fts-item">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-        SOC 2 Type II Architecture
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+        SOC 2 Architecture
       </span>
       <span class="fts-item">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="9 12 11 14 15 10"></polyline></svg>
-        Encrypted TLS 1.3 In-Flight
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="9 12 11 14 15 10"></polyline></svg>
+        TLS 1.3 In-Flight
       </span>
     </div>
 
     <div class="footer-line">
-      Sonave &bull; Voice Authenticity Engine &bull; <a href="/benchmarks" style="color:var(--dim)">Benchmarks</a> &bull; <a href="/guides" style="color:var(--dim)">Guides</a> &bull; <a href="/privacy" style="color:var(--dim)">Privacy</a> &bull; <a href="/terms" style="color:var(--dim)">Terms</a>
+      Sonave &bull; Voice Authenticity Engine &bull; <a href="/benchmarks">Benchmarks</a> &bull; <a href="/guides">Guides</a> &bull; <a href="/privacy">Privacy</a> &bull; <a href="/terms">Terms</a>
     </div>
   </section>
 
@@ -1186,7 +1030,7 @@ const showcaseData = [
     img: "/shot-meet-panel.png",
     alt: "Google Meet conference with live Sonave Voice Authenticity panel",
     url: "https://meet.google.com/wire-approval-q3 · Sonave Active",
-    icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>',
+    icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>',
     title: "Google Meet In-Call Voice Verification",
     desc: "Real-time in-meeting side panel scoring each speaker continuously. Genuine participants receive live green REAL badges with low risk metrics (4%, 8%, 12%)."
   },
@@ -1194,7 +1038,7 @@ const showcaseData = [
     img: "/shot-wire-hold.png",
     alt: "Synthetic voice flagged FAKE with red wire-hold banner in Google Meet",
     url: "https://meet.google.com/wire-approval-q3 · Wire Hold Recommended",
-    icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>',
+    icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>',
     title: "Instant Synthetic Alert & Wire Hold Trigger",
     desc: "The moment an unknown voice crosses the synthetic threshold: caller tile is bordered in red, a 94% FAKE risk alert fires, and an automated webhook pauses payment approval."
   },
@@ -1202,7 +1046,7 @@ const showcaseData = [
     img: "/shot-console.png",
     alt: "Sonave Enterprise Console showing real-time call forensics and incident logs",
     url: "https://usesonave.com/console · Incident #8402 Logged",
-    icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>',
+    icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>',
     title: "Real-Time Forensic Incident Console",
     desc: "Enterprise operator dashboard tracking active meetings, median scoring latency, immutable audit histories, and one-click exportable PDF forensic reports for compliance."
   },
@@ -1210,7 +1054,7 @@ const showcaseData = [
     img: "/shot-protect.png",
     alt: "Sonave Voice Verification ready state in Google Meet",
     url: "https://meet.google.com/wire-approval-q3 · Ready",
-    icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>',
+    icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>',
     title: "One-Click Meeting Protection Initialization",
     desc: "No plugins, no participant browser extensions. With a single click or calendar invite, the bot joins and arms 4-second continuous voice verification."
   }
