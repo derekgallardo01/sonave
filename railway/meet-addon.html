@@ -163,6 +163,34 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
    <div><b>2</b><span>Each speaker scored in <strong>~4 seconds</strong>, refreshed continuously</span></div>
    <div><b>3</b><span>Synthetic voice → <strong>red alert</strong> + exportable forensic report</span></div>
   </div>
+  <div id="protectSimWrap" style="margin-top:12px; padding:10px 12px; background:rgba(46,229,132,0.04); border:1px solid rgba(46,229,132,0.22); border-radius:10px;">
+   <div style="font-size:10px; font-weight:800; font-family:var(--mono); color:var(--green); margin-bottom:6px; letter-spacing:0.04em; display:flex; align-items:center; gap:5px;">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+    <span>OR TEST A 15-SECOND VOICE THREAT:</span>
+   </div>
+   <div style="display:flex; gap:6px;">
+    <select id="protectSimSelect" onchange="syncSimSelect(this.value)" style="flex:1; min-width:0; background:var(--bg); color:var(--ink); border:1px solid var(--line2); border-radius:7px; font-size:10.5px; padding:6px 8px; font-family:var(--font); outline:none;">
+     <optgroup label="⚡ High-Risk Synthetic Clones">
+      <option value="ceo_wire" selected>Simulate: ElevenLabs CEO clone ($250k Wire)</option>
+      <option value="openai_andrew">Simulate: OpenAI voice (Conversational)</option>
+      <option value="cfo_payroll">Simulate: CFO Payroll Diversion (VP Treasury)</option>
+      <option value="it_mfa">Simulate: IT Security MFA Theft</option>
+     </optgroup>
+     <optgroup label="🌐 Accented Foreign Clones">
+      <option value="british_exec_male">Simulate: British Partner (London)</option>
+      <option value="german_treasury">Simulate: German Treasury Director (Frankfurt)</option>
+      <option value="french_director">Simulate: French Managing Director (Paris)</option>
+      <option value="spanish_controller">Simulate: Spanish Controller (Madrid)</option>
+     </optgroup>
+     <optgroup label="🟢 Authentic Voice Benchmark">
+      <option value="real_baseline">Test: Real Human Voice Baseline (Authentic)</option>
+     </optgroup>
+    </select>
+    <button class="btn-soft" onclick="runProtectSim()" style="padding:6px 12px; font-size:10.5px; font-weight:700; border-color:rgba(255,77,94,0.45); color:#ff808d; background:rgba(255,77,94,0.08); border-radius:7px; cursor:pointer; white-space:nowrap; flex-shrink:0;">
+     ▶ Simulate
+    </button>
+   </div>
+  </div>
   <div id="codeRow" style="display:none;margin-top:10px">
    <input id="codeInp" placeholder="Paste the meeting link (meet.google.com/…)"
           style="width:100%;padding:9px 11px;border-radius:9px;border:1px solid var(--line2);background:var(--bg);color:var(--ink);font:12px var(--font);box-sizing:border-box">
@@ -199,23 +227,42 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
      </button>
     </div>
 
-    <!-- Primary 2-Button Action Bar: 1 Threat Preset + Live Mic Cloner -->
-    <div style="display:flex; gap:8px;">
-     <button class="btn-soft" onclick="runDemoPreset('ceo_wire')" style="flex:1.1; padding:9px 12px; font-size:11px; font-weight:700; text-align:center; justify-content:center; border-color:rgba(255,77,94,0.45); color:#ff808d; background:rgba(255,77,94,0.08); border-radius:8px; display:flex; align-items:center; gap:6px; cursor:pointer;" title="Inject 1-click synthetic deepfake attack">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"></circle></svg>
-      <span>Inject AI Threat</span>
-     </button>
-     <button class="btn-primary" onclick="popoutCloner()" style="flex:1.1; padding:9px 12px; font-size:11px; font-weight:800; background:linear-gradient(135deg, #2ee584 0%, #16b85d 100%); color:#06130b; border:none; border-radius:8px; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer; box-shadow:0 2px 12px rgba(46,229,132,0.3);" title="Open real-time microphone cloner companion">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"></path><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"></path></svg>
-      <span>Live Mic Cloner ↗</span>
-     </button>
-    </div>
+    <!-- Prominent Voice Threat Selector & Action -->
+    <div style="display:flex; flex-direction:column; gap:6px;">
+     <div style="display:flex; gap:6px; align-items:center;">
+      <select id="quickSimSelect" onchange="syncSimSelect(this.value)" style="flex:1; min-width:0; background:var(--bg); color:var(--ink); border:1px solid rgba(46,229,132,0.35); border-radius:8px; font-size:11px; font-weight:600; padding:8px 8px; cursor:pointer; font-family:var(--font); outline:none;">
+       <optgroup label="⚡ High-Risk Synthetic Clones">
+        <option value="ceo_wire" selected>Simulate: ElevenLabs CEO clone ($250k Wire)</option>
+        <option value="openai_andrew">Simulate: OpenAI voice (Conversational)</option>
+        <option value="cfo_payroll">Simulate: CFO Payroll Diversion (VP Treasury)</option>
+        <option value="it_mfa">Simulate: IT Security MFA Theft</option>
+       </optgroup>
+       <optgroup label="🌐 Accented Foreign Clones">
+        <option value="british_exec_male">Simulate: British Partner (London)</option>
+        <option value="german_treasury">Simulate: German Treasury Director (Frankfurt)</option>
+        <option value="french_director">Simulate: French Managing Director (Paris)</option>
+        <option value="spanish_controller">Simulate: Spanish Controller (Madrid)</option>
+       </optgroup>
+       <optgroup label="🟢 Authentic Voice Benchmark">
+        <option value="real_baseline">Test: Real Human Voice Baseline (Authentic)</option>
+       </optgroup>
+      </select>
+      <button id="btnQuickSimRun" onclick="runSelectedSim()" style="padding:8px 14px; font-size:11px; font-weight:800; background:linear-gradient(135deg, #ff4d5e 0%, #d92d40 100%); color:#ffffff; border:none; border-radius:8px; display:flex; align-items:center; gap:5px; cursor:pointer; box-shadow:0 2px 10px rgba(255,77,94,0.35); white-space:nowrap; flex-shrink:0;" title="Simulate this synthetic voice threat in the meeting">
+       <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+       <span>Simulate</span>
+      </button>
+     </div>
 
-    <!-- Collapsible Custom Text / Settings Toggle -->
-    <div style="margin-top:8px; text-align:center;">
-     <button onclick="toggleCustomSpeechDrawer()" id="btnToggleCustomDrawer" style="background:none; border:none; outline:none; padding:3px 8px; font-size:10.5px; color:var(--muted); cursor:pointer; font-family:var(--font); letter-spacing:0.02em; display:inline-flex; align-items:center; gap:4px;">
-      <span>Custom Speech &amp; Voice Model ▾</span>
-     </button>
+     <!-- Quick action sub-bar: Cloner shortcut + Custom speech expander -->
+     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:2px;">
+      <button onclick="popoutCloner()" style="background:none; border:none; color:var(--green); font-size:10.5px; font-weight:700; cursor:pointer; padding:0; display:flex; align-items:center; gap:4px;" title="Clone your own microphone audio in real time">
+       <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"></path><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"></path></svg>
+       <span>Live Mic Cloner ↗</span>
+      </button>
+      <button onclick="toggleCustomSpeechDrawer()" id="btnToggleCustomDrawer" style="background:none; border:none; outline:none; font-size:10.5px; color:var(--muted); cursor:pointer; font-family:var(--font);">
+       <span>Custom speech &amp; voice model ▾</span>
+      </button>
+     </div>
     </div>
 
     <!-- Collapsible Custom Speech Drawer -->
@@ -777,23 +824,58 @@ var DEMO_PRESETS = {
  ceo_wire: {
   text: "Hey team, this is an urgent executive request. Please authorize the $250,000 vendor wire transfer before noon cutoff today. I will sign the paperwork as soon as I land.",
   voice_id: "ceo_impersonator",
-  speaker_name: "Executive Baritone (AI Clone)",
+  speaker_name: "ElevenLabs CEO (Clone)",
   is_real: false,
-  title: "CEO Wire Fraud Attack"
+  title: "ElevenLabs CEO Clone ($250k Wire)"
+ },
+ openai_andrew: {
+  text: "Hi team, I wanted to jump on the call real quick. We just reviewed the budget allocations and we need executive approval to disburse the pending payment right now.",
+  voice_id: "openai_andrew",
+  speaker_name: "OpenAI Voice Engine (Clone)",
+  is_real: false,
+  title: "OpenAI Conversational Voice"
+ },
+ cfo_payroll: {
+  text: "Good morning. We have an urgent update regarding corporate payroll accounts. I need you to update the direct deposit routing numbers for the executive team immediately.",
+  voice_id: "cfo_impersonator",
+  speaker_name: "CFO Treasury (Clone)",
+  is_real: false,
+  title: "CFO Payroll Diversion (VP Treasury)"
  },
  it_mfa: {
   text: "Hello, this is corporate IT security. We detected an unauthorized login attempt on your account. I just pushed a six-digit verification code to your app — please read that code back to me immediately.",
   voice_id: "elevenlabs_brian",
   speaker_name: "IT Security Lead (Clone)",
   is_real: false,
-  title: "IT Security MFA Theft"
+  title: "IT Security MFA Code Theft"
  },
- cfo_payroll: {
-  text: "Good morning. We have an urgent update regarding corporate payroll accounts. I need you to update the direct deposit routing numbers for the executive team immediately.",
-  voice_id: "treasury_lead_female",
-  speaker_name: "Senior Treasury Lead (Clone)",
+ british_exec_male: {
+  text: "Good afternoon from London. I'm following up on the acquisition escrow transfer instructions sent across earlier. We require funds cleared today without delay.",
+  voice_id: "british_exec_male",
+  speaker_name: "British Partner (Clone)",
   is_real: false,
-  title: "CFO Payroll Diversion"
+  title: "British Partner (London)"
+ },
+ german_treasury: {
+  text: "Hello, Frankfurt treasury office speaking. Please confirm execution of the EUR cross-border settlement for our European subsidiary today.",
+  voice_id: "german_treasury",
+  speaker_name: "German Treasury (Clone)",
+  is_real: false,
+  title: "German Treasury Director (Frankfurt)"
+ },
+ french_director: {
+  text: "Bonjour team, this is the Paris managing director. I need immediate sign-off on the revised vendor consultancy wire before the close of European banking hours.",
+  voice_id: "french_director",
+  speaker_name: "French Managing Director (Clone)",
+  is_real: false,
+  title: "French Managing Director (Paris)"
+ },
+ spanish_controller: {
+  text: "Hola, calling from Madrid. We have reviewed the tax reconciliation and need dual-authorization for the international disbursement right away.",
+  voice_id: "spanish_controller",
+  speaker_name: "Spanish Controller (Clone)",
+  is_real: false,
+  title: "Spanish Controller (Madrid)"
  },
  real_baseline: {
   text: "Good morning everyone, thank you for joining the product sync. We're going over the release milestones and deployment checklist for this week.",
@@ -803,6 +885,39 @@ var DEMO_PRESETS = {
   title: "Real Human Voice Baseline"
  }
 };
+
+function syncSimSelect(val){
+ var s1 = document.getElementById('quickSimSelect');
+ var s2 = document.getElementById('protectSimSelect');
+ if(s1 && s1.value !== val) s1.value = val;
+ if(s2 && s2.value !== val) s2.value = val;
+ var p = DEMO_PRESETS[val];
+ if(p){
+  setDemoText(p.text);
+  var vs = document.getElementById('demoVoiceSel');
+  if(vs && p.voice_id) vs.value = p.voice_id;
+  var btn = document.getElementById('btnQuickSimRun');
+  if(btn){
+   btn.style.background = p.is_real ? 'linear-gradient(135deg, #2ee584 0%, #16b85d 100%)' : 'linear-gradient(135deg, #ff4d5e 0%, #d92d40 100%)';
+   btn.style.color = p.is_real ? '#06130b' : '#ffffff';
+  }
+ }
+}
+
+async function runSelectedSim(){
+ var sel = document.getElementById('quickSimSelect');
+ var key = (sel && sel.value) || 'ceo_wire';
+ await runDemoPreset(key);
+}
+
+async function runProtectSim(){
+ var sel = document.getElementById('protectSimSelect');
+ var key = (sel && sel.value) || 'ceo_wire';
+ _connected = true;
+ _connectedSince = _connectedSince || Date.now();
+ deployDone();
+ await runDemoPreset(key);
+}
 
 async function setAudioSink(sinkId){
  _selectedSinkId = sinkId || '';
