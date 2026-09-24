@@ -18,6 +18,7 @@ def test_public_pages_render(mod):
     for path, marker in (("/", "FAQPage"), ("/benchmarks", "97.6%"),
                          ("/guides", "Guides"), ("/privacy", "Privacy"),
                          ("/llms.txt", "Sonave"), ("/llms-full.txt", "Sonave"),
+                         ("/site.webmanifest", "Sonave Voice Authenticity Engine"),
                          ("/robots.txt", "Sitemap:")):
         r = c.get(path)
         assert r.status_code == 200 and marker in r.text, path

@@ -3312,6 +3312,12 @@ def apple_touch_icon():
     return FileResponse(str(_HERE / "apple-touch-icon.png"), media_type="image/png")
 
 
+@app.get("/site.webmanifest")
+def site_webmanifest():
+    return FileResponse(str(_HERE / "site.webmanifest"), media_type="application/manifest+json",
+                        headers={"Cache-Control": "public, max-age=86400"})
+
+
 @app.get("/console-shot.png")
 def console_shot():
     return FileResponse(str(_HERE / "console-shot.png"), media_type="image/png")
