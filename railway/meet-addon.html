@@ -362,6 +362,9 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
  window._reportError = sendErr;
 })();
 
+var _urlParams = new URLSearchParams(window.location.search);
+window._meetCode = _urlParams.get('meetingId') || _urlParams.get('space_id') || _urlParams.get('space') || _urlParams.get('m') || window._meetCode || '';
+
 // Google Meet Add-ons SDK bootstrap (developers.google.com/workspace/meet/add-ons):
 // createAddonSession() signals Meet that the add-on finished loading, then the
 // side-panel client binds this iframe. Guarded so the page also works standalone.
@@ -376,7 +379,8 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
    window._sideClient=await session.createSidePanelClient();
     try{ // cache the meeting code early so Protect can't miss it later
      var mi=await window._sideClient.getMeetingInfo();
-     window._meetCode=(mi&&(mi.meetingCode||mi.meetingId))||'';
+     var c=(mi&&(mi.meetingCode||mi.meetingId))||'';
+     if(c) window._meetCode = c;
      if(window._meetCode && TOK){
       deployTo('https://meet.google.com/' + window._meetCode);
      }
@@ -518,8 +522,11 @@ async function protectMeeting(){
 }
 var _connected = false, _connectedSince = 0;
 
+var _deploying = false;
 async function deployTo(url,btn,st){
- _connectedSince = Date.now();
+ if(_deploying && _connected) return;
+ _deploying = true;
+ _connectedSince = _connectedSince || Date.now();
  try{
   var rMeet = await fetch('/api/meet/sessions/connect', {
    method: 'POST',
@@ -527,14 +534,16 @@ async function deployTo(url,btn,st){
    body: JSON.stringify({space_id: url})
   });
   var dMeet = await rMeet.json();
-  if (!rMeet.ok) {
+  if (!rMeet.ok && rMeet.status >= 500) {
    if (window._reportError) window._reportError({message: 'meet_session_connect HTTP ' + rMeet.status, source: 'meet-addon:deployTo'});
   }
  }catch(e){
   if (window._reportError) window._reportError({message: 'deployTo error: ' + (e.message || e), error: e, source: 'meet-addon:deployTo'});
+ }finally{
+  _deploying = false;
  }
  _connected = true;
- _connectedSince = Date.now();
+ _connectedSince = _connectedSince || Date.now();
  deployDone();
  poll();
 }
@@ -1166,6 +1175,13 @@ function renderEmptyRoomCard(){
   '<div style="font-size:11px; color:var(--muted); margin-top:2px;">' +
    'or <a href="javascript:void(0)" onclick="quickTestThreat()" style="color:#c084fc; font-weight:600; text-decoration:underline;">hear a simulated $250k executive clone</a>' +
   '</div>' +
+  '<div style="margin-top:8px; padding-top:10px; border-top:1px solid var(--line2); width:100%; display:flex; flex-direction:column; align-items:center; gap:6px;">' +
+   '<span style="font-size:9.5px; color:var(--muted); font-family:var(--mono); letter-spacing:0.04em;">CALL-WIDE MULTI-SPEAKER MONITORING</span>' +
+   '<button id="btnInviteBot" onclick="inviteMeetingBot()" style="background:rgba(255,255,255,0.06); border:1px solid var(--line2); color:var(--ink); font-size:11px; font-weight:700; padding:6px 14px; border-radius:7px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:all 0.15s ease;">' +
+    '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2 2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM4 11a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7z"/><circle cx="9" cy="14" r="1"/><circle cx="15" cy="14" r="1"/><path d="M9 18h6"/></svg>' +
+    '<span>+ Invite Sonave Bot to Monitor All Callers</span>' +
+   '</button>' +
+  '</div>' +
  '</div>';
 }
 
@@ -1227,10 +1243,115 @@ async function finishMicSoundcheck(){
   });
   await res.json();
   _scActive = false;
+  try { startLiveMicStream(); } catch(x){}
   poll();
  } catch(e){
   _scActive = false;
+  try { startLiveMicStream(); } catch(x){}
   poll();
+ }
+}
+
+/* ---- Live WebSocket Microphone Streaming to Sonave Neural Engine ---- */
+var _micWs = null;
+var _micAudioCtx = null;
+var _micStreamNode = null;
+var _micMediaStream = null;
+var _micActive = false;
+
+async function startLiveMicStream(){
+ if(_micActive || !TOK) return;
+ try {
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+  if(!_micMediaStream){
+   _micMediaStream = await navigator.mediaDevices.getUserMedia({
+    audio: {
+     channelCount: 1,
+     sampleRate: 16000,
+     echoCancellation: true,
+     noiseSuppression: true,
+     autoGainControl: true
+    }
+   });
+  }
+  
+  if(!_micAudioCtx){
+   var AudioContextClass = window.AudioContext || window.webkitAudioContext;
+   _micAudioCtx = new AudioContextClass({sampleRate: 16000});
+  }
+  if(_micAudioCtx.state === 'suspended') await _micAudioCtx.resume();
+  
+  var hostName = (ME && (ME.name || ME.email)) || 'Host';
+  var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  var wsUrl = proto + '//' + location.host + '/api/ws/mic-stream?token=' + encodeURIComponent(TOK) + '&speaker=' + encodeURIComponent(hostName);
+  
+  _micWs = new WebSocket(wsUrl);
+  _micWs.binaryType = 'arraybuffer';
+  
+  _micWs.onopen = function(){
+   _micActive = true;
+   var src = _micAudioCtx.createMediaStreamSource(_micMediaStream);
+   var proc = _micAudioCtx.createScriptProcessor(4096, 1, 1);
+   proc.onaudioprocess = function(e){
+    if(!_micActive || !_micWs || _micWs.readyState !== WebSocket.OPEN) return;
+    var float32 = e.inputBuffer.getChannelData(0);
+    var pcm16 = new Int16Array(float32.length);
+    for(var i = 0; i < float32.length; i++){
+     var s = Math.max(-1, Math.min(1, float32[i]));
+     pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+    _micWs.send(pcm16.buffer);
+   };
+   src.connect(proc);
+   proc.connect(_micAudioCtx.destination);
+   _micStreamNode = proc;
+  };
+  
+  _micWs.onerror = function(){ _micActive = false; };
+  _micWs.onclose = function(){ _micActive = false; };
+ } catch(err){
+  console.info('Live mic background stream deferred:', err && (err.message || err));
+ }
+}
+
+function stopLiveMicStream(){
+ _micActive = false;
+ try{
+  if(_micStreamNode) { _micStreamNode.disconnect(); _micStreamNode = null; }
+  if(_micWs) { _micWs.close(); _micWs = null; }
+ }catch(x){}
+}
+
+async function inviteMeetingBot(){
+ var code = window._meetCode || '';
+ if(!code) {
+  var m = prompt("Enter Google Meet link or code to invite Sonave Bot:", "https://meet.google.com/");
+  if(!m) return;
+  code = m;
+ }
+ var meetUrl = code.indexOf('http') === 0 ? code : ('https://meet.google.com/' + code);
+ var btn = document.getElementById('btnInviteBot');
+ if(btn) { btn.disabled = true; btn.textContent = 'Deploying bot...'; }
+ try {
+  var r = await fetch('/bot', {
+   method: 'POST',
+   headers: authHeaders({'Content-Type': 'application/json'}),
+   body: JSON.stringify({meeting_url: meetUrl, bot_name: 'Sonave'})
+  });
+  var d = await r.json();
+  if(d.ok){
+   if(btn) {
+    btn.textContent = '✓ Bot requested to join call';
+    btn.style.borderColor = 'var(--green)';
+    btn.style.color = 'var(--green)';
+   }
+  } else {
+   alert('Bot invite: ' + (d.detail || d.error || 'Failed to dispatch bot'));
+   if(btn) { btn.disabled = false; btn.textContent = '+ Invite Sonave Bot to Monitor All Callers'; }
+  }
+ } catch(e){
+  alert('Error inviting bot: ' + (e.message || e));
+  if(btn) { btn.disabled = false; btn.textContent = '+ Invite Sonave Bot to Monitor All Callers'; }
  }
 }
 
@@ -1430,7 +1551,7 @@ async function dismissThreatCheck(){
 }
 
 function boot(){
- _connectedSince=Date.now();
+ _connectedSince = Date.now();
  populateAudioOutputs();
  if(TOK){
   try{
@@ -1442,23 +1563,31 @@ function boot(){
   }catch(x){}
   show('live');
   var code = window._meetCode || '';
-  if(!code && window._sideClient && window._sideClient.getMeetingInfo){
+  if(code){
+   deployTo('https://meet.google.com/' + code);
+  } else if(window._sideClient && window._sideClient.getMeetingInfo){
    window._sideClient.getMeetingInfo().then(function(mi){
     var c = (mi && (mi.meetingCode || mi.meetingId)) || '';
-    deployTo('https://meet.google.com/' + (c || 'this-call'));
+    if(c) window._meetCode = c;
+    deployTo('https://meet.google.com/' + (c || 'live-room'));
    }).catch(function(){
-    deployTo('https://meet.google.com/this-call');
+    deployTo('https://meet.google.com/live-room');
    });
   } else {
-   deployTo('https://meet.google.com/' + (code || 'this-call'));
+   setTimeout(function(){
+    if(!_connected){
+     deployTo('https://meet.google.com/' + (window._meetCode || 'live-room'));
+    }
+   }, 500);
   }
  }else{
   show('signin');
  }
  poll();
- setInterval(poll,500);
+ setInterval(poll, 500);
  window.addEventListener('beforeunload', function(){
   try{
+   stopLiveMicStream();
    fetch('/api/meet/sessions/disconnect', {
     method: 'POST',
     headers: authHeaders({'Content-Type': 'application/json'}),

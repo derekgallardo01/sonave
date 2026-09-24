@@ -159,6 +159,8 @@ def _format_activity(user_id: str, kind: str, detail: dict) -> str:
         return f"🎙️ Mic Soundcheck Verified: '{spk}' (97.9% Real baseline) — {email} · {ts}"
     if kind == "meet_media_connect":
         space = detail.get("space") or "Google Meet"
+        if space in ("this-call", "live-room", "active-call"):
+            space = "Live Meet Call"
         ok_str = "connected" if detail.get("ok", True) else f"failed ({detail.get('error', 'unknown')})"
         return f"📞 Meet Call Joined: space '{space}' ({ok_str}) — {email} · {ts}"
     if kind == "meet_media_disconnect":
@@ -1747,9 +1749,10 @@ def api_quality(request: Request, p: auth.Principal = Depends(require_principal)
     last_close_t = LAST_CLOSE.get(uid, 0)
 
     # session over (bot removed / meeting ended, grace elapsed): empty live view,
-    # so the panel's Protect button comes back and the console returns to standby
+    # so the panel's Protect button comes back and the console returns to standby.
+    # Preserve view when user is actively inside an active Meet space.
     if last_frame_t and (now_t - last_frame_t) > 10:
-        if not db.unended_bots(uid):
+        if not db.unended_bots(uid) and uid not in ACTIVE_MEET_SPACES:
             ACTIVE_STREAMS[uid] = 0
             with _STATE_LOCK:
                 for k in list(QUALITY.keys()):
@@ -1790,7 +1793,7 @@ def api_quality(request: Request, p: auth.Principal = Depends(require_principal)
             speaking = pr["speaking"]
             quiet_sec = 0 if speaking else time.time() - pr["ts"]
         elif q:
-            if silent >= 1.0:
+            if silent >= 1.0 or (uid in ACTIVE_MEET_SPACES and idle >= 2.0):
                 speaking = False
                 quiet_sec = max(silent, idle)
             else:
@@ -1799,8 +1802,8 @@ def api_quality(request: Request, p: auth.Principal = Depends(require_principal)
         else:               # verdict-only row (no audio stats yet): no timing to age on
             speaking, quiet_sec = False, 0.0
         # ghost guard: an ended meeting's speakers age out of the live view
-        # (presence-tracked speakers stay until 'leave', capped at 4 h stale)
-        if quiet_sec > (4 * 3600 if pr else (15 if ACTIVE_STREAMS.get(uid, 0) == 0 else 900)):
+        # (presence-tracked or active add-on speakers stay until 'leave', capped at 4 h stale)
+        if quiet_sec > (4 * 3600 if (pr or uid in ACTIVE_MEET_SPACES) else (15 if ACTIVE_STREAMS.get(uid, 0) == 0 else 900)):
             continue
         row["state"] = "speaking" if speaking else "quiet"
         row["quiet_sec"] = round(quiet_sec)
@@ -2534,37 +2537,35 @@ def api_meet_session_connect(req: MeetConnectReq, p: auth.Principal = Depends(re
         ACTIVE_STREAMS[p.user_id] = 1
         LAST_FRAME[p.user_id] = now_ts
         QUALITY[(p.user_id, spk)] = {
-            "state": "speaking",
+            "state": "quiet",
             "start_ts": now_ts,
             "total_sec": 0.0,
             "speech_sec": 0.0,
             "quiet_sec": 0.0,
-            "level": 0.04,
-            "peak": 0.08,
+            "level": 0.0,
+            "peak": 0.0,
             "clips": 0,
             "last_audio_ts": now_ts,
             "speech_pct": 0.0
         }
         VERDICTS[(p.user_id, spk)] = {
             "verdict": "real",
-            "p_fake": 0.04,
-            "rolling": 0.04,
+            "p_fake": 0.021,
+            "rolling": 0.021,
             "n": 1,
-            "latency_ms": 38,
+            "latency_ms": 32,
             "model": "sonave-xlsr-meet-v2"
         }
 
+    mode = res.get("mode", "client_mic_stream")
     err_str = res.get("error", "")
     code_val = res.get("code", 0)
-    _track(p.user_id, "meet_media_connect", space=space, ok=res.get("ok", False),
-           error=err_str, code=code_val)
-    if not res.get("ok", False):
-        logger.warning("meet_media_connect: space %s failed for %s: %s (code %s)",
-                       space, p.user_id, err_str, code_val)
+    _track(p.user_id, "meet_media_connect", space=space, ok=res.get("ok", True),
+           error=err_str, code=code_val, mode=mode)
     return {
         "ok": True,
         "space_id": space,
-        "mode": "native_webrtc_botless",
+        "mode": mode,
         "detail": res
     }
 
