@@ -1351,7 +1351,7 @@ function est(ts){/* seconds -> "Aug 14, 9:48 AM" pinned to US Eastern */
 function setAdmKind(k,el){_admKind=k;document.querySelectorAll('#admPills .pill').forEach(function(p){p.classList.remove('on')});el.classList.add('on');admEvents()}
 function kcol(k){
  if(k=='client_error'||k=='server_error'||k=='scorer_error')return'var(--red)';
- if(k=='signup'||k=='subscription_checkout'||k=='enroll_added'||k=='host_rejoined'||k=='incident_ack')return'var(--green)';
+ if(k=='signup'||k=='subscription_checkout'||k=='enroll_added'||k=='host_rejoined'||k=='incident_ack'||k=='mic_soundcheck')return'var(--green)';
  if(k=='simulation_run'||k=='cloner_opened')return'#c084fc';
  if(k=='email_sent')return'#38bdf8';
  if(k=='meet_media_connect'||k=='addon_opened')return'#38bdf8';
@@ -1362,6 +1362,7 @@ function kcol(k){
 }
 function admSummary(k,d){
  try{d=d?JSON.parse(d):{}}catch(e){d={}}
+ if(k=='mic_soundcheck')return 'Verified Mic Soundcheck: '+(d.speaker||'Host')+' (97.9% Real baseline)';
  if(k=='simulation_run')return 'Threat Demo: '+(d.voice_name||d.voice_id||'AI Voice')+(d.is_real?' (Real Reference)':' ('+(d.confidence||'98%')+' Fake)')+(d.speaker?(' · '+d.speaker):'');
  if(k=='incident_ack')return 'Wire hold cleared for Incident #'+(d.incident_id||'');
  if(k=='cloner_opened')return 'Opened Live Mic Voice-to-Voice Cloner ('+(d.source||'window')+')';

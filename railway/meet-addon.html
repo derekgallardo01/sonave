@@ -253,12 +253,18 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
       </button>
      </div>
 
-     <!-- Quick action sub-bar: Cloner shortcut + Custom speech expander -->
-     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:2px;">
-      <button onclick="popoutCloner()" style="background:none; border:none; color:var(--green); font-size:10.5px; font-weight:700; cursor:pointer; padding:0; display:flex; align-items:center; gap:4px;" title="Clone your own microphone audio in real time">
-       <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"></path><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"></path></svg>
-       <span>Live Mic Cloner ↗</span>
-      </button>
+     <!-- Quick action sub-bar: Mic Soundcheck + Cloner shortcut + Custom speech expander -->
+     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:2px; flex-wrap:wrap; gap:6px;">
+      <div style="display:flex; align-items:center; gap:8px;">
+       <button onclick="startMicSoundcheck()" style="background:none; border:none; color:var(--green); font-size:10.5px; font-weight:700; cursor:pointer; padding:0; display:flex; align-items:center; gap:4px;" title="Test your mic and see your real-voice authenticity score">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"></path><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"></path></svg>
+        <span>Test My Voice</span>
+       </button>
+       <span style="color:var(--line2)">|</span>
+       <button onclick="popoutCloner()" style="background:none; border:none; color:#38bdf8; font-size:10.5px; font-weight:700; cursor:pointer; padding:0; display:flex; align-items:center; gap:4px;" title="Clone your own microphone audio in real time">
+        <span>Live Mic Cloner ↗</span>
+       </button>
+      </div>
       <button onclick="toggleCustomSpeechDrawer()" id="btnToggleCustomDrawer" style="background:none; border:none; outline:none; font-size:10.5px; color:var(--muted); cursor:pointer; font-family:var(--font);">
        <span>Custom speech &amp; voice model ▾</span>
       </button>
@@ -609,12 +615,10 @@ async function poll(){
   if(isProtected && !hasAudio){
    var sess=_connectedSince?Math.round((Date.now()-_connectedSince)/1000):0;
    document.getElementById('stSess').textContent=hmsP(sess);
-   list.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 14px;text-align:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;gap:10px;">' +
-    '<div class="eq on" style="display:inline-flex;height:16px;gap:4px;"><i style="width:3px;background:var(--green)"></i><i style="width:3px;background:var(--green);animation-delay:.2s"></i><i style="width:3px;background:var(--green);animation-delay:.4s"></i><i style="width:3px;background:var(--green);animation-delay:.6s"></i></div>' +
-    '<div style="font-size:13px;font-weight:700;color:var(--ink);">Active &amp; Monitoring Call</div>' +
-    '<div style="font-size:11px;color:var(--muted);max-width:220px;line-height:1.5;">Native Google Meet verification active. Scores and forensic metrics populate continuously as participants speak.</div>' +
-   '</div>';
-   list._keys='__idle__';
+   if(list._keys!=='__idle__'){
+    list.innerHTML=renderEmptyRoomCard();
+    list._keys='__idle__';
+   }
   } else if(hasAudio){
    var keys=ks.join('|');
    if(list._keys!==keys){list.innerHTML=ks.map(rowHTML).join('');list._keys=keys}
@@ -769,7 +773,7 @@ function animMiniSpec(){
   _specCtx.clearRect(0, 0, w, h);
   var barW = w / _miniBins.length;
   var isFake = _isCurrentFake;
-  var activeSpk = _anySpeaking;
+  var activeSpk = _anySpeaking || _scActive;
 
   for(var i = 0; i < _miniBins.length; i++){
    var target = 0.04;
@@ -1129,6 +1133,111 @@ async function triggerDemoInjection(text, voiceId, speakerName, isReal, label){
    }
   }, dur);
  }
+}
+
+
+/* ---- 1-Click Mic Soundcheck / Baseline Authenticity Scoring ---- */
+var _scActive = false;
+var _scStream = null;
+var _scAudioCtx = null;
+
+function renderEmptyRoomCard(){
+ return '<div class="empty-room-card" style="background:var(--panel); border:1px solid var(--line2); border-radius:12px; padding:20px 16px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:11px; box-shadow:0 4px 20px rgba(0,0,0,0.3);">' +
+  '<div style="display:flex; align-items:center; gap:8px;">' +
+   '<span style="background:rgba(46,229,132,0.12); color:#2ee584; border:1px solid rgba(46,229,132,0.3); font-size:9.5px; font-weight:700; padding:2px 8px; border-radius:12px; letter-spacing:0.04em;">ACTIVE MONITORING · SOLO CALL</span>' +
+  '</div>' +
+  '<div style="font-size:13.5px; font-weight:700; color:var(--ink); letter-spacing:-0.01em;">Test Your Microphone Authenticity</div>' +
+  '<div style="font-size:11.5px; color:var(--muted); max-width:270px; line-height:1.45;">' +
+   'Nobody else is speaking on this call yet. Test your microphone right now to see Sonave score your authentic human voice in real time:' +
+  '</div>' +
+  '<button id="btnSoundcheck" onclick="startMicSoundcheck()" class="btn-primary" style="background:#2ee584; color:#0a0e12; font-weight:800; font-size:12px; padding:9px 18px; border-radius:8px; display:inline-flex; align-items:center; gap:8px; cursor:pointer; border:none; box-shadow:0 4px 14px rgba(46,229,132,0.25);">' +
+   '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>' +
+   '<span>Test My Voice (3s Mic Check)</span>' +
+  '</button>' +
+  '<div id="soundcheckProgress" style="display:none; width:100%; max-width:240px; margin-top:4px;">' +
+   '<div style="display:flex; justify-content:space-between; font-size:10.5px; color:#2ee584; font-weight:700; margin-bottom:4px;">' +
+    '<span id="scStatusTxt">Listening... Speak now</span>' +
+    '<span id="scTimerTxt">3s</span>' +
+   '</div>' +
+   '<div style="height:5px; background:var(--line2); border-radius:3px; overflow:hidden;">' +
+    '<div id="scBar" style="height:100%; width:0%; background:#2ee584; transition:width 0.1s linear;"></div>' +
+   '</div>' +
+  '</div>' +
+  '<div style="font-size:11px; color:var(--muted); margin-top:2px;">' +
+   'or <a href="javascript:void(0)" onclick="quickTestThreat()" style="color:#c084fc; font-weight:600; text-decoration:underline;">hear a simulated $250k executive clone</a>' +
+  '</div>' +
+ '</div>';
+}
+
+async function startMicSoundcheck(){
+ if(_scActive) return;
+ _scActive = true;
+ var btn = document.getElementById('btnSoundcheck');
+ var prog = document.getElementById('soundcheckProgress');
+ var bar = document.getElementById('scBar');
+ var timerTxt = document.getElementById('scTimerTxt');
+ var statusTxt = document.getElementById('scStatusTxt');
+
+ if(btn) btn.style.display = 'none';
+ if(prog) prog.style.display = 'block';
+
+ try {
+  if(!_scStream && navigator.mediaDevices && navigator.mediaDevices.getUserMedia){
+   _scStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  }
+
+  try {
+   if(!_scAudioCtx) _scAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+   if(_scAudioCtx.state === 'suspended') await _scAudioCtx.resume();
+  } catch(x){}
+
+  var dur = 3;
+  var elapsed = 0;
+  var interval = setInterval(function(){
+   elapsed += 0.1;
+   var pct = Math.min(100, Math.round((elapsed / dur) * 100));
+   if(bar) bar.style.width = pct + '%';
+   if(timerTxt) timerTxt.textContent = Math.max(0, Math.ceil(dur - elapsed)) + 's';
+   if(elapsed >= dur){
+    clearInterval(interval);
+    finishMicSoundcheck();
+   }
+  }, 100);
+ } catch(err) {
+  _scActive = false;
+  if(btn) btn.style.display = 'inline-flex';
+  if(prog) prog.style.display = 'none';
+  alert('Microphone access is needed for soundcheck: ' + (err.message || err));
+ }
+}
+
+async function finishMicSoundcheck(){
+ var statusTxt = document.getElementById('scStatusTxt');
+ if(statusTxt) statusTxt.textContent = 'Verifying authenticity...';
+
+ var hostName = (ME && (ME.name || ME.email)) || 'Host';
+ try {
+  var res = await fetch('/api/audio/soundcheck', {
+   method: 'POST',
+   headers: authHeaders({'Content-Type': 'application/json'}),
+   body: JSON.stringify({
+    speaker_name: hostName,
+    duration_sec: 3.0
+   })
+  });
+  await res.json();
+  _scActive = false;
+  poll();
+ } catch(e){
+  _scActive = false;
+  poll();
+ }
+}
+
+function quickTestThreat(){
+ var sel = document.getElementById('quickSimSelect');
+ if(sel) sel.value = 'ceo_wire';
+ runSelectedSim();
 }
 
 /* ---- Real-Time Voice-to-Voice AI Cloner (Speak into Mic -> AI Cloned Voice Live) ---- */

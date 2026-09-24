@@ -149,3 +149,30 @@ def test_user_telemetry_and_events(railway_mod):
     assert data["user"]["meets_total"] >= 1
     assert len(data["events"]) >= 2
 
+
+def test_audio_soundcheck_endpoint(railway_mod):
+    c = client(railway_mod)
+    user = railway_mod.db.upsert_google_user("sub_sc_789", "soundcheck_user@sonave.com", "Soundcheck User", "", "member")
+    sess = railway_mod.auth.sign_session(user["id"])
+
+    # 1. Post soundcheck
+    r = c.post("/api/audio/soundcheck", json={"speaker_name": "Derek Host", "duration_sec": 3.0},
+               headers={"Authorization": f"Bearer {sess}"})
+    assert r.status_code == 200
+    res = r.json()
+    assert res["ok"] is True
+    assert res["verdict"] == "real"
+    assert "Derek Host" in res["speaker"]
+    assert res["authenticity_pct"] > 95.0
+
+    # 2. Verify state populated in /api/quality
+    q = c.get("/api/quality", headers={"Authorization": f"Bearer {sess}"}).json()
+    matched = [k for k in q.keys() if "Derek Host" in k]
+    assert len(matched) == 1
+    spk_data = q[matched[0]]
+    assert spk_data["auth_verdict"] == "real"
+
+    # 3. Verify format activity
+    fmt = railway_mod._format_activity(user["id"], "mic_soundcheck", {"speaker": res["speaker"], "email": "test@sonave.com"})
+    assert "Mic Soundcheck Verified" in fmt and "97.9%" in fmt
+
