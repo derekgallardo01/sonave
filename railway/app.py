@@ -579,10 +579,23 @@ async def _security_headers(request: Request, call_next):
     return response
 
 
+@app.exception_handler(404)
+async def not_found_handler(request: Request, exc: Exception):
+    accept = request.headers.get("accept", "")
+    if request.url.path.startswith("/api/") or "application/json" in accept:
+        detail = getattr(exc, "detail", "Not Found")
+        return JSONResponse(status_code=404, content={"detail": detail})
+    path = _HERE / "404.html"
+    content = path.read_text(encoding="utf-8").replace("__FAVICON__", _FAVICON_B64) if path.is_file() else "<h1>Page Not Found</h1>"
+    return HTMLResponse(content=content, status_code=404)
+
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     # FastAPI HTTPExceptions should be handled normally
     if isinstance(exc, HTTPException):
+        if exc.status_code == 404:
+            return await not_found_handler(request, exc)
         return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
     import traceback, uuid

@@ -38,3 +38,12 @@ def test_sitemap_lists_all_public_pages(mod):
     body = TestClient(mod.app).get("/sitemap.xml").text
     for path in ("/benchmarks", "/guides", "/guides/deepfake-detector-accuracy"):
         assert f"https://usesonave.com{path}</loc>" in body, path
+
+
+def test_custom_404_page(mod):
+    c = TestClient(mod.app)
+    r = c.get("/some-unknown-missing-page")
+    assert r.status_code == 404
+    assert "This frequency is quiet." in r.text
+    assert "__FAVICON__" not in r.text
+
