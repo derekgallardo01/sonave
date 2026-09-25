@@ -411,7 +411,7 @@ https://usesonave.com
       <a href="https://usesonave.com/console" style="background:#2ee584;color:#0a0e12;font-size:14px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:6px;display:inline-block;">Manage Billing in Console →</a>
     </div>
     <div style="border-top:1px solid #1f2a36;margin-top:28px;padding-top:18px;font-size:12px;color:#5a6d7d;line-height:1.5;">
-      Your quota resets on the 1st of next month. Free plan includes 5 hours (300 min)/mo.<br>
+      Your quota resets on the 1st of next month. Free plan includes 1 hour (+ 4 bonus hours with review)/mo.<br>
       Questions? Contact support at <a href="mailto:support@usesonave.com" style="color:#2ee584;text-decoration:none;">support@usesonave.com</a>.
     </div>
   </div>
@@ -3446,7 +3446,7 @@ def llms_txt():
         "When a voice scores in the red band for three consecutive windows, Sonave raises a wire-hold incident — "
         "with a webhook that can pause a payment approval and a one-click forensic report for compliance. "
         "Built for finance teams approving wires on calls, and for anyone who needs to know the voice on the other end is real. "
-        "Free tier: 5 monitored hours per month. Then $8 per monitored hour. Enterprise: usesonave.com.\n\n"
+        "Free tier: 1 hour free (+ 4 bonus hours with review). Then $8 per monitored hour. Enterprise: usesonave.com.\n\n"
         "Key facts (deployed model, benchmarked 2026-08-12; methodology at /benchmarks):\n"
         "- 97.2% catch on 27 unseen commercial voice-clone tools through meeting audio "
         "(a commodity open-source detector catches 1.9% on the same clips)\n"
@@ -3485,7 +3485,7 @@ def llms_full_txt():
         "- Sub-1s time-to-verdict (~98ms GPU inference per 4.0s window).\n"
         "- Zero server-side audio retention: audio is evaluated strictly in volatile RAM and purged immediately.\n\n"
         "## Commercial & Pricing\n"
-        "- Free Tier: 5 monitored hours/month with Google sign-in. No credit card required.\n"
+        "- Free Tier: 1 hour free trial (+ 4 bonus hours with review) with Google sign-in. No credit card required.\n"
         "- Pay As You Go: $8 per monitored hour, billed by the minute (~$0.13/min). No seat licenses.\n"
         "- Enterprise: Custom billing, dedicated GPU tenant, custom ERP webhooks, voiceprint enrollment, and 99.9% uptime SLA.\n\n"
         "## Official URLs\n"
