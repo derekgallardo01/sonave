@@ -138,7 +138,7 @@ _NOTIFY_KINDS = {"incident_open", "bot_created", "meeting_started",
                  "client_error", "server_error", "bot_denied", "usage_threshold",
                  "meet_media_connect", "meet_media_disconnect", "simulation_run",
                  "incident_ack", "cloner_opened", "mic_soundcheck",
-                 "web_cta_click", "review_prompt_clicked"}
+                 "web_cta_click", "review_prompt_clicked", "support_inquiry"}
 
 
 def _now_et() -> str:
@@ -155,6 +155,11 @@ def _format_activity(user_id: str, kind: str, detail: dict) -> str:
     """One-line founder-alert summary for a whitelisted activity event."""
     email = detail.get("email") or (db.get_user(user_id) or {}).get("email") or user_id
     ts = _now_et()
+    if kind == "support_inquiry":
+        name = detail.get("name") or "User"
+        top = detail.get("topic") or "General"
+        msg = detail.get("message") or ""
+        return f"📩 Support Inquiry: {name} ({email}) [{top}]: {msg} · {ts}"
     if kind == "web_cta_click":
         cta = detail.get("cta") or "Button"
         txt = detail.get("text") or ""
@@ -732,7 +737,7 @@ def api_telemetry_event(req: ClientEventReq, request: Request):
                 email = u.get("email") or ""
     except Exception:
         pass
-    allowed = {"cloner_opened", "addon_opened", "simulation_run", "web_page_view", "web_cta_click", "review_prompt_clicked"}
+    allowed = {"cloner_opened", "addon_opened", "simulation_run", "web_page_view", "web_cta_click", "review_prompt_clicked", "support_inquiry"}
     if req.kind in allowed:
         d = dict(req.detail or {})
         if email and "email" not in d:
@@ -3424,7 +3429,7 @@ def sitemap(request: Request):
     from fastapi.responses import Response
     base = _base_url(request)
     today = time.strftime("%Y-%m-%d")
-    paths = ["/", "/benchmarks", "/guides", "/privacy", "/terms", "/llms.txt", "/llms-full.txt"]
+    paths = ["/", "/benchmarks", "/guides", "/privacy", "/terms", "/support", "/llms.txt", "/llms-full.txt"]
     paths += [f"/guides/{s}" for s in GUIDE_SLUGS]
     urls = "".join(
         f"<url><loc>{base}{path}</loc><lastmod>{today}</lastmod><changefreq>weekly</changefreq></url>" for path in paths)
@@ -3518,6 +3523,12 @@ def guide(slug: str):
 @app.get("/benchmarks", response_class=HTMLResponse)
 def benchmarks():
     html = (_HERE / "benchmarks.html").read_text(encoding="utf-8")
+    return html.replace("__FAVICON__", _FAVICON_B64)
+
+
+@app.get("/support", response_class=HTMLResponse)
+def support():
+    html = (_HERE / "support.html").read_text(encoding="utf-8")
     return html.replace("__FAVICON__", _FAVICON_B64)
 
 

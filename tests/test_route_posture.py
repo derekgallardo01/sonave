@@ -15,7 +15,7 @@ TOKEN = "machine-token-123"
 
 # Anonymous GETs that must serve content.
 PUBLIC_200 = {
-    "/", "/benchmarks", "/guides", "/privacy", "/terms", "/onboarding",
+    "/", "/benchmarks", "/guides", "/privacy", "/terms", "/support", "/onboarding",
     "/llms.txt", "/llms-full.txt", "/robots.txt", "/sitemap.xml", "/site.webmanifest", "/console", "/meet-addon", "/cloner",
     "/favicon.ico", "/favicon.svg", "/og.png", "/console-shot.png",
     "/icon-16.png", "/icon-32.png", "/icon-120.png", "/icon-128.png",
