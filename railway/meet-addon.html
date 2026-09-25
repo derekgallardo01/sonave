@@ -131,10 +131,10 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
  <div class="feat">
   <div><span>First verdict</span><b>~4 s</b></div>
   <div><span>Catch rate, 27 unseen voice tools</span><b>95%</b></div>
-  <div><span>Free monitoring</span><b>5 h / mo</b></div>
+  <div><span>Included free</span><b>1 h + 4 h bonus</b></div>
  </div>
  <div id="gsiBtn"></div>
- <p class="fine">Free 5 monitored hours a month. By continuing you agree to the <a href="/terms" target="_blank" rel="noopener">Terms</a> &amp; <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.</p>
+ <p class="fine">Free 1 hour included + 4 bonus hours with review. By continuing you agree to the <a href="/terms" target="_blank" rel="noopener">Terms</a> &amp; <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.</p>
 </div>
 
 <div id="live" style="display:none">
@@ -215,22 +215,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
   <div><b>SESSION</b><span id="stSess">0:00</span></div>
   <div><b>PEAK RISK</b><span id="stPeak">0%</span></div>
  </div>
- <!-- Review-to-Unlock Bonus Hours Card -->
- <div id="reviewCard" style="display:none; margin:0 12px 10px; background:linear-gradient(135deg, rgba(46,229,132,0.12), rgba(192,132,252,0.09)); border:1px solid rgba(46,229,132,0.3); border-radius:12px; padding:12px 13px; box-sizing:border-box;">
-  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:5px;">
-   <span style="font-size:11px; font-weight:800; color:var(--green); display:flex; align-items:center; gap:5px;">
-    ⭐ Unlock 4 Bonus Free Hours
-   </span>
-   <button onclick="dismissReviewCard()" style="background:none; border:none; color:var(--muted); font-size:12px; cursor:pointer; padding:0 4px;" title="Dismiss">✕</button>
-  </div>
-  <div style="font-size:11px; color:var(--ink); line-height:1.45; margin-bottom:9px;">
-   Enjoying real-time voice verification? Leave a 30-second review on the Google Workspace Marketplace to unlock 4 additional hours of free protection.
-  </div>
-  <a href="https://workspace.google.com/marketplace/app/sonave/940532414120" target="_blank" rel="noopener" onclick="onReviewClicked()" style="background:#2ee584; color:#0a0e12; font-size:11px; font-weight:800; padding:7px 14px; border-radius:7px; text-decoration:none; display:inline-flex; align-items:center; gap:6px; box-shadow:0 3px 10px rgba(46,229,132,0.25);">
-   ⭐ Rate on Google Marketplace ↗
-  </a>
- </div>
-   <!-- Sleek 1-Click AI Threat Injector & Cloner Studio -->
+ <!-- Sleek 1-Click AI Threat Injector & Cloner Studio -->
    <div id="demoSoundboard" style="margin:0 12px 10px; border:1px solid var(--line2); border-radius:12px; background:var(--panel); padding:11px 12px; box-sizing:border-box;">
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
      <div style="font-size:10.5px; font-weight:800; letter-spacing:0.04em; color:var(--green); font-family:var(--mono); display:flex; align-items:center; gap:5px;">
@@ -334,7 +319,40 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
     </div>
    </div>
 
-  <div class="ft"><span id="meta"><span class="dot"></span>detection engine online</span><span><a href="https://workspace.google.com/marketplace/app/sonave/940532414120" target="_blank" rel="noopener" style="color:var(--green);font-weight:700;font-size:10px;margin-right:10px" onclick="onReviewClicked()">⭐ Rate Sonave</a><a href="#" onclick="signOut();return false" style="color:var(--muted);font-weight:500;font-size:10px;margin-right:10px">Sign out</a><a href="/console" target="_blank" rel="noopener">Open console ↗</a></span></div>
+    <!-- Review-to-Unlock Bonus Free Hours Card -->
+  <div id="reviewCard" style="display:none; margin:0 12px 12px; background:var(--panel); border:1px solid rgba(46,229,132,0.28); border-radius:12px; padding:12px 14px; box-sizing:border-box; box-shadow:0 4px 16px rgba(0,0,0,0.25);">
+   <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+    <div style="display:flex; align-items:center; gap:6px;">
+     <span style="font-size:12px; line-height:1;">⭐</span>
+     <span style="font-size:11.5px; font-weight:800; color:var(--ink); letter-spacing:-0.01em;">Unlock 4 Bonus Free Hours</span>
+     <span style="font-size:8.5px; font-weight:800; font-family:var(--mono); background:rgba(46,229,132,0.12); color:var(--green); border:1px solid rgba(46,229,132,0.3); border-radius:4px; padding:1px 5px; letter-spacing:0.04em;">+4 HRS</span>
+    </div>
+    <button onclick="dismissReviewCard()" style="background:none; border:none; color:var(--muted); font-size:14px; cursor:pointer; padding:2px 5px; line-height:1; border-radius:4px;" title="Dismiss">✕</button>
+   </div>
+   <div style="font-size:11px; color:var(--ink2); line-height:1.45; margin-bottom:10px;">
+    Leave a quick rating on Google Workspace Marketplace to unlock 4 additional hours of free voice protection.
+   </div>
+   <div style="display:flex; align-items:center; gap:8px;">
+    <a href="https://workspace.google.com/marketplace/app/sonave/940532414120" target="_blank" rel="noopener" onclick="onReviewClicked()" class="btn-soft" style="padding:6px 12px; font-size:11px; font-weight:700; text-decoration:none; display:inline-flex; align-items:center; gap:4px; border-color:rgba(46,229,132,0.35); background:rgba(46,229,132,0.1); color:var(--green);">
+     <span>Rate on Marketplace</span>
+     <span style="font-size:10px;">↗</span>
+    </a>
+    <button onclick="dismissReviewCard()" style="background:none; border:none; color:var(--muted); font-size:10.5px; cursor:pointer; padding:5px 6px; font-family:var(--font);">
+     Maybe later
+    </button>
+   </div>
+  </div>
+
+  <div class="ft">
+   <span id="meta"><span class="dot"></span>engine online</span>
+   <div style="display:flex; align-items:center; gap:8px; white-space:nowrap; flex-shrink:0;">
+    <a href="https://workspace.google.com/marketplace/app/sonave/940532414120" target="_blank" rel="noopener" style="color:var(--green);font-weight:700;font-size:10.5px;" onclick="onReviewClicked()" title="Review Sonave on Google Workspace Marketplace">⭐ Rate</a>
+    <span style="color:var(--line2)">|</span>
+    <a href="/console" target="_blank" rel="noopener" style="color:var(--ink2);font-weight:600;font-size:10.5px;">Console ↗</a>
+    <span style="color:var(--line2)">|</span>
+    <a href="#" onclick="signOut();return false" style="color:var(--muted);font-weight:500;font-size:10.5px;">Sign out</a>
+   </div>
+  </div>
 </div>
 
 <script>
@@ -1576,6 +1594,7 @@ async function dismissThreatCheck(){
   list.innerHTML = '';
  }
  await poll();
+  setTimeout(maybeShowReviewPrompt, 1000);
 }
 
 function boot(){
@@ -1613,7 +1632,7 @@ function boot(){
  }
  poll();
  setInterval(poll, 500);
- setTimeout(maybeShowReviewPrompt, 30000);
+ setTimeout(maybeShowReviewPrompt, 120000);
  document.addEventListener('click', function(){
   if(!_micActive && TOK && _connected){
    try { startLiveMicStream(); } catch(x){}
