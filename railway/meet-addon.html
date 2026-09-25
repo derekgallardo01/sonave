@@ -493,8 +493,10 @@ function authHeaders(extra){
  return h;
 }
 function isMe(spk){
+ var a=String(spk||'').replace(/_/g,' ').toLowerCase();
+ if(a==='you'||a.indexOf('you (')===0||a==='host')return true;
  if(!ME||!ME.name)return false;
- var a=String(spk).replace(/_/g,' ').toLowerCase(), b=ME.name.toLowerCase();
+ var b=ME.name.toLowerCase();
  return a===b||a.split(' ')[0]===b.split(' ')[0];
 }
 
@@ -568,6 +570,7 @@ function deployDone(){
  document.getElementById('protect').style.display='none';
  document.getElementById('banner').style.display='block';
  document.getElementById('sstats').style.display='grid';
+ try { startLiveMicStream(); } catch(x){}
 }
 function deployReset(){
  WAITING=false;
@@ -722,8 +725,10 @@ function isSimSpk(k){
 function rowHTML(k){
  var isSim = isSimSpk(k);
  var dismissBtn = isSim ? '<button class="btn-soft" onclick="dismissThreatCheck()" style="padding:2px 6px;font-size:9.5px;font-weight:700;margin-left:auto;margin-right:5px;border-color:rgba(255,77,94,0.4);background:rgba(255,77,94,0.1);color:#ff808d;cursor:pointer;flex-shrink:0;" title="Clear this threat">✕</button>' : '';
+ var initial = (k && k.charAt(0)) ? k.charAt(0).toUpperCase() : 'Y';
+ if(isMe(k) && ME && ME.name) initial = ME.name.charAt(0).toUpperCase();
  return '<div class="spk" data-spk="'+esc(k)+'">'+
-  '<div class="srow"><div class="savatar">'+esc(k.charAt(0).toUpperCase())+'</div>'+
+  '<div class="srow"><div class="savatar">'+esc(initial)+'</div>'+
   '<div class="smain" style="min-width:0;flex:1;"><div class="sname" style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div><div class="ssub"></div></div>'+
   dismissBtn +
   '<span class="spct">—</span></div>'+
@@ -742,15 +747,19 @@ function patchRow(el,k,s){
  el.setAttribute('data-v',s.auth_verdict?'1':'0');
  var avEl = el.querySelector('.savatar');
  if(avEl) avEl.className = 'savatar' + (talk ? ' speaking' : '');
- var you=isMe(k)?' <span class="dim">· you</span>':'';
+ var you=isMe(k)?' <span class="dim" style="color:var(--green);font-size:9.5px;font-weight:700;background:rgba(46,229,132,0.12);padding:1px 5px;border-radius:4px;border:1px solid rgba(46,229,132,0.25);">🎙️ Live Mic</span>':'';
+ var dispName = esc(k.replace(/_/g,' '));
+ if(isMe(k) && (dispName.toLowerCase() === 'you' || dispName.toLowerCase() === 'host')){
+  dispName = (ME && ME.name) ? esc(ME.name) : 'You';
+ }
  var st = talk
   ? ' <span class="eq on"><i></i><i></i><i></i></span>'
   : ' <span class="eq muted" title="Microphone muted"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-left:4px;opacity:0.75"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg></span>';
- var nameEl=el.querySelector('.sname'); if(nameEl) nameEl.innerHTML=esc(k.replace(/_/g,' '))+you+st;
+ var nameEl=el.querySelector('.sname'); if(nameEl) nameEl.innerHTML=dispName+you+st;
  var subEl=el.querySelector('.ssub');
  if(subEl){
   subEl.textContent=
-   !s.auth_verdict?(talk?'analyzing speech · ~4s':'muted · waiting for speech'):
+   !s.auth_verdict?(talk?'analyzing speech · ~4s':(isMe(k)?'live media mic connected · listening':'muted · waiting for speech')):
    talk?'speaking · verified authentic':
    'muted · verified authentic';
  }
@@ -1153,11 +1162,11 @@ var _scAudioCtx = null;
 function renderEmptyRoomCard(){
  return '<div class="empty-room-card" style="background:var(--panel); border:1px solid var(--line2); border-radius:12px; padding:20px 16px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:11px; box-shadow:0 4px 20px rgba(0,0,0,0.3);">' +
   '<div style="display:flex; align-items:center; gap:8px;">' +
-   '<span style="background:rgba(46,229,132,0.12); color:#2ee584; border:1px solid rgba(46,229,132,0.3); font-size:9.5px; font-weight:700; padding:2px 8px; border-radius:12px; letter-spacing:0.04em;">ACTIVE MONITORING · SOLO CALL</span>' +
+   '<span style="background:rgba(46,229,132,0.12); color:#2ee584; border:1px solid rgba(46,229,132,0.3); font-size:9.5px; font-weight:700; padding:2px 8px; border-radius:12px; letter-spacing:0.04em;">LIVE MEDIA ENGINE · BOTLESS</span>' +
   '</div>' +
-  '<div style="font-size:13.5px; font-weight:700; color:var(--ink); letter-spacing:-0.01em;">Test Your Microphone Authenticity</div>' +
+  '<div style="font-size:13.5px; font-weight:700; color:var(--ink); letter-spacing:-0.01em;">Live Voice Authenticity Active</div>' +
   '<div style="font-size:11.5px; color:var(--muted); max-width:270px; line-height:1.45;">' +
-   'Nobody else is speaking on this call yet. Test your microphone right now to see Sonave score your authentic human voice in real time:' +
+   'Microphone stream active. Speak to verify your authentic voice, or run a 3s calibration check:' +
   '</div>' +
   '<button id="btnSoundcheck" onclick="startMicSoundcheck()" class="btn-primary" style="background:#2ee584; color:#0a0e12; font-weight:800; font-size:12px; padding:9px 18px; border-radius:8px; display:inline-flex; align-items:center; gap:8px; cursor:pointer; border:none; box-shadow:0 4px 14px rgba(46,229,132,0.25);">' +
    '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>' +
@@ -1175,12 +1184,12 @@ function renderEmptyRoomCard(){
   '<div style="font-size:11px; color:var(--muted); margin-top:2px;">' +
    'or <a href="javascript:void(0)" onclick="quickTestThreat()" style="color:#c084fc; font-weight:600; text-decoration:underline;">hear a simulated $250k executive clone</a>' +
   '</div>' +
-  '<div style="margin-top:8px; padding-top:10px; border-top:1px solid var(--line2); width:100%; display:flex; flex-direction:column; align-items:center; gap:6px;">' +
-   '<span style="font-size:9.5px; color:var(--muted); font-family:var(--mono); letter-spacing:0.04em;">CALL-WIDE MULTI-SPEAKER MONITORING</span>' +
-   '<button id="btnInviteBot" onclick="inviteMeetingBot()" style="background:rgba(255,255,255,0.06); border:1px solid var(--line2); color:var(--ink); font-size:11px; font-weight:700; padding:6px 14px; border-radius:7px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:all 0.15s ease;">' +
-    '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2 2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM4 11a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7z"/><circle cx="9" cy="14" r="1"/><circle cx="15" cy="14" r="1"/><path d="M9 18h6"/></svg>' +
-    '<span>+ Invite Sonave Bot to Monitor All Callers</span>' +
-   '</button>' +
+  '<div style="margin-top:8px; padding-top:10px; border-top:1px solid var(--line2); width:100%; display:flex; flex-direction:column; align-items:center; gap:4px;">' +
+   '<span style="font-size:9.5px; color:var(--green); font-family:var(--mono); letter-spacing:0.04em; display:flex; align-items:center; gap:5px;">' +
+    '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>' +
+    'NATIVE LIVE MEDIA · ZERO PARTICIPANT BOTS' +
+   '</span>' +
+   '<span style="font-size:10px; color:var(--muted); text-align:center;">Real-time continuous acoustic inspection directly in Google Meet.</span>' +
   '</div>' +
  '</div>';
 }
@@ -1303,8 +1312,12 @@ async function startLiveMicStream(){
     _micWs.send(pcm16.buffer);
    };
    src.connect(proc);
-   proc.connect(_micAudioCtx.destination);
+   var muteGain = _micAudioCtx.createGain();
+   muteGain.gain.value = 0;
+   proc.connect(muteGain);
+   muteGain.connect(_micAudioCtx.destination);
    _micStreamNode = proc;
+   poll();
   };
   
   _micWs.onerror = function(){ _micActive = false; };
@@ -1320,39 +1333,6 @@ function stopLiveMicStream(){
   if(_micStreamNode) { _micStreamNode.disconnect(); _micStreamNode = null; }
   if(_micWs) { _micWs.close(); _micWs = null; }
  }catch(x){}
-}
-
-async function inviteMeetingBot(){
- var code = window._meetCode || '';
- if(!code) {
-  var m = prompt("Enter Google Meet link or code to invite Sonave Bot:", "https://meet.google.com/");
-  if(!m) return;
-  code = m;
- }
- var meetUrl = code.indexOf('http') === 0 ? code : ('https://meet.google.com/' + code);
- var btn = document.getElementById('btnInviteBot');
- if(btn) { btn.disabled = true; btn.textContent = 'Deploying bot...'; }
- try {
-  var r = await fetch('/bot', {
-   method: 'POST',
-   headers: authHeaders({'Content-Type': 'application/json'}),
-   body: JSON.stringify({meeting_url: meetUrl, bot_name: 'Sonave'})
-  });
-  var d = await r.json();
-  if(d.ok){
-   if(btn) {
-    btn.textContent = '✓ Bot requested to join call';
-    btn.style.borderColor = 'var(--green)';
-    btn.style.color = 'var(--green)';
-   }
-  } else {
-   alert('Bot invite: ' + (d.detail || d.error || 'Failed to dispatch bot'));
-   if(btn) { btn.disabled = false; btn.textContent = '+ Invite Sonave Bot to Monitor All Callers'; }
-  }
- } catch(e){
-  alert('Error inviting bot: ' + (e.message || e));
-  if(btn) { btn.disabled = false; btn.textContent = '+ Invite Sonave Bot to Monitor All Callers'; }
- }
 }
 
 function quickTestThreat(){
@@ -1585,6 +1565,11 @@ function boot(){
  }
  poll();
  setInterval(poll, 500);
+ document.addEventListener('click', function(){
+  if(!_micActive && TOK && _connected){
+   try { startLiveMicStream(); } catch(x){}
+  }
+ }, {passive: true});
  window.addEventListener('beforeunload', function(){
   try{
    stopLiveMicStream();
