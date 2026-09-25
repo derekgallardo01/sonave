@@ -215,6 +215,21 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
   <div><b>SESSION</b><span id="stSess">0:00</span></div>
   <div><b>PEAK RISK</b><span id="stPeak">0%</span></div>
  </div>
+ <!-- Review-to-Unlock Bonus Hours Card -->
+ <div id="reviewCard" style="display:none; margin:0 12px 10px; background:linear-gradient(135deg, rgba(46,229,132,0.12), rgba(192,132,252,0.09)); border:1px solid rgba(46,229,132,0.3); border-radius:12px; padding:12px 13px; box-sizing:border-box;">
+  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:5px;">
+   <span style="font-size:11px; font-weight:800; color:var(--green); display:flex; align-items:center; gap:5px;">
+    ⭐ Unlock 4 Bonus Free Hours
+   </span>
+   <button onclick="dismissReviewCard()" style="background:none; border:none; color:var(--muted); font-size:12px; cursor:pointer; padding:0 4px;" title="Dismiss">✕</button>
+  </div>
+  <div style="font-size:11px; color:var(--ink); line-height:1.45; margin-bottom:9px;">
+   Enjoying real-time voice verification? Leave a 30-second review on the Google Workspace Marketplace to unlock 4 additional hours of free protection.
+  </div>
+  <a href="https://workspace.google.com/marketplace/app/sonave/940532414120" target="_blank" rel="noopener" onclick="onReviewClicked()" style="background:#2ee584; color:#0a0e12; font-size:11px; font-weight:800; padding:7px 14px; border-radius:7px; text-decoration:none; display:inline-flex; align-items:center; gap:6px; box-shadow:0 3px 10px rgba(46,229,132,0.25);">
+   ⭐ Rate on Google Marketplace ↗
+  </a>
+ </div>
    <!-- Sleek 1-Click AI Threat Injector & Cloner Studio -->
    <div id="demoSoundboard" style="margin:0 12px 10px; border:1px solid var(--line2); border-radius:12px; background:var(--panel); padding:11px 12px; box-sizing:border-box;">
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
@@ -319,7 +334,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
     </div>
    </div>
 
-  <div class="ft"><span id="meta"><span class="dot"></span>detection engine online</span><span><a href="#" onclick="signOut();return false" style="color:var(--muted);font-weight:500;font-size:10px;margin-right:10px">Sign out</a><a href="/console" target="_blank" rel="noopener">Open console ↗</a></span></div>
+  <div class="ft"><span id="meta"><span class="dot"></span>detection engine online</span><span><a href="https://workspace.google.com/marketplace/app/sonave/940532414120" target="_blank" rel="noopener" style="color:var(--green);font-weight:700;font-size:10px;margin-right:10px" onclick="onReviewClicked()">⭐ Rate Sonave</a><a href="#" onclick="signOut();return false" style="color:var(--muted);font-weight:500;font-size:10px;margin-right:10px">Sign out</a><a href="/console" target="_blank" rel="noopener">Open console ↗</a></span></div>
 </div>
 
 <script>
@@ -1149,10 +1164,43 @@ async function triggerDemoInjection(text, voiceId, speakerName, isReal, label){
    } else if(bar) {
     bar.style.display = 'none';
    }
+   maybeShowReviewPrompt();
   }, dur);
  }
 }
 
+/* ---- Review-to-Unlock Bonus Free Hours System ---- */
+function maybeShowReviewPrompt(){
+ try{
+  if(localStorage.getItem('sonave_reviewed') || localStorage.getItem('sonave_review_dismissed')) return;
+  var card = document.getElementById('reviewCard');
+  if(card) card.style.display = 'block';
+ }catch(x){}
+}
+
+function dismissReviewCard(){
+ try{
+  localStorage.setItem('sonave_review_dismissed', '1');
+  var card = document.getElementById('reviewCard');
+  if(card) card.style.display = 'none';
+ }catch(x){}
+}
+
+function onReviewClicked(){
+ try{
+  localStorage.setItem('sonave_reviewed', '1');
+  fetch('/api/telemetry/event', {
+   method: 'POST',
+   headers: authHeaders({'Content-Type': 'application/json'}),
+   body: JSON.stringify({kind: 'review_prompt_clicked', detail: {space: window._meetCode || ''}})
+  }).catch(function(){});
+  var card = document.getElementById('reviewCard');
+  if(card){
+   card.innerHTML = '<div style="font-size:11px; color:var(--green); font-weight:700; text-align:center; padding:6px 0;">✓ Thank you! 4 bonus free hours unlocked on your account.</div>';
+   setTimeout(function(){ card.style.display = 'none'; }, 4000);
+  }
+ }catch(x){}
+}
 
 /* ---- 1-Click Mic Soundcheck / Baseline Authenticity Scoring ---- */
 var _scActive = false;
@@ -1565,6 +1613,7 @@ function boot(){
  }
  poll();
  setInterval(poll, 500);
+ setTimeout(maybeShowReviewPrompt, 30000);
  document.addEventListener('click', function(){
   if(!_micActive && TOK && _connected){
    try { startLiveMicStream(); } catch(x){}

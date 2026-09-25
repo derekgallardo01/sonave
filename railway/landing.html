@@ -212,7 +212,7 @@
           "name": "How much does Sonave cost?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Free for 5 monitored hours every month — no card required. After that it's $8 per monitored hour, billed by the minute, only while actively monitoring a call. No seats, no tiers."
+            "text": "1 hour of call monitoring included free upon install. Users can unlock an additional 4 hours free by leaving a quick review on the Google Workspace Marketplace. After that it's $8 per monitored hour, billed by the minute, only while actively monitoring a call. No seats, no tiers."
           }
         }
       ]
@@ -1106,10 +1106,10 @@ a:hover{color:var(--green-hover)}
           <div class="price-num">
             <span class="price-big">Free</span>
           </div>
-          <div class="price-sub"><b>5 hours / mo included</b>. Sign in with Google, monitor meetings in real time, and receive live verdicts. No credit card required.</div>
+          <div class="price-sub"><b>1 hour included free</b> (+ 4 bonus hours unlocked with a Marketplace review). Sign in with Google, monitor meetings in real time, and receive live verdicts. No credit card required.</div>
 
           <ul class="price-feature-list">
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>5 monitored meeting hours every month</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>1 hour free trial (extendable to 5h with review)</span></li>
             <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>Google Meet Add-on &amp; Live Media</span></li>
             <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>Live REAL / SUSPECT / FAKE verdicts</span></li>
             <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>4-second continuous sliding window</span></li>
@@ -1229,7 +1229,7 @@ a:hover{color:var(--green-hover)}
           <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </summary>
         <div class="faq-answer">
-          Free for 5 monitored hours every month — no card required. After that it's $8 per monitored hour, billed by the minute, only while actively monitoring a call. No seats, no tiers.
+          1 hour of call monitoring included free upon install. Users can unlock an additional 4 hours free by leaving a quick review on the Google Workspace Marketplace. After that it's $8 per monitored hour, billed by the minute, only while actively monitoring a call. No seats, no tiers.
         </div>
       </details>
     </div>
@@ -1409,6 +1409,71 @@ document.addEventListener('keydown', (e) => {
     closeLightbox();
   }
 });
+</script>
+
+<script>
+// Privacy-First Lightweight Website Telemetry
+(function(){
+  try {
+    var ref = document.referrer || 'direct';
+    var path = location.pathname;
+    var params = new URLSearchParams(location.search);
+    var src = params.get('utm_source') || params.get('ref') || '';
+    
+    // Pageview beacon
+    var pv = {
+      kind: 'web_page_view',
+      detail: {
+        path: path,
+        referrer: ref,
+        utm_source: src,
+        screen: window.innerWidth + 'x' + window.innerHeight
+      }
+    };
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon('/api/telemetry/event', JSON.stringify(pv));
+    } else {
+      fetch('/api/telemetry/event', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(pv),
+        keepalive: true
+      }).catch(function(){});
+    }
+
+    // High-value CTA click tracking
+    document.addEventListener('click', function(e){
+      var a = e.target.closest('a, button');
+      if (!a) return;
+      var href = a.getAttribute('href') || '';
+      var txt = (a.innerText || '').trim().slice(0, 40);
+      var isMkt = href.indexOf('workspace.google.com') !== -1;
+      var isConsole = href.indexOf('/console') !== -1;
+      if (isMkt || isConsole || a.classList.contains('price-btn') || a.classList.contains('btn-primary')) {
+        var clickEv = {
+          kind: 'web_cta_click',
+          detail: {
+            cta: isMkt ? 'marketplace_install' : (isConsole ? 'open_console' : txt),
+            href: href,
+            text: txt,
+            page: path,
+            referrer: ref
+          }
+        };
+        if (navigator.sendBeacon) {
+          navigator.sendBeacon('/api/telemetry/event', JSON.stringify(clickEv));
+        } else {
+          fetch('/api/telemetry/event', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(clickEv),
+            keepalive: true
+          }).catch(function(){});
+        }
+      }
+    }, {passive: true});
+  } catch(x){}
+})();
 </script>
 
 </body>

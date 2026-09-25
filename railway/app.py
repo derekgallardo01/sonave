@@ -137,7 +137,8 @@ _NOTIFY_KINDS = {"incident_open", "bot_created", "meeting_started",
                  "meeting_ended", "host_left", "host_rejoined", "signin",
                  "client_error", "server_error", "bot_denied", "usage_threshold",
                  "meet_media_connect", "meet_media_disconnect", "simulation_run",
-                 "incident_ack", "cloner_opened", "mic_soundcheck"}
+                 "incident_ack", "cloner_opened", "mic_soundcheck",
+                 "web_cta_click", "review_prompt_clicked"}
 
 
 def _now_et() -> str:
@@ -154,6 +155,13 @@ def _format_activity(user_id: str, kind: str, detail: dict) -> str:
     """One-line founder-alert summary for a whitelisted activity event."""
     email = detail.get("email") or (db.get_user(user_id) or {}).get("email") or user_id
     ts = _now_et()
+    if kind == "web_cta_click":
+        cta = detail.get("cta") or "Button"
+        txt = detail.get("text") or ""
+        ref = detail.get("page") or ""
+        return f"🎯 Website Action: '{cta}' ('{txt}') on {ref} · {ts}"
+    if kind == "review_prompt_clicked":
+        return f"⭐ Marketplace Review Clicked: {email} · {ts}"
     if kind == "mic_soundcheck":
         spk = detail.get("speaker") or "Host"
         return f"🎙️ Mic Soundcheck Verified: '{spk}' (97.9% Real baseline) — {email} · {ts}"
@@ -216,17 +224,45 @@ def _track(user_id: str, kind: str, **detail) -> None:
 
 
 def _send_email(to_email: str, subject: str, text_body: str, html_body: str | None = None) -> None:
-    """Send an off-thread transactional email via configured SMTP relay."""
+    """Send an off-thread transactional email via configured SMTP relay or Resend API."""
     if not to_email or "@" not in to_email:
         return
 
     def _send():
+        # 1. Resend HTTP API support (zero port blocking, ultra reliable)
+        resend_key = os.environ.get("RESEND_API_KEY", "")
+        if resend_key:
+            try:
+                sender = os.environ.get("SONAVE_SMTP_FROM") or "Sonave Alerts <alerts@usesonave.com>"
+                payload = {
+                    "from": sender,
+                    "to": [to_email],
+                    "subject": subject,
+                    "text": text_body
+                }
+                if html_body:
+                    payload["html"] = html_body
+                req = urllib.request.Request(
+                    "https://api.resend.com/emails",
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers={
+                        "Authorization": f"Bearer {resend_key}",
+                        "Content-Type": "application/json"
+                    }
+                )
+                with urllib.request.urlopen(req, timeout=10) as r:
+                    logger.info("Resend email delivered to %s: %s", _mask_email(to_email), subject)
+                    return
+            except Exception as e:
+                logger.warning("Resend email failed: %s", repr(e)[:100])
+
+        # 2. Standard SMTP Relay
         host = os.environ.get("SONAVE_SMTP_HOST", "")
         user = os.environ.get("SONAVE_SMTP_USER", "")
         password = os.environ.get("SONAVE_SMTP_PASS", "")
         sender = (os.environ.get("SONAVE_SMTP_FROM") or user or "alerts@usesonave.com")
         if not host or not user:
-            logger.info("Email skipped to %s (SMTP not configured): %s", _mask_email(to_email), subject)
+            logger.info("Email skipped to %s (SMTP/Resend not configured): %s", _mask_email(to_email), subject)
             return
         try:
             import smtplib
@@ -250,7 +286,7 @@ def _send_email(to_email: str, subject: str, text_body: str, html_body: str | No
 
 
 def _notify_admin(summary: str) -> None:
-    """Growth pushes (signup / subscription changes) to the founder, off-thread."""
+    """Growth pushes (signup / subscription changes / meeting events) to the founder, off-thread."""
     hook = os.environ.get("SONAVE_ADMIN_WEBHOOK", "")
     if hook:
         def _post_hook():
@@ -263,9 +299,8 @@ def _notify_admin(summary: str) -> None:
                 logger.warning("admin webhook failed: %s", repr(e)[:80])
         threading.Thread(target=_post_hook, daemon=True).start()
 
-    to = os.environ.get("SONAVE_ADMIN_EMAIL", "")
-    if to:
-        _send_email(to, f"Sonave: {summary[:120]}", summary)
+    to = os.environ.get("SONAVE_ADMIN_EMAIL", "") or "derekgallardo01@gmail.com"
+    _send_email(to, f"Sonave: {summary[:120]}", summary)
 
 
 def _send_welcome_email(to_email: str, name: str = "") -> None:
@@ -697,7 +732,7 @@ def api_telemetry_event(req: ClientEventReq, request: Request):
                 email = u.get("email") or ""
     except Exception:
         pass
-    allowed = {"cloner_opened", "addon_opened", "simulation_run"}
+    allowed = {"cloner_opened", "addon_opened", "simulation_run", "web_page_view", "web_cta_click", "review_prompt_clicked"}
     if req.kind in allowed:
         d = dict(req.detail or {})
         if email and "email" not in d:
