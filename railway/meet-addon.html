@@ -163,34 +163,15 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
    <div><b>2</b><span>Each speaker scored in <strong>~4 seconds</strong>, refreshed continuously</span></div>
    <div><b>3</b><span>Synthetic voice → <strong>red alert</strong> + exportable forensic report</span></div>
   </div>
-  <div id="protectSimWrap" style="margin-top:12px; padding:10px 12px; background:rgba(46,229,132,0.04); border:1px solid rgba(46,229,132,0.22); border-radius:10px;">
-   <div style="font-size:10px; font-weight:800; font-family:var(--mono); color:var(--green); margin-bottom:6px; letter-spacing:0.04em; display:flex; align-items:center; gap:5px;">
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
-    <span>OR TEST A 15-SECOND VOICE THREAT:</span>
-   </div>
-   <div style="display:flex; gap:6px;">
-    <select id="protectSimSelect" onchange="syncSimSelect(this.value)" style="flex:1; min-width:0; background:var(--bg); color:var(--ink); border:1px solid var(--line2); border-radius:7px; font-size:10.5px; padding:6px 8px; font-family:var(--font); outline:none;">
-     <optgroup label="⚡ High-Risk Synthetic Clones">
-      <option value="ceo_wire" selected>Simulate: ElevenLabs CEO clone ($250k Wire)</option>
-      <option value="openai_andrew">Simulate: OpenAI voice (Conversational)</option>
-      <option value="cfo_payroll">Simulate: CFO Payroll Diversion (VP Treasury)</option>
-      <option value="it_mfa">Simulate: IT Security MFA Theft</option>
-     </optgroup>
-     <optgroup label="🌐 Accented Foreign Clones">
-      <option value="british_exec_male">Simulate: British Partner (London)</option>
-      <option value="german_treasury">Simulate: German Treasury Director (Frankfurt)</option>
-      <option value="french_director">Simulate: French Managing Director (Paris)</option>
-      <option value="spanish_controller">Simulate: Spanish Controller (Madrid)</option>
-     </optgroup>
-     <optgroup label="🟢 Authentic Voice Benchmark">
-      <option value="real_baseline">Test: Real Human Voice Baseline (Authentic)</option>
-     </optgroup>
-    </select>
-    <button class="btn-soft" onclick="runProtectSim()" style="padding:6px 12px; font-size:10.5px; font-weight:700; border-color:rgba(255,77,94,0.45); color:#ff808d; background:rgba(255,77,94,0.08); border-radius:7px; cursor:pointer; white-space:nowrap; flex-shrink:0;">
-     ▶ Simulate
+  <div id="protectSimWrap" style="margin-top:12px; padding:9px 12px; background:rgba(46,229,132,0.04); border:1px solid rgba(46,229,132,0.2); border-radius:10px; display:flex; align-items:center; justify-content:space-between;">
+    <div>
+     <div style="font-size:10px; font-weight:800; font-family:var(--mono); color:var(--green); letter-spacing:0.04em;">SYSTEM DIAGNOSTIC:</div>
+     <div style="font-size:10.5px; color:var(--ink2);">Run a 5-second acoustic alarm test</div>
+    </div>
+    <button class="btn-soft" onclick="runProtectSim()" style="padding:5px 12px; font-size:10.5px; font-weight:700; border-radius:7px; cursor:pointer; white-space:nowrap;">
+     Test Alarm &rarr;
     </button>
    </div>
-  </div>
   <div id="codeRow" style="display:none;margin-top:10px">
    <input id="codeInp" placeholder="Paste the meeting link (meet.google.com/…)"
           style="width:100%;padding:9px 11px;border-radius:9px;border:1px solid var(--line2);background:var(--bg);color:var(--ink);font:12px var(--font);box-sizing:border-box">
@@ -215,111 +196,40 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
   <div><b>SESSION</b><span id="stSess">0:00</span></div>
   <div><b>PEAK RISK</b><span id="stPeak">0%</span></div>
  </div>
- <!-- Sleek 1-Click AI Threat Injector & Cloner Studio -->
-   <div id="demoSoundboard" style="margin:0 12px 10px; border:1px solid var(--line2); border-radius:12px; background:var(--panel); padding:11px 12px; box-sizing:border-box;">
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
-     <div style="font-size:10.5px; font-weight:800; letter-spacing:0.04em; color:var(--green); font-family:var(--mono); display:flex; align-items:center; gap:5px;">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
-      <span>AI THREAT INJECTOR</span>
-     </div>
-     <button id="btnThreatClear" class="btn-soft" onclick="dismissThreatCheck()" style="display:none; padding:3px 8px; font-size:10px; font-weight:700; border-color:rgba(255,77,94,0.4); background:rgba(255,77,94,0.08); color:#ff808d; border-radius:6px; cursor:pointer;" title="Clear threat and restore authentic status">
-      ↺ Clear Threat
-     </button>
-    </div>
-
-    <!-- Prominent Voice Threat Selector & Action -->
-    <div style="display:flex; flex-direction:column; gap:6px;">
-     <div style="display:flex; gap:6px; align-items:center;">
-      <select id="quickSimSelect" onchange="syncSimSelect(this.value)" style="flex:1; min-width:0; background:var(--bg); color:var(--ink); border:1px solid rgba(46,229,132,0.35); border-radius:8px; font-size:11px; font-weight:600; padding:8px 8px; cursor:pointer; font-family:var(--font); outline:none;">
-       <optgroup label="⚡ High-Risk Synthetic Clones">
-        <option value="ceo_wire" selected>Simulate: ElevenLabs CEO clone ($250k Wire)</option>
-        <option value="openai_andrew">Simulate: OpenAI voice (Conversational)</option>
-        <option value="cfo_payroll">Simulate: CFO Payroll Diversion (VP Treasury)</option>
-        <option value="it_mfa">Simulate: IT Security MFA Theft</option>
-       </optgroup>
-       <optgroup label="🌐 Accented Foreign Clones">
-        <option value="british_exec_male">Simulate: British Partner (London)</option>
-        <option value="german_treasury">Simulate: German Treasury Director (Frankfurt)</option>
-        <option value="french_director">Simulate: French Managing Director (Paris)</option>
-        <option value="spanish_controller">Simulate: Spanish Controller (Madrid)</option>
-       </optgroup>
-       <optgroup label="🟢 Authentic Voice Benchmark">
-        <option value="real_baseline">Test: Real Human Voice Baseline (Authentic)</option>
-       </optgroup>
-      </select>
-      <button id="btnQuickSimRun" onclick="runSelectedSim()" style="padding:8px 14px; font-size:11px; font-weight:800; background:linear-gradient(135deg, #ff4d5e 0%, #d92d40 100%); color:#ffffff; border:none; border-radius:8px; display:flex; align-items:center; gap:5px; cursor:pointer; box-shadow:0 2px 10px rgba(255,77,94,0.35); white-space:nowrap; flex-shrink:0;" title="Simulate this synthetic voice threat in the meeting">
-       <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-       <span>Simulate</span>
-      </button>
-     </div>
-
-     <!-- Quick action sub-bar: Mic Soundcheck + Cloner shortcut + Custom speech expander -->
-     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:2px; flex-wrap:wrap; gap:6px;">
-      <div style="display:flex; align-items:center; gap:8px;">
-       <button onclick="startMicSoundcheck()" style="background:none; border:none; color:var(--green); font-size:10.5px; font-weight:700; cursor:pointer; padding:0; display:flex; align-items:center; gap:4px;" title="Test your mic and see your real-voice authenticity score">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"></path><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"></path></svg>
-        <span>Test My Voice</span>
-       </button>
-       <span style="color:var(--line2)">|</span>
-       <button onclick="popoutCloner()" style="background:none; border:none; color:#38bdf8; font-size:10.5px; font-weight:700; cursor:pointer; padding:0; display:flex; align-items:center; gap:4px;" title="Clone your own microphone audio in real time">
-        <span>Live Mic Cloner ↗</span>
-       </button>
+ <!-- Enterprise Engine Diagnostics & Alarm Test -->
+   <div id="demoSoundboard" style="display:none; margin:0 12px 10px; border:1px solid var(--line2); border-radius:10px; background:var(--panel); padding:9px 12px; box-sizing:border-box;">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+     <div style="display:flex; align-items:center; gap:7px; min-width:0;">
+      <div id="diagDot" style="width:7px; height:7px; border-radius:50%; background:var(--green); box-shadow:0 0 8px rgba(46,229,132,0.4); flex-shrink:0;"></div>
+      <div style="min-width:0;">
+       <div style="font-size:10.5px; font-weight:700; color:var(--ink); letter-spacing:-0.01em; display:flex; align-items:center; gap:5px;">
+        <span>Engine Diagnostics</span>
+        <span id="diagBadge" style="font-size:8.5px; font-weight:800; font-family:var(--mono); color:var(--green); background:rgba(46,229,132,0.1); border:1px solid rgba(46,229,132,0.25); border-radius:3px; padding:0 4px;">ACTIVE</span>
+       </div>
+       <div id="diagSub" style="font-size:9.5px; color:var(--muted); line-height:1.2; margin-top:1px;">Continuous sliding-window neural verification</div>
       </div>
-      <button onclick="toggleCustomSpeechDrawer()" id="btnToggleCustomDrawer" style="background:none; border:none; outline:none; font-size:10.5px; color:var(--muted); cursor:pointer; font-family:var(--font);">
-       <span>Custom speech &amp; voice model ▾</span>
+     </div>
+     <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+      <button id="btnDiagTest" class="btn-soft" onclick="runEngineDiagnostic()" style="padding:4px 9px; font-size:10px; font-weight:700; border-radius:6px; cursor:pointer;" title="Run a 5-second acoustic alarm test to verify neural models">
+       Test Alarm
+      </button>
+      <button id="btnThreatClear" class="btn-soft" onclick="dismissThreatCheck()" style="display:none; padding:3px 7px; font-size:9.5px; font-weight:700; border-color:rgba(255,77,94,0.4); background:rgba(255,77,94,0.08); color:#ff808d; border-radius:6px; cursor:pointer;" title="Clear test and restore authentic status">
+       ↺ Clear
       </button>
      </div>
     </div>
 
-    <!-- Collapsible Custom Speech Drawer -->
-    <div id="customSpeechDrawer" style="display:none; flex-direction:column; gap:6px; margin-top:8px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.06);">
-     <div style="display:flex; justify-content:space-between; align-items:center;">
-      <span style="font-size:9.5px; font-family:var(--mono); color:var(--green); font-weight:700; letter-spacing:0.04em;">CUSTOM VOICE SYNTHESIS</span>
-      <button onclick="toggleCustomSpeechDrawer()" style="background:none; border:none; outline:none; color:var(--muted); font-size:12px; font-weight:700; cursor:pointer; padding:2px 6px;" title="Close drawer">✕</button>
-     </div>
-     <div style="display:flex; gap:6px;">
-      <select id="demoVoiceSel" style="flex:1.2; background:var(--bg); color:var(--ink); border:1px solid var(--line2); border-radius:6px; font-size:10.5px; padding:5px 7px;">
-       <optgroup label="🌟 Neural AI Voice Clones">
-        <option value="ceo_impersonator">CEO Baritone (Deepfake)</option>
-        <option value="elevenlabs_brian">ElevenLabs Brian (Ultra-Realistic)</option>
-        <option value="openai_andrew">OpenAI Andrew (Conversational)</option>
-        <option value="treasury_lead_female">Senior Treasury Lead (VP)</option>
-        <option value="cfo_impersonator">CFO Treasury (Authoritative)</option>
-        <option value="british_exec_male">British Partner (London)</option>
-       </optgroup>
-       <optgroup label="🌐 Multilingual Clones">
-        <option value="spanish_controller">Spanish Controller</option>
-        <option value="french_director">French Managing Director</option>
-        <option value="german_treasury">German Treasury Director</option>
-       </optgroup>
-      </select>
-      <select id="demoSinkSel" onchange="setAudioSink(this.value)" style="flex:0.8; background:var(--bg); color:var(--ink2); border:1px solid var(--line2); border-radius:6px; font-size:10px; padding:5px 7px;">
-       <option value="">Out: Default</option>
-      </select>
-     </div>
-     <textarea id="demoCustomText" rows="2" placeholder="Type custom speech for AI..." style="width:100%; background:var(--bg); color:var(--ink); border:1px solid var(--line2); border-radius:7px; font-size:10.5px; padding:6px 8px; resize:none; box-sizing:border-box; font-family:var(--font); line-height:1.4;">Please authorize the $250,000 vendor wire transfer immediately.</textarea>
-     <div style="display:flex; gap:6px;">
-      <button class="btn" id="btnCustomSpeak" onclick="runCustomDemoSpeech()" style="flex:1.4; padding:8px 10px; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:5px; cursor:pointer;">
-       <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
-       <span>Speak AI into Call</span>
-      </button>
-      <button class="btn-soft" onclick="toggleCustomSpeechDrawer()" style="flex:0.6; padding:8px 10px; font-size:11px; font-weight:600; border-color:var(--line2); color:var(--muted); display:flex; align-items:center; justify-content:center; gap:4px; cursor:pointer;" title="Close custom speech drawer">
-       <span>✕ Close</span>
-      </button>
-     </div>
-    </div>
-
-    <!-- Active Indicator (Visible only while speaking/threat active) -->
-    <div id="demoActiveBar" style="display:none; margin-top:8px; padding:6px 9px; border-radius:6px; background:rgba(255,77,94,0.12); border:1px solid rgba(255,77,94,0.35); align-items:center; justify-content:space-between;">
+    <!-- Active Test Bar (Visible only during the 5s diagnostic test) -->
+    <div id="demoActiveBar" style="display:none; margin-top:7px; padding:5px 8px; border-radius:6px; background:rgba(255,77,94,0.12); border:1px solid rgba(255,77,94,0.35); align-items:center; justify-content:space-between;">
      <div style="font-size:10px; color:#ff808d; font-weight:700; display:flex; align-items:center; gap:5px;">
-      <span class="spin" style="width:10px; height:10px; border-top-color:#ff4d5e"></span>
-      <span id="demoActiveText">AI Voice Speaking Live...</span>
+      <span class="spin" style="width:9px; height:9px; border-top-color:#ff4d5e"></span>
+      <span id="demoActiveText">Alarm test running (5s)...</span>
      </div>
-     <button class="btn-soft" onclick="dismissThreatCheck()" style="padding:2px 7px; font-size:9.5px; font-weight:700; border-color:rgba(255,77,94,0.4); color:#ff808d; cursor:pointer;">Clear Threat ×</button>
+     <button class="btn-soft" onclick="dismissThreatCheck()" style="padding:1px 6px; font-size:9px; font-weight:700; border-color:rgba(255,77,94,0.4); color:#ff808d; cursor:pointer;">Stop ×</button>
     </div>
    </div>
 
-    <!-- Review-to-Unlock Bonus Free Hours Card -->
+   <!-- Review-to-Unlock Bonus Free Hours Card -->
   <div id="reviewCard" style="display:none; margin:0 12px 12px; background:var(--panel); border:1px solid rgba(46,229,132,0.28); border-radius:12px; padding:12px 14px; box-sizing:border-box; box-shadow:0 4px 16px rgba(0,0,0,0.25);">
    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
     <div style="display:flex; align-items:center; gap:6px;">
@@ -739,6 +649,19 @@ async function poll(){
   }
   var specWrap = document.getElementById('miniSpecWrap');
   if(specWrap) specWrap.style.display = isProtected ? 'block' : 'none';
+  var sb = document.getElementById('demoSoundboard');
+  if(sb){
+   if(!isProtected){
+    sb.style.display = 'none';
+   } else {
+    var realSpeakers = ks ? ks.filter(function(k){ return !isSimSpk(k); }) : [];
+    if(realSpeakers.length >= 2){
+     sb.style.display = 'none';
+    } else {
+     sb.style.display = 'block';
+    }
+   }
+  }
   var btc = document.getElementById('btnThreatClear');
   if(btc){
    btc.style.display = (isFake || _simActive || maxP >= 0.5) ? 'inline-flex' : 'none';
@@ -941,37 +864,27 @@ var DEMO_PRESETS = {
  }
 };
 
-function syncSimSelect(val){
- var s1 = document.getElementById('quickSimSelect');
- var s2 = document.getElementById('protectSimSelect');
- if(s1 && s1.value !== val) s1.value = val;
- if(s2 && s2.value !== val) s2.value = val;
- var p = DEMO_PRESETS[val];
- if(p){
-  setDemoText(p.text);
-  var vs = document.getElementById('demoVoiceSel');
-  if(vs && p.voice_id) vs.value = p.voice_id;
-  var btn = document.getElementById('btnQuickSimRun');
-  if(btn){
-   btn.style.background = p.is_real ? 'linear-gradient(135deg, #2ee584 0%, #16b85d 100%)' : 'linear-gradient(135deg, #ff4d5e 0%, #d92d40 100%)';
-   btn.style.color = p.is_real ? '#06130b' : '#ffffff';
-  }
+async function runEngineDiagnostic(){
+ var btn = document.getElementById('btnDiagTest');
+ if(btn) {
+  btn.disabled = true;
+  btn.textContent = 'Probing...';
  }
-}
-
-async function runSelectedSim(){
- var sel = document.getElementById('quickSimSelect');
- var key = (sel && sel.value) || 'ceo_wire';
- await runDemoPreset(key);
+ var sub = document.getElementById('diagSub');
+ if(sub) sub.textContent = 'Injecting 5-second acoustic alarm probe...';
+ await runDemoPreset('ceo_wire');
+ if(btn) {
+  btn.disabled = false;
+  btn.textContent = 'Test Alarm';
+ }
+ if(sub) sub.textContent = 'Continuous sliding-window neural verification';
 }
 
 async function runProtectSim(){
- var sel = document.getElementById('protectSimSelect');
- var key = (sel && sel.value) || 'ceo_wire';
  _connected = true;
  _connectedSince = _connectedSince || Date.now();
  deployDone();
- await runDemoPreset(key);
+ await runEngineDiagnostic();
 }
 
 async function setAudioSink(sinkId){
@@ -1059,86 +972,6 @@ async function runDemoPreset(presetKey){
  var p = DEMO_PRESETS[presetKey];
  if(!p) return;
  await triggerDemoInjection(p.text, p.voice_id, p.speaker_name, p.is_real, p.title);
-}
-
-function switchAddonGenTab(tab){
- var ttsView = document.getElementById('addonGenTTSView');
- var v2vView = document.getElementById('addonGenV2VView');
- var btnTTS = document.getElementById('tabBtnTTS');
- var btnV2V = document.getElementById('tabBtnV2V');
-
- if(tab === 'v2v'){
-  if(ttsView) ttsView.style.display = 'none';
-  if(v2vView) v2vView.style.display = 'flex';
-  if(btnTTS){
-   btnTTS.style.background = 'transparent';
-   btnTTS.style.borderColor = 'transparent';
-   btnTTS.style.color = 'var(--ink2)';
-  }
-  if(btnV2V){
-   btnV2V.style.background = 'rgba(46,229,132,0.12)';
-   btnV2V.style.borderColor = 'rgba(46,229,132,0.3)';
-   btnV2V.style.color = 'var(--green)';
-  }
- } else {
-  if(ttsView) ttsView.style.display = 'flex';
-  if(v2vView) v2vView.style.display = 'none';
-  if(btnTTS){
-   btnTTS.style.background = 'rgba(46,229,132,0.12)';
-   btnTTS.style.borderColor = 'rgba(46,229,132,0.3)';
-   btnTTS.style.color = 'var(--green)';
-  }
-  if(btnV2V){
-   btnV2V.style.background = 'transparent';
-   btnV2V.style.borderColor = 'transparent';
-   btnV2V.style.color = 'var(--ink2)';
-  }
- }
-}
-
-function toggleCustomSpeechDrawer(){
- var d = document.getElementById('customSpeechDrawer');
- var b = document.getElementById('btnToggleCustomDrawer');
- if(!d) return;
- var isHidden = d.style.display === 'none' || !d.style.display;
- d.style.display = isHidden ? 'flex' : 'none';
- if(b){
-  b.innerHTML = isHidden ? '<span>Custom Speech &amp; Voice Model ▴</span>' : '<span>Custom Speech &amp; Voice Model ▾</span>';
-  b.style.color = isHidden ? 'var(--green)' : 'var(--muted)';
- }
-}
-
-function setDemoText(t){
- var inp = document.getElementById('demoCustomText');
- if(inp) inp.value = t;
-}
-
-var _clonerWindowRef = null;
-function popoutCloner(){
- var w = 440, h = 560;
- var left = (screen.width/2)-(w/2);
- var top = (screen.height/2)-(h/2);
- var u = '/cloner' + (TOK ? '?token=' + encodeURIComponent(TOK) : '');
- try{
-  fetch('/api/telemetry/event', {
-   method: 'POST',
-   headers: authHeaders({'Content-Type': 'application/json'}),
-   body: JSON.stringify({kind: 'cloner_opened', detail: {source: 'meet_addon_popout'}})
-  }).catch(function(){});
- }catch(x){}
- if(_clonerWindowRef && !_clonerWindowRef.closed){
-  try{ _clonerWindowRef.focus(); }catch(x){}
- } else {
-  _clonerWindowRef = window.open(u, 'SonaveCloner', 'width='+w+',height='+h+',top='+top+',left='+left+',resizable=yes,scrollbars=yes');
- }
-}
-
-async function runCustomDemoSpeech(){
- var txt = (document.getElementById('demoCustomText').value || '').trim();
- var v = document.getElementById('demoVoiceSel').value || 'ceo_impersonator';
- if(!txt) return;
- var spk = "Custom AI Voice (" + v.split('_')[0] + ")";
- await triggerDemoInjection(txt, v, spk, false, "Custom AI Voice Speech");
 }
 
 async function triggerDemoInjection(text, voiceId, speakerName, isReal, label){
@@ -1248,7 +1081,7 @@ function renderEmptyRoomCard(){
    '</div>' +
   '</div>' +
   '<div style="font-size:11px; color:var(--muted); margin-top:2px;">' +
-   'or <a href="javascript:void(0)" onclick="quickTestThreat()" style="color:#c084fc; font-weight:600; text-decoration:underline;">hear a simulated $250k executive clone</a>' +
+   'or <a href="javascript:void(0)" onclick="runEngineDiagnostic()" style="color:var(--ink2); font-weight:600; text-decoration:underline;">test 5-second acoustic alarm</a>' +
   '</div>' +
   '<div style="margin-top:8px; padding-top:10px; border-top:1px solid var(--line2); width:100%; display:flex; flex-direction:column; align-items:center; gap:4px;">' +
    '<span style="font-size:9.5px; color:var(--green); font-family:var(--mono); letter-spacing:0.04em; display:flex; align-items:center; gap:5px;">' +
@@ -1402,159 +1235,7 @@ function stopLiveMicStream(){
 }
 
 function quickTestThreat(){
- var sel = document.getElementById('quickSimSelect');
- if(sel) sel.value = 'ceo_wire';
- runSelectedSim();
-}
-
-/* ---- Real-Time Voice-to-Voice AI Cloner (Speak into Mic -> AI Cloned Voice Live) ---- */
-var _addonV2VActive = false;
-var _addonV2VRec = null;
-
-function toggleAddonV2V(){
- if(_addonV2VActive){
-  stopAddonV2V();
- } else {
-  startAddonV2V();
- }
-}
-
-var _addonMicStream = null;
-
-async function startAddonV2V(){
- var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
- var btn = document.getElementById('btnAddonV2V');
- var badge = document.getElementById('v2vBadge');
- var transcriptBox = document.getElementById('v2vLiveTranscript');
-
- try {
-  // Request microphone permission directly to unlock iframe audio access
-  if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia){
-   try {
-    _addonMicStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-   } catch(err) {
-    console.warn('Microphone permission request:', err);
-   }
-  }
-
-  if(SpeechRecognition){
-   _addonV2VRec = new SpeechRecognition();
-   _addonV2VRec.continuous = true;
-   _addonV2VRec.interimResults = true;
-   _addonV2VRec.lang = 'en-US';
-
-   var _lastSentTranscript = '';
-   var _sendTimer = null;
-
-   _addonV2VRec.onresult = function(event){
-    var interim = '';
-    var finalTxt = '';
-    for(var i = event.resultIndex; i < event.results.length; i++){
-     var res = event.results[i];
-     if(res.isFinal){
-      finalTxt += res[0].transcript + ' ';
-     } else {
-      interim += res[0].transcript + ' ';
-     }
-    }
-    var currentTxt = (finalTxt || interim).trim();
-    if(currentTxt && currentTxt.length > 2 && currentTxt !== _lastSentTranscript){
-     if(transcriptBox){
-      transcriptBox.style.display = 'block';
-      transcriptBox.innerHTML = '<span style="color:var(--muted)">Heard:</span> "' + esc(currentTxt) + '"<br><span style="color:#ff4d5e;font-weight:700">Synthesizing &amp; Speaking AI Clone...</span>';
-     }
-     if(badge){
-      badge.textContent = 'SYNTHESIZING...';
-      badge.style.color = '#ff4d5e';
-     }
-     clearTimeout(_sendTimer);
-     _sendTimer = setTimeout(async function(){
-      if(!_addonV2VActive || currentTxt === _lastSentTranscript) return;
-      _lastSentTranscript = currentTxt;
-      var vId = document.getElementById('demoVoiceSel').value || 'ceo_impersonator';
-      var spk = "Custom AI Voice (" + vId.split('_')[0] + ")";
-      await triggerDemoInjection(currentTxt, vId, spk, false, "Live Cloned Speech");
-      if(badge && _addonV2VActive){
-       badge.textContent = 'LISTENING (SPEAK TO CLONE)';
-       badge.style.color = 'var(--green)';
-      }
-     }, 450);
-    }
-   };
-
-   _addonV2VRec.onerror = function(e){
-    console.warn('Addon V2V speech recognition error:', e);
-    if(transcriptBox && e.error === 'not-allowed'){
-     transcriptBox.style.display = 'block';
-     transcriptBox.textContent = 'Microphone permission denied. Please allow microphone permissions in your browser.';
-    }
-   };
-
-   _addonV2VRec.onend = function(){
-    if(_addonV2VActive && _addonV2VRec){
-     try{ _addonV2VRec.start(); }catch(x){}
-    }
-   };
-
-   _addonV2VRec.start();
-  } else {
-   alert('Speech recognition is supported in Google Chrome or Microsoft Edge.');
-  }
-
-  _addonV2VActive = true;
-  try{
-   fetch('/api/telemetry/event', {
-    method: 'POST',
-    headers: authHeaders({'Content-Type': 'application/json'}),
-    body: JSON.stringify({kind: 'cloner_opened', detail: {source: 'meet_addon_panel'}})
-   }).catch(function(){});
-  }catch(x){}
-  if(btn){
-   btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg><span>Stop Real-Time Voice Cloner</span>';
-   btn.style.background = 'rgba(255,77,94,0.18)';
-   btn.style.borderColor = 'var(--red)';
-   btn.style.color = 'var(--red)';
-  }
-  if(badge){
-   badge.textContent = 'LISTENING (SPEAK TO CLONE)';
-   badge.style.color = 'var(--green)';
-  }
-  if(transcriptBox){
-   transcriptBox.style.display = 'block';
-   transcriptBox.textContent = 'Listening... Speak into your mic and Sonave will re-speak in the AI cloned voice!';
-  }
- } catch(e){
-  console.error('Failed to start real-time voice cloner:', e);
-  stopAddonV2V();
- }
-}
-
-function stopAddonV2V(){
- _addonV2VActive = false;
- if(_addonV2VRec){
-  try{ _addonV2VRec.stop(); }catch(x){}
-  _addonV2VRec = null;
- }
- if(_addonMicStream){
-  try{ _addonMicStream.getTracks().forEach(function(t){ t.stop(); }); }catch(x){}
-  _addonMicStream = null;
- }
- var btn = document.getElementById('btnAddonV2V');
- var badge = document.getElementById('v2vBadge');
- var transcriptBox = document.getElementById('v2vLiveTranscript');
- if(btn){
-  btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg><span>Start Real-Time Voice-to-Voice AI</span>';
-  btn.style.background = '#0e2a1e';
-  btn.style.borderColor = 'var(--green)';
-  btn.style.color = 'var(--green)';
- }
- if(badge){
-  badge.textContent = 'STANDBY';
-  badge.style.color = 'var(--muted)';
- }
- if(transcriptBox){
-  transcriptBox.style.display = 'none';
- }
+ runEngineDiagnostic();
 }
 
 async function injectMeetTest(){
