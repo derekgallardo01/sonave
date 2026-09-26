@@ -1,13 +1,13 @@
 # Competitive brief — voice-deepfake detection for meetings
 
 Internal. For sales calls, positioning decisions, and objection handling.
-Last updated 2026-08-15 (Resemble DETECT-World launch week).
+Last updated 2026-09-26 (Resemble Agent Detection & Telnyx live-call partnership update).
 
 ## Landscape
 
 | Vendor | What they sell | Meeting story | Accuracy marketing | Pricing posture |
 |---|---|---|---|---|
-| **Resemble AI** (Detect / DETECT-World) | Multi-modal detection (audio/video/image), API + SDKs, Chrome ext, desktop app, enterprise integrations (Salesforce, Workday, Okta, contact-center stacks) | Bots for Meet/Zoom/Teams/Webex, calendar auto-join — launched broad, depth unproven | "Up to 99.5% across modalities", "250+ generators", "#1 on third-party benchmarks" | Free API teaser → contact sales; card-gated workspace |
+| **Resemble AI** (Detect / DETECT-World / Agent Detection) | Multi-modal detection (audio/video/image), API + SDKs, Chrome ext, desktop app, web agent session behavioral detection; CPaaS partnership with Telnyx for live telephony calls | Bots for Meet/Zoom/Teams/Webex (calendar join); Telnyx SIP live-call integration for call centers | "Up to 99.5% across modalities", "250+ generators", "#1 on third-party benchmarks" | Free API teaser → contact sales; card-gated workspace |
 | **Pindrop** | Call-center voice security incumbent (phone channel), now "Pindrop Pulse" for meetings | Meetings product newer; DNA is telephony | Enterprise claims, no public numbers | ~$45/user/mo leaked; enterprise sales only |
 | **Reality Defender** | Multi-modal detection API/platform, deepfake screening | No native in-meeting bot story (API/file oriented) | High headline accuracy claims | Enterprise sales |
 
@@ -31,8 +31,18 @@ the weak numbers included.
 4. **Self-serve speed + transparent price.** Sign in with Google, bot in your
    call in 60 seconds, $8/monitored-hour on the site. No demo call, no MSA
    before value.
+5. **The competitor's own admission:** Resemble publicly wrote in Sep 2026:
+   *"AI-generated voices are moving onto live calls, where post-call detection
+   comes too late."* The industry agrees: post-call file-scanning is an autopsy.
+   The fight is inside the live call.
 
 ## Objection handling
+
+**"Resemble just announced live-call voice detection with Telnyx. Doesn't that do what Sonave does?"**
+No. Telnyx is a programmable telephony carrier / CPaaS (SIP trunking, telecom APIs, contact-center IVRs). Hooking up Telnyx + Resemble requires an engineering team to write code and route telephony audio streams. Furthermore, executive wire fraud and vendor impersonation do not happen on 1-800 toll-free customer support lines; they happen on private Google Meet and Zoom video calls between CFOs, controllers, and counterparties. Sonave is turnkey for meeting platforms (Google Meet Add-on / bot) with zero engineering, an in-room HUD, and an automated wire-hold webhook.
+
+**"Resemble is doing AI Agent Detection too."**
+Resemble's "Agent Detection" is web session behavioral detection—stopping autonomous browser bots from scraping sites, buying tickets, or submitting web forms (competing with Cloudflare Turnstile and Arkose Labs). That is a website traffic management problem. Sonave is 100% dedicated to acoustic voice biometrics and fraud prevention during live human communications.
 
 **"Resemble claims 99.5% — you claim 95% (and 59% on hard stuff). Aren't they better?"**
 Those are different questions. 99.5% is a lab number across modalities on their
@@ -65,9 +75,10 @@ if they're evaluating Pindrop, they have budget — sell the workflow depth.
 
 ## When we genuinely lose (do not fight these)
 
-- Hard multi-modal requirement (video deepfake detection in-scope).
+- Inbound call-center telephony scale over SIP trunks / PSTN (Telnyx + Resemble or Pindrop's home turf).
+- Hard multi-modal requirement (video/image deepfake detection in-scope).
+- Website bot/scraper defense (Agent Detection).
 - Hard on-prem / air-gap requirement.
-- Contact-center telephony scale (Pindrop's home turf).
 - Procurement requires SOC 2 today (roadmap, not reality — do not claim it).
 
 ## Head-to-head bench status (decided 2026-08-15)
