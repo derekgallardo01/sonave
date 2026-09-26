@@ -311,24 +311,28 @@ def _notify_admin(summary: str) -> None:
 def _send_welcome_email(to_email: str, name: str = "") -> None:
     """First-run onboarding guide sent to new users upon signing up."""
     first_name = name.split()[0] if name else "there"
-    subject = "Welcome to Sonave — Voice Authenticity for Google Meet"
+    subject = "Welcome to Sonave — Voice Authenticity for Google Meet™"
     text = f"""Hi {first_name},
 
-Welcome to Sonave! Your account is active and includes 5 free hours of real-time deepfake voice protection every month.
+Welcome to Sonave! Your account is active and includes 1 free hour of live deepfake voice protection.
 
-Getting Started in Google Meet:
+⭐ UNLOCK 4 BONUS FREE HOURS:
+Enjoying Sonave? Leave a quick review on our Google Workspace Marketplace listing to immediately unlock 4 additional hours (5 total free hours):
+https://workspace.google.com/marketplace/app/sonave/940532414120
+
+Getting Started in Google Meet™:
 1. Join any Google Meet call (meet.google.com).
 2. Click the Activities icon (shapes icon at the bottom right) and select "Sonave".
-3. Click "Protect this meeting" — all speakers are analyzed in real time with live REAL, SUSPECT, or FAKE authenticity verdicts.
+3. Click "Start voice verification" — all speakers are analyzed in real time with live REAL, SUSPECT, or FAKE authenticity verdicts.
 
 Try the Instant Preview:
-Open the Sonave panel in any meeting and click "Watch simulated detection" to see a 15-second live threat demo and red wire-hold alert.
+Open the Sonave panel in any meeting and run a 15-second simulation to see a threat demo and red wire-hold alert.
 
 Your Security Console:
 Visit your dashboard anytime to review past calls, inspect forensics, or manage alerts:
 https://usesonave.com/console
 
-If you have questions or need help setting up auto-protection, simply reply directly to this email.
+If you have questions or need help, simply reply directly to this email or visit https://usesonave.com/support.
 
 Best,
 Derek Gallardo
@@ -341,25 +345,33 @@ https://usesonave.com
   <div style="max-width:540px;margin:0 auto;background:#121820;border:1px solid #1f2a36;border-radius:12px;padding:32px 28px;">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:24px;">
       <span style="font-size:20px;font-weight:700;color:#2ee584;letter-spacing:-0.5px;">SONAVE</span>
-      <span style="font-size:11px;color:#8599a8;border:1px solid #233342;padding:2px 8px;border-radius:12px;">Google Meet Voice Security</span>
+      <span style="font-size:11px;color:#8599a8;border:1px solid #233342;padding:2px 8px;border-radius:12px;">Google Meet™ Voice Security</span>
     </div>
     <h1 style="font-size:20px;font-weight:700;color:#ffffff;margin:0 0 16px 0;">Welcome to Sonave, {first_name}</h1>
     <p style="font-size:14px;line-height:1.6;color:#b0c2ce;margin:0 0 20px 0;">
-      Your account is ready with <strong>5 free hours of live deepfake voice protection</strong> every month.
+      Your account is ready with <strong>1 free hour of live deepfake voice protection</strong> included.
     </p>
+
+    <div style="background:rgba(46,229,132,0.06);border:1px solid rgba(46,229,132,0.25);border-radius:8px;padding:16px 18px;margin-bottom:24px;">
+      <div style="font-size:13px;font-weight:700;color:#2ee584;margin-bottom:6px;">
+        ⭐ UNLOCK 4 BONUS FREE HOURS
+      </div>
+      <p style="font-size:12.5px;color:#d5e2eb;line-height:1.55;margin:0 0 12px 0;">
+        Leave a quick rating on the Google Workspace Marketplace™ to unlock 4 additional hours of free voice protection on your account (5 total free hours).
+      </p>
+      <a href="https://workspace.google.com/marketplace/app/sonave/940532414120" style="background:#2ee584;color:#0a0e12;font-size:12px;font-weight:700;text-decoration:none;padding:7px 14px;border-radius:6px;display:inline-block;">
+        Rate on Marketplace &rarr;
+      </a>
+    </div>
 
     <div style="background:#17222c;border:1px solid #233342;border-radius:8px;padding:18px 20px;margin-bottom:24px;">
       <div style="font-size:13px;font-weight:600;color:#2ee584;margin-bottom:10px;">HOW TO PROTECT A MEETING:</div>
       <ol style="margin:0;padding-left:20px;font-size:13px;color:#d5e2eb;line-height:1.8;">
-        <li>Join any Google Meet call (<code style="color:#2ee584;">meet.google.com</code>).</li>
+        <li>Join any Google Meet™ call (<code style="color:#2ee584;">meet.google.com</code>).</li>
         <li>Click the <strong>Activities</strong> icon (bottom right) and select <strong>Sonave</strong>.</li>
-        <li>Click <strong>Protect this meeting</strong> — speakers get verified authentic in real time.</li>
+        <li>Click <strong>Start voice verification</strong> — speakers get verified authentic in real time.</li>
       </ol>
     </div>
-
-    <p style="font-size:13px;line-height:1.6;color:#8599a8;margin:0 0 24px 0;">
-      💡 <em>Tip: You can also click <strong>"Watch simulated detection"</strong> inside the Meet side panel for an instant 15-second preview of what a flagged voice clone looks like.</em>
-    </p>
 
     <div style="text-align:center;margin:28px 0 20px 0;">
       <a href="https://usesonave.com/console" style="background:#2ee584;color:#0a0e12;font-size:14px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:6px;display:inline-block;">Open Security Console →</a>
@@ -367,7 +379,8 @@ https://usesonave.com
 
     <div style="border-top:1px solid #1f2a36;margin-top:28px;padding-top:18px;font-size:12px;color:#5a6d7d;line-height:1.5;">
       Sonave Security Inc. · Real-Time Deepfake Detection for Video Meetings<br>
-      Console: <a href="https://usesonave.com/console" style="color:#2ee584;text-decoration:none;">usesonave.com/console</a>
+      Support: <a href="https://usesonave.com/support" style="color:#2ee584;text-decoration:none;">usesonave.com/support</a> &bull; Console: <a href="https://usesonave.com/console" style="color:#2ee584;text-decoration:none;">usesonave.com/console</a><br>
+      <span style="font-size:10.5px;color:#435260;display:block;margin-top:6px;">Google Meet™ and Google Workspace™ are trademarks of Google LLC.</span>
     </div>
   </div>
 </body>
@@ -3124,7 +3137,7 @@ def auth_callback(request: Request, code: str = "", state: str = ""):
     # exact-equal floats only on the INSERT path (db.upsert_google_user uses one `now`)
     if user.get("created_ts") == user.get("last_login_ts"):
         _track(user["id"], "signup", email=user.get("email") or "")
-        _notify_admin(f"New signup: {user.get('email')}")
+        _notify_admin(f"👤 New Signup: {user.get('email')} · {_now_et()}")
         if user.get("email"):
             _send_welcome_email(user["email"], user.get("name", ""))
             _track(user["id"], "email_sent", type="welcome", to=user["email"])
@@ -3154,7 +3167,7 @@ def auth_google_credential(req: CredReq):
         raise HTTPException(status_code=403, detail="credential verification failed")
     if user.get("created_ts") == user.get("last_login_ts"):
         _track(user["id"], "signup", email=user.get("email") or "")
-        _notify_admin(f"New signup: {user.get('email')}")
+        _notify_admin(f"👤 New Signup: {user.get('email')} · {_now_et()}")
         if user.get("email"):
             _send_welcome_email(user["email"], user.get("name", ""))
             _track(user["id"], "email_sent", type="welcome", to=user["email"])
