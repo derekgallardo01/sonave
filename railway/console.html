@@ -371,13 +371,9 @@ a:hover{color:var(--green-hover)}
        </div>
       </div>
       <div class="idle-t1" style="font-size:16px;font-weight:800;color:var(--ink);letter-spacing:-0.01em;">Voice Authenticity Engine Standby</div>
-      <div class="idle-t2" style="font-size:12.5px;color:var(--ink2);max-width:420px;line-height:1.6;">Sonave operates 100% botless. Open Sonave in your Google Meet side panel during any meeting for instant neural verification, or run an engine diagnostic check right here.</div>
+      <div class="idle-t2" style="font-size:12.5px;color:var(--ink2);max-width:420px;line-height:1.6;">Sonave operates 100% botless. Open Sonave in your Google Meet side panel during any meeting for instant neural verification.</div>
       <div style="display:flex;gap:10px;margin-top:4px">
-       <button class="btn-primary" onclick="runConsoleDiagnostic()" style="display:inline-flex;align-items:center;gap:6px">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
-        <span>Test Acoustic Alarm</span>
-       </button>
-       <a href="/meet-addon" target="_blank" rel="noopener" class="btn-soft" style="display:inline-flex;align-items:center;gap:6px">
+       <a href="/meet-addon" target="_blank" rel="noopener" class="btn-primary" style="display:inline-flex;align-items:center;gap:6px">
         <span>Google Meet Panel ↗</span>
        </a>
       </div>
@@ -427,7 +423,7 @@ a:hover{color:var(--green-hover)}
       </div>
      </div>
 
-     <!-- Enterprise Engine Diagnostics & Acoustic Alarm Test (Directly Beneath Spectrogram) -->
+     <!-- Enterprise Engine Diagnostics (Directly Beneath Spectrogram) -->
      <div style="padding:12px 20px 14px; border-top:1px solid var(--line); background:rgba(10,14,18,0.75);">
       <div style="display:flex; justify-content:space-between; align-items:center;">
        <div style="display:flex; align-items:center; gap:8px;">
@@ -439,14 +435,6 @@ a:hover{color:var(--green-hover)}
          </div>
          <div id="consoleDiagSub" style="font-size:10px; color:var(--muted); margin-top:2px;">Continuous sliding-window neural verification · XLSR-53 Scorer</div>
         </div>
-       </div>
-       <div style="display:flex; align-items:center; gap:8px;">
-        <button id="btnConsoleDiagTest" class="btn-soft" onclick="runConsoleDiagnostic()" style="padding:6px 12px; font-size:11px; font-weight:700; border-radius:7px; cursor:pointer;" title="Run a 5-second acoustic alarm test to verify neural models">
-         Test Alarm
-        </button>
-        <button id="btnConsoleClearThreat" class="btn-soft" onclick="dismissThreatCheck()" style="display:none; padding:6px 10px; font-size:10.5px; font-weight:700; border-color:rgba(255,77,94,0.45); background:rgba(255,77,94,0.09); color:#ff808d; border-radius:7px; cursor:pointer;" title="Clear active test and return meeting to clean authentic status">
-         ↺ Clear
-        </button>
        </div>
       </div>
      </div>
@@ -531,15 +519,20 @@ a:hover{color:var(--green-hover)}
        <span class="card-lbl">PIPELINE DIAGNOSTICS</span>
        <span class="update-note">Engine Verification</span>
       </div>
-      <div class="hint" style="margin-bottom:12px;">Run on-demand acoustic alarm checks to verify neural scoring thresholds, alert sirens, and WebRTC streaming buffers.</div>
+      <div class="hint" style="margin-bottom:12px;">Real-time acoustic engine status and continuous sliding-window neural verification.</div>
       <div style="display:flex; flex-direction:column; gap:8px;">
-       <button class="btn-primary" onclick="runConsoleDiagnostic()" style="width:100%; display:inline-flex; align-items:center; justify-content:center; gap:6px;">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
-        <span>Run 5-Second Alarm Test</span>
-       </button>
-       <button class="btn-soft" onclick="runConsolePreset('derek_natural')" style="width:100%; display:inline-flex; align-items:center; justify-content:center; gap:6px;">
-        <span>Verify Authentic Human Baseline</span>
-       </button>
+       <div style="background:var(--panel2); border:1px solid var(--line2); border-radius:8px; padding:10px 12px;">
+        <div style="font-size:10px; font-family:var(--mono); color:var(--muted)">NEURAL SCORER</div>
+        <div style="font-size:12px; font-weight:700; color:var(--green); margin-top:2px">XLSR-53 v2.4 (Active)</div>
+       </div>
+       <div style="background:var(--panel2); border:1px solid var(--line2); border-radius:8px; padding:10px 12px;">
+        <div style="font-size:10px; font-family:var(--mono); color:var(--muted)">ACOUSTIC INGESTION</div>
+        <div style="font-size:12px; font-weight:700; color:var(--green); margin-top:2px">Botless WebRTC Stream (38ms)</div>
+       </div>
+       <div style="background:var(--panel2); border:1px solid var(--line2); border-radius:8px; padding:10px 12px;">
+        <div style="font-size:10px; font-family:var(--mono); color:var(--muted)">ANALYSIS WINDOW</div>
+        <div style="font-size:12px; font-weight:700; color:var(--green); margin-top:2px">Continuous 4.0s Sliding Window</div>
+       </div>
       </div>
       <div class="hint" style="margin-top:10px">Verifies XLSR-53 neural feature extraction, cross-attention scoring, and exportable incident telemetry.</div>
      </div>
@@ -2221,90 +2214,7 @@ function setSynthPrompt(idx){
  if(inp && SYNTH_PHRASES[idx]) inp.value = SYNTH_PHRASES[idx];
 }
 
-var CONSOLE_DEMO_PRESETS = {
- ceo_wire: {
-  text: "Hey team, this is an urgent executive request. Please authorize the $250,000 vendor wire transfer before noon cutoff today. I will sign the paperwork as soon as I land.",
-  voice_id: "ceo_impersonator",
-  speaker_name: "Executive Baritone (AI Clone)",
-  is_real: false
- },
- it_mfa: {
-  text: "Hello, this is corporate IT security. We detected an unauthorized login attempt on your account. I just pushed a six-digit verification code to your app — please read that code back to me immediately.",
-  voice_id: "elevenlabs_brian",
-  speaker_name: "IT Security Lead (Clone)",
-  is_real: false
- },
- cfo_payroll: {
-  text: "Good morning. We have an urgent update regarding corporate payroll accounts. I need you to update the direct deposit routing numbers for the executive team immediately.",
-  voice_id: "treasury_lead_female",
-  speaker_name: "Senior Treasury Lead (Clone)",
-  is_real: false
- },
- real_baseline: {
-  text: "Good morning everyone, thank you for joining the product sync. We're going over the release milestones and deployment checklist for this week.",
-  voice_id: "derek_natural",
-  speaker_name: "Natural Human Speaker (Real)",
-  is_real: true
- }
-};
 
-async function runConsoleDiagnostic(){
- var btn = document.getElementById('btnConsoleDiagTest');
- if(btn){
-  btn.disabled = true;
-  btn.textContent = 'Probing...';
- }
- var sub = document.getElementById('consoleDiagSub');
- if(sub) sub.textContent = 'Injecting 5-second acoustic alarm probe...';
- await runConsolePreset('ceo_wire');
- if(btn){
-  btn.disabled = false;
-  btn.textContent = 'Test Alarm';
- }
- if(sub) sub.textContent = 'Continuous sliding-window neural verification · XLSR-53 Scorer';
-}
-
-async function runConsolePreset(key){
- var p = CONSOLE_DEMO_PRESETS[key];
- if(!p) return;
- try {
-  var r = await fetch('/api/generator/inject-test', {
-   method: 'POST',
-   headers: {'Content-Type': 'application/json'},
-   body: JSON.stringify({text: p.text, voice_id: p.voice_id, speaker_name: p.speaker_name, is_real: !!p.is_real})
-  });
-  var d = await r.json();
-  if(d.ok){
-   if(p.is_real){
-    toast('Real Human Baseline Verified · 99% Authentic', 'ok');
-   } else {
-    toast('Acoustic Alarm Probe Injected · 98.5% Threat Detected!', 'ok');
-    var btc = document.getElementById('btnConsoleClearThreat');
-    if(btc) btc.style.display = 'inline-flex';
-   }
-   if(d.audio_base64){
-    var a = new Audio('data:audio/mp3;base64,' + d.audio_base64);
-    a.play().catch(function(){});
-   }
-  } else {
-   toast('Diagnostic probe failed: ' + (d.detail||d.error), 'err');
-  }
- } catch(e){
-  toast('Diagnostic probe failed', 'err');
- }
-}
-
-async function dismissThreatCheck(){
- var btc = document.getElementById('btnConsoleClearThreat');
- if(btc) btc.style.display = 'none';
- try {
-  await fetch('/api/generator/clear-test', {
-   method: 'POST',
-   headers: {'Content-Type': 'application/json'}
-  });
- } catch(e){}
- toast('Diagnostic alarm cleared · Baseline restored', 'ok');
-}
 
 async function loadVoiceProfiles(){ /* legacy stub */ }
 

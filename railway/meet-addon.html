@@ -163,15 +163,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
    <div><b>2</b><span>Each speaker scored in <strong>~4 seconds</strong>, refreshed continuously</span></div>
    <div><b>3</b><span>Synthetic voice → <strong>red alert</strong> + exportable forensic report</span></div>
   </div>
-  <div id="protectSimWrap" style="margin-top:12px; padding:9px 12px; background:rgba(46,229,132,0.04); border:1px solid rgba(46,229,132,0.2); border-radius:10px; display:flex; align-items:center; justify-content:space-between;">
-    <div>
-     <div style="font-size:10px; font-weight:800; font-family:var(--mono); color:var(--green); letter-spacing:0.04em;">SYSTEM DIAGNOSTIC:</div>
-     <div style="font-size:10.5px; color:var(--ink2);">Run a 5-second acoustic alarm test</div>
-    </div>
-    <button class="btn-soft" onclick="runProtectSim()" style="padding:5px 12px; font-size:10.5px; font-weight:700; border-radius:7px; cursor:pointer; white-space:nowrap;">
-     Test Alarm &rarr;
-    </button>
-   </div>
+
   <div id="codeRow" style="display:none;margin-top:10px">
    <input id="codeInp" placeholder="Paste the meeting link (meet.google.com/…)"
           style="width:100%;padding:9px 11px;border-radius:9px;border:1px solid var(--line2);background:var(--bg);color:var(--ink);font:12px var(--font);box-sizing:border-box">
@@ -196,7 +188,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
   <div><b>SESSION</b><span id="stSess">0:00</span></div>
   <div><b>PEAK RISK</b><span id="stPeak">0%</span></div>
  </div>
- <!-- Enterprise Engine Diagnostics & Alarm Test -->
+ <!-- Enterprise Engine Diagnostics -->
    <div id="demoSoundboard" style="display:none; margin:0 12px 10px; border:1px solid var(--line2); border-radius:10px; background:var(--panel); padding:9px 12px; box-sizing:border-box;">
     <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
      <div style="display:flex; align-items:center; gap:7px; min-width:0;">
@@ -209,23 +201,6 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
        <div id="diagSub" style="font-size:9.5px; color:var(--muted); line-height:1.2; margin-top:1px;">Continuous sliding-window neural verification</div>
       </div>
      </div>
-     <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
-      <button id="btnDiagTest" class="btn-soft" onclick="runEngineDiagnostic()" style="padding:4px 9px; font-size:10px; font-weight:700; border-radius:6px; cursor:pointer;" title="Run a 5-second acoustic alarm test to verify neural models">
-       Test Alarm
-      </button>
-      <button id="btnThreatClear" class="btn-soft" onclick="dismissThreatCheck()" style="display:none; padding:3px 7px; font-size:9.5px; font-weight:700; border-color:rgba(255,77,94,0.4); background:rgba(255,77,94,0.08); color:#ff808d; border-radius:6px; cursor:pointer;" title="Clear test and restore authentic status">
-       ↺ Clear
-      </button>
-     </div>
-    </div>
-
-    <!-- Active Test Bar (Visible only during the 5s diagnostic test) -->
-    <div id="demoActiveBar" style="display:none; margin-top:7px; padding:5px 8px; border-radius:6px; background:rgba(255,77,94,0.12); border:1px solid rgba(255,77,94,0.35); align-items:center; justify-content:space-between;">
-     <div style="font-size:10px; color:#ff808d; font-weight:700; display:flex; align-items:center; gap:5px;">
-      <span class="spin" style="width:9px; height:9px; border-top-color:#ff4d5e"></span>
-      <span id="demoActiveText">Alarm test running (5s)...</span>
-     </div>
-     <button class="btn-soft" onclick="dismissThreatCheck()" style="padding:1px 6px; font-size:9px; font-weight:700; border-color:rgba(255,77,94,0.4); color:#ff808d; cursor:pointer;">Stop ×</button>
     </div>
    </div>
 
@@ -645,11 +620,10 @@ async function poll(){
   } else if(hasAudio){
    var keys=ks.join('|');
    if(list._keys!==keys){list.innerHTML=ks.map(rowHTML).join('');list._keys=keys}
-   var maxP=0, anyTalk=false, anyVerdict=false, checks=0, sess=0, hasSim=false;
+   var maxP=0, anyTalk=false, anyVerdict=false, checks=0, sess=0;
    ks.forEach(function(k,i){
     var s=d[k], p=s.auth_p!=null?s.auth_p:0;
     if(p>maxP)maxP=p;
-    if(k.indexOf('Clone')!==-1 || k.indexOf('Test')!==-1 || k.indexOf('Simulate')!==-1) hasSim=true;
     var quiet = s.state === 'quiet' || s.state === 'muted' || (s.quiet_sec || 0) >= 1.2 || (s.level || 0) < 0.012;
     var talk = !quiet && (s.state === 'speaking' || (s.level || 0) >= 0.012);
     if(talk) anyTalk = true;
@@ -669,8 +643,6 @@ async function poll(){
     var isFake = anyVerdict && hasActiveThreat;
     _isCurrentFake = isFake;
 
-    var btnDismiss = document.getElementById('btnDismiss');
-    if(btnDismiss) btnDismiss.style.display = (hasSim || _simActive) ? 'inline-flex' : 'none';
     document.getElementById('stWin').textContent=checks;
     sess=Math.max(sess, _connectedSince?Math.round((Date.now()-_connectedSince)/1000):0);
     document.getElementById('stSess').textContent=hmsP(sess);
@@ -718,22 +690,7 @@ async function poll(){
   var specWrap = document.getElementById('miniSpecWrap');
   if(specWrap) specWrap.style.display = isProtected ? 'block' : 'none';
   var sb = document.getElementById('demoSoundboard');
-  if(sb){
-   if(!isProtected){
-    sb.style.display = 'none';
-   } else {
-    var realSpeakers = ks ? ks.filter(function(k){ return !isSimSpk(k); }) : [];
-    if(realSpeakers.length >= 2){
-     sb.style.display = 'none';
-    } else {
-     sb.style.display = 'block';
-    }
-   }
-  }
-  var btc = document.getElementById('btnThreatClear');
-  if(btc){
-   btc.style.display = (isFake || _simActive || maxP >= 0.5) ? 'inline-flex' : 'none';
-  }
+  if(sb) sb.style.display = isProtected ? 'block' : 'none';
  }catch(e){
  }finally{
   _inPoll = false;
@@ -741,20 +698,13 @@ async function poll(){
 }
 var _pt={},_pd={},_peak=0, _isCurrentFake=false;
 function hmsP(t){t=Math.round(t||0);return Math.floor(t/60)+':'+('0'+t%60).slice(-2)}
-function isSimSpk(k){
- var l = String(k||'').toLowerCase();
- return l.indexOf('(ai')!==-1 || l.indexOf('ai ')!==-1 || l.indexOf('clone')!==-1 || l.indexOf('test')!==-1 || l.indexOf('simulate')!==-1 || l.indexOf('custom')!==-1 || l.indexOf('voice')!==-1 || l.indexOf('ceo')!==-1 || l.indexOf('cfo')!==-1 || l.indexOf('vp')!==-1 || l.indexOf('brian')!==-1 || l.indexOf('andrew')!==-1 || l.indexOf('treasury')!==-1 || l.indexOf('impersonator')!==-1 || l.indexOf('director')!==-1 || l.indexOf('partner')!==-1 || l.indexOf('british')!==-1 || l.indexOf('spanish')!==-1 || l.indexOf('french')!==-1 || l.indexOf('german')!==-1;
-}
 
 function rowHTML(k){
- var isSim = isSimSpk(k);
- var dismissBtn = isSim ? '<button class="btn-soft" onclick="dismissThreatCheck()" style="padding:2px 6px;font-size:9.5px;font-weight:700;margin-left:auto;margin-right:5px;border-color:rgba(255,77,94,0.4);background:rgba(255,77,94,0.1);color:#ff808d;cursor:pointer;flex-shrink:0;" title="Clear this threat">✕</button>' : '';
  var initial = (k && k.charAt(0)) ? k.charAt(0).toUpperCase() : 'Y';
  if(isMe(k) && ME && ME.name) initial = ME.name.charAt(0).toUpperCase();
  return '<div class="spk" data-spk="'+esc(k)+'">'+
   '<div class="srow"><div class="savatar">'+esc(initial)+'</div>'+
   '<div class="smain" style="min-width:0;flex:1;"><div class="sname" style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div><div class="ssub"></div></div>'+
-  dismissBtn +
   '<span class="spct">—</span></div>'+
   '<div class="track"><div class="fill" style="width:0%"></div></div>'+
   '<div class="smeta"></div>'+
@@ -862,242 +812,6 @@ function panelAnim(){
 }
 requestAnimationFrame(panelAnim);
 function show(id){['signin','live'].forEach(function(x){document.getElementById(x).style.display=x===id?'flex':'none'})}
-var _simAudio = null;
-var _simActive = false;
-var _selectedSinkId = '';
-
-var DEMO_PRESETS = {
- ceo_wire: {
-  text: "Hey team, this is an urgent executive request. Please authorize the $250,000 vendor wire transfer before noon cutoff today. I will sign the paperwork as soon as I land.",
-  voice_id: "ceo_impersonator",
-  speaker_name: "ElevenLabs CEO (Clone)",
-  is_real: false,
-  title: "ElevenLabs CEO Clone ($250k Wire)"
- },
- openai_andrew: {
-  text: "Hi team, I wanted to jump on the call real quick. We just reviewed the budget allocations and we need executive approval to disburse the pending payment right now.",
-  voice_id: "openai_andrew",
-  speaker_name: "OpenAI Voice Engine (Clone)",
-  is_real: false,
-  title: "OpenAI Conversational Voice"
- },
- cfo_payroll: {
-  text: "Good morning. We have an urgent update regarding corporate payroll accounts. I need you to update the direct deposit routing numbers for the executive team immediately.",
-  voice_id: "cfo_impersonator",
-  speaker_name: "CFO Treasury (Clone)",
-  is_real: false,
-  title: "CFO Payroll Diversion (VP Treasury)"
- },
- it_mfa: {
-  text: "Hello, this is corporate IT security. We detected an unauthorized login attempt on your account. I just pushed a six-digit verification code to your app — please read that code back to me immediately.",
-  voice_id: "elevenlabs_brian",
-  speaker_name: "IT Security Lead (Clone)",
-  is_real: false,
-  title: "IT Security MFA Code Theft"
- },
- british_exec_male: {
-  text: "Good afternoon from London. I'm following up on the acquisition escrow transfer instructions sent across earlier. We require funds cleared today without delay.",
-  voice_id: "british_exec_male",
-  speaker_name: "British Partner (Clone)",
-  is_real: false,
-  title: "British Partner (London)"
- },
- german_treasury: {
-  text: "Hello, Frankfurt treasury office speaking. Please confirm execution of the EUR cross-border settlement for our European subsidiary today.",
-  voice_id: "german_treasury",
-  speaker_name: "German Treasury (Clone)",
-  is_real: false,
-  title: "German Treasury Director (Frankfurt)"
- },
- french_director: {
-  text: "Bonjour team, this is the Paris managing director. I need immediate sign-off on the revised vendor consultancy wire before the close of European banking hours.",
-  voice_id: "french_director",
-  speaker_name: "French Managing Director (Clone)",
-  is_real: false,
-  title: "French Managing Director (Paris)"
- },
- spanish_controller: {
-  text: "Hola, calling from Madrid. We have reviewed the tax reconciliation and need dual-authorization for the international disbursement right away.",
-  voice_id: "spanish_controller",
-  speaker_name: "Spanish Controller (Clone)",
-  is_real: false,
-  title: "Spanish Controller (Madrid)"
- },
- real_baseline: {
-  text: "Good morning everyone, thank you for joining the product sync. We're going over the release milestones and deployment checklist for this week.",
-  voice_id: "derek_natural",
-  speaker_name: "Natural Human Speaker (Real)",
-  is_real: true,
-  title: "Real Human Voice Baseline"
- }
-};
-
-async function runEngineDiagnostic(){
- var btn = document.getElementById('btnDiagTest');
- if(btn) {
-  btn.disabled = true;
-  btn.textContent = 'Probing...';
- }
- var sub = document.getElementById('diagSub');
- if(sub) sub.textContent = 'Injecting 5-second acoustic alarm probe...';
- await runDemoPreset('ceo_wire');
- if(btn) {
-  btn.disabled = false;
-  btn.textContent = 'Test Alarm';
- }
- if(sub) sub.textContent = 'Continuous sliding-window neural verification';
-}
-
-async function runProtectSim(){
- _connected = true;
- _connectedSince = _connectedSince || Date.now();
- deployDone();
- await runEngineDiagnostic();
-}
-
-async function setAudioSink(sinkId){
- _selectedSinkId = sinkId || '';
- try{
-  localStorage.setItem('sonave_sink', _selectedSinkId);
-  var sel = document.getElementById('demoSinkSel');
-  if(sel && sel.selectedIndex >= 0){
-   localStorage.setItem('sonave_sink_label', sel.options[sel.selectedIndex].text);
-  }
- }catch(x){}
- var b = document.getElementById('demoDevBadge');
- if(b) b.textContent = sinkId ? 'VB-Cable Out' : 'Direct Ingest';
-}
-
-async function populateAudioOutputs(){
- try{
-  if(!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
-  var devices = await navigator.mediaDevices.enumerateDevices();
-  var sinks = devices.filter(function(d){ return d.kind === 'audiooutput'; });
-  var sel = document.getElementById('demoSinkSel');
-  if(sel && sinks.length > 0){
-   var savedSink = '';
-   var savedLabel = '';
-   try {
-    savedSink = localStorage.getItem('sonave_sink') || '';
-    savedLabel = localStorage.getItem('sonave_sink_label') || '';
-   } catch(x){}
-
-   var foundSelected = false;
-   sel.innerHTML = '<option value="">Out: Default</option>';
-
-   sinks.forEach(function(s){
-    var opt = document.createElement('option');
-    opt.value = s.deviceId;
-    var lbl = s.label || ('Audio Out (' + s.deviceId.slice(0,4) + ')');
-    opt.textContent = lbl.length > 24 ? lbl.slice(0, 22) + '…' : lbl;
-
-    if(savedSink && s.deviceId === savedSink){
-     opt.selected = true;
-     _selectedSinkId = s.deviceId;
-     foundSelected = true;
-    } else if(!foundSelected && savedLabel && s.label && s.label === savedLabel){
-     opt.selected = true;
-     _selectedSinkId = s.deviceId;
-     foundSelected = true;
-    } else if(!foundSelected && !savedSink && s.label && (
-     s.label.toUpperCase().indexOf('CABLE') !== -1 ||
-     s.label.toUpperCase().indexOf('VB-AUDIO') !== -1 ||
-     s.label.toUpperCase().indexOf('VIRTUAL') !== -1 ||
-     s.label.toUpperCase().indexOf('VOICEMEETER') !== -1 ||
-     s.label.toUpperCase().indexOf('BLACKHOLE') !== -1
-    )){
-     opt.selected = true;
-     _selectedSinkId = s.deviceId;
-     foundSelected = true;
-    }
-    sel.appendChild(opt);
-   });
-
-   if(!foundSelected){
-    sel.selectedIndex = 0;
-    _selectedSinkId = '';
-   }
-   var b = document.getElementById('demoDevBadge');
-   if(b) b.textContent = _selectedSinkId ? 'VB-Cable Out' : 'Direct Ingest';
-  }
- }catch(e){}
-}
-
-async function playAudioBuffer(b64){
- if(_simAudio){
-  try{ _simAudio.pause(); }catch(x){}
-  _simAudio = null;
- }
- if(!b64) return;
- _simAudio = new Audio('data:audio/mp3;base64,' + b64);
- if(_selectedSinkId && typeof _simAudio.setSinkId === 'function'){
-  try{ await _simAudio.setSinkId(_selectedSinkId); }catch(x){}
- }
- _simAudio.play().catch(function(){});
-}
-
-async function runDemoPreset(presetKey){
- var p = DEMO_PRESETS[presetKey];
- if(!p) return;
- await triggerDemoInjection(p.text, p.voice_id, p.speaker_name, p.is_real, p.title);
-}
-
-async function triggerDemoInjection(text, voiceId, speakerName, isReal, label){
-  var bar = document.getElementById('demoActiveBar');
-  var lbl = document.getElementById('demoActiveText');
-  var btc = document.getElementById('btnThreatClear');
-  if(btc){
-   btc.style.display = isReal ? 'none' : 'inline-flex';
-  }
-  if(bar){
-   bar.style.display = 'flex';
-   bar.style.background = isReal ? 'rgba(46,229,132,0.1)' : 'rgba(255,77,94,0.12)';
-   bar.style.borderColor = isReal ? 'rgba(46,229,132,0.35)' : 'rgba(255,77,94,0.3)';
-  }
- if(lbl){
-  lbl.textContent = 'Playing ' + (isReal ? '🟢 ' : '🔴 ') + label + '...';
-  lbl.style.color = isReal ? 'var(--green)' : '#ff808d';
- }
- _simActive = true;
- try{
-  fetch('/api/telemetry/event', {
-   method: 'POST',
-   headers: authHeaders({'Content-Type': 'application/json'}),
-   body: JSON.stringify({
-    kind: 'diagnostic_run',
-    detail: getMeetClientMeta({test_name: label, voice_id: voiceId, is_real: !!isReal, space: window._meetCode || ''})
-   })
-  }).catch(function(){});
- }catch(x){}
-
- try{
-  var r = await fetch('/api/generator/inject-test', {
-   method: 'POST',
-   headers: authHeaders({'Content-Type': 'application/json'}),
-   body: JSON.stringify({text: text, voice_id: voiceId, speaker_name: speakerName, is_real: !!isReal})
-  });
-  var d = await r.json();
-  if(d.ok && d.audio_base64){
-   await playAudioBuffer(d.audio_base64);
-  }
-  _connected = true;
-  _connectedSince = _connectedSince || Date.now();
-  await poll();
- }catch(e){
-  console.error('Demo injection failed:', e);
- }finally{
-  var dur = (d && d.duration_sec ? d.duration_sec * 1000 : 6000) + 1000;
-  setTimeout(function(){
-   if(bar && !isReal) {
-    lbl.textContent = 'Threat Active · Scored ' + (d && d.p_fake ? Math.round(d.p_fake*100) : 98) + '% Fake';
-   } else if(bar) {
-    bar.style.display = 'none';
-   }
-   maybeShowReviewPrompt();
-  }, dur);
- }
-}
-
 /* ---- Review-to-Unlock Bonus Free Hours System ---- */
 function maybeShowReviewPrompt(){
  try{
@@ -1158,9 +872,7 @@ function renderEmptyRoomCard(){
     '<div id="scBar" style="height:100%; width:0%; background:#2ee584; transition:width 0.1s linear;"></div>' +
    '</div>' +
   '</div>' +
-  '<div style="font-size:11px; color:var(--muted); margin-top:2px;">' +
-   'or <a href="javascript:void(0)" onclick="runEngineDiagnostic()" style="color:var(--ink2); font-weight:600; text-decoration:underline;">test 5-second acoustic alarm</a>' +
-  '</div>' +
+
   '<div style="margin-top:8px; padding-top:10px; border-top:1px solid var(--line2); width:100%; display:flex; flex-direction:column; align-items:center; gap:4px;">' +
    '<span style="font-size:9.5px; color:var(--green); font-family:var(--mono); letter-spacing:0.04em; display:flex; align-items:center; gap:5px;">' +
     '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>' +
@@ -1218,6 +930,16 @@ async function finishMicSoundcheck(){
  if(statusTxt) statusTxt.textContent = 'Verifying authenticity...';
 
  var hostName = (ME && (ME.name || ME.email)) || 'Host';
+ try {
+  fetch('/api/telemetry/event', {
+   method: 'POST',
+   headers: authHeaders({'Content-Type': 'application/json'}),
+   body: JSON.stringify({
+    kind: 'diagnostic_run',
+    detail: getMeetClientMeta({test_name: 'mic_soundcheck', space: window._meetCode || ''})
+   })
+  }).catch(function(){});
+ }catch(x){}
  try {
   var res = await fetch('/api/audio/soundcheck', {
    method: 'POST',
@@ -1312,52 +1034,7 @@ function stopLiveMicStream(){
  }catch(x){}
 }
 
-function quickTestThreat(){
- runEngineDiagnostic();
-}
-
-async function injectMeetTest(){
- await runDemoPreset('ceo_wire');
-}
-
-async function dismissThreatCheck(){
- if(_simAudio){
-  try{ _simAudio.pause(); }catch(x){}
-  _simAudio = null;
- }
- _simActive = false;
- var bar = document.getElementById('demoActiveBar');
- if(bar) bar.style.display = 'none';
- var btnDismiss = document.getElementById('btnDismiss');
- if(btnDismiss) btnDismiss.style.display = 'none';
- var btc = document.getElementById('btnThreatClear');
- if(btc) btc.style.display = 'none';
- try{
-  await fetch('/api/generator/clear-test', {
-   method: 'POST',
-   headers: authHeaders()
-  });
- }catch(e){
-  console.error('Clear test failed:', e);
- }
- Object.keys(_pt).forEach(function(k){
-  if(isSimSpk(k)){
-   delete _pt[k];
-   delete _pd[k];
-  }
- });
- _peak = 0;
- var list = document.getElementById('speakers');
- if(list) {
-  list._keys = '';
-  list.innerHTML = '';
- }
- await poll();
-  setTimeout(maybeShowReviewPrompt, 1000);
-}
-
 function boot(){
- populateAudioOutputs();
  try{
   var meta = getMeetClientMeta({space: window._meetCode || ''});
   fetch('/api/telemetry/event', {

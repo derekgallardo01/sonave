@@ -71,10 +71,27 @@ def test_generator_http_endpoints(railway_mod, tmp_path, monkeypatch):
     assert "audio/" in r_syn.headers["content-type"]
     assert len(r_syn.content) > 100
 
-    # 3. POST /api/generator/inject-test
+    # 3. POST /api/generator/inject-test (Admin allowed)
     r_inj = client.post("/api/generator/inject-test", json={"text": "Urgent wire transfer", "voice_id": "me_clone", "speaker_name": "Derek (Clone)"})
     assert r_inj.status_code == 200
     d_inj = r_inj.json()
     assert d_inj["ok"] is True
     assert d_inj["p_fake"] > 0.95
     assert d_inj["audio_base64"] is not None
+
+    # 4. POST /api/generator/inject-test (Non-admin 403 Forbidden)
+    u_member = railway_mod.db.upsert_google_user("sub_mem", "member@corp.com", "Member", "", "member")
+    sess_mem = railway_mod.auth.sign_session(u_member["id"])
+    client_mem = TestClient(railway_mod.app)
+    client_mem.cookies.set("sonave_session", sess_mem)
+    r_inj_forbidden = client_mem.post("/api/generator/inject-test", json={"text": "Urgent wire transfer", "voice_id": "me_clone", "speaker_name": "Derek (Clone)"})
+    assert r_inj_forbidden.status_code == 403
+
+    # 5. POST /api/generator/clear-test (Admin allowed)
+    r_clr = client.post("/api/generator/clear-test")
+    assert r_clr.status_code == 200
+    assert r_clr.json()["ok"] is True
+
+    # 6. POST /api/generator/clear-test (Non-admin 403 Forbidden)
+    r_clr_forbidden = client_mem.post("/api/generator/clear-test")
+    assert r_clr_forbidden.status_code == 403

@@ -2808,7 +2808,7 @@ async def api_generator_synthesize(req: SynthReq, p: auth.Principal = Depends(re
 
 
 @app.post("/api/generator/inject-test")
-async def api_generator_inject_test(req: SynthReq, p: auth.Principal = Depends(require_principal)):
+async def api_generator_inject_test(req: SynthReq, p: auth.Principal = Depends(require_admin)):
     """Generate synthetic voice audio and inject it directly into the live monitoring pipeline."""
     v_profiles = {v["id"]: v for v in generator.VOICE_PROFILES}
     prof = v_profiles.get(req.voice_id, generator.VOICE_PROFILES[0])
@@ -2886,7 +2886,7 @@ async def api_generator_inject_test(req: SynthReq, p: auth.Principal = Depends(r
 
 
 @app.post("/api/generator/clear-test")
-def api_generator_clear_test(p: auth.Principal = Depends(require_principal)):
+def api_generator_clear_test(p: auth.Principal = Depends(require_admin)):
     """Dismiss simulated voice threat test data and restore clean meeting state."""
     uid = p.user_id
     removed = []
