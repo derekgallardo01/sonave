@@ -105,6 +105,26 @@ function done(id,note){
 }
 (async function(){
  try{
+  var sSrc = sessionStorage.getItem('sonave_utm_source') || (function(){try{return localStorage.getItem('sonave_utm_source')}catch(e){return ''}})() || '';
+  var sMed = sessionStorage.getItem('sonave_utm_medium') || (function(){try{return localStorage.getItem('sonave_utm_medium')}catch(e){return ''}})() || '';
+  var sCamp = sessionStorage.getItem('sonave_utm_campaign') || (function(){try{return localStorage.getItem('sonave_utm_campaign')}catch(e){return ''}})() || '';
+  var sRef = sessionStorage.getItem('sonave_referrer') || (function(){try{return localStorage.getItem('sonave_referrer')}catch(e){return ''}})() || '';
+  var tz = ''; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch(e){}
+  var loc = navigator.language || '';
+  document.querySelectorAll('a[href*="/auth/login"], a[href*="/console"]').forEach(function(a){
+   try {
+    var u = new URL(a.href, location.origin);
+    var q = u.searchParams;
+    if(sSrc && !q.has('utm_source')) q.set('utm_source', sSrc);
+    if(sMed && !q.has('utm_medium')) q.set('utm_medium', sMed);
+    if(sCamp && !q.has('utm_campaign')) q.set('utm_campaign', sCamp);
+    if(sRef && !q.has('ref')) q.set('ref', sRef);
+    if(tz && !q.has('tz')) q.set('tz', tz);
+    if(loc && !q.has('loc')) q.set('loc', loc);
+    a.href = u.pathname + '?' + q.toString();
+   } catch(x){}
+  });
+
   var r=await fetch('/api/me');if(!r.ok)return;
   var m=await r.json();
   done('s1','Signed in as '+(m.email||'operator'));

@@ -867,8 +867,62 @@
         "equal_error_rate_pct": 2.5,
         "catch_rate_at_1pct_far": 97.5
       }
+    },
+    {
+      "model_version": "sonave-ensemble-v1790609211",
+      "timestamp_utc": "2026-09-28T15:26:51Z",
+      "pytorch_checkpoint": "C:\\Users\\Derek\\AppData\\Local\\Temp\\pytest-of-Derek\\pytest-603\\test_model_registry_and_lineag0\\checkpoints\\sonave-ensemble-v1790609211.pt",
+      "compiled_checkpoint": "C:\\Users\\Derek\\AppData\\Local\\Temp\\pytest-of-Derek\\pytest-603\\test_model_registry_and_lineag0\\checkpoints\\sonave-ensemble-v1790609211_compiled.pt",
+      "hyperparameters": {
+        "epochs": 2,
+        "batch_size": 16
+      },
+      "training_metrics": {
+        "loss": 0.05,
+        "accuracy": 0.95
+      },
+      "evaluation_metrics": {
+        "equal_error_rate_pct": 2.5,
+        "catch_rate_at_1pct_far": 97.5
+      }
+    },
+    {
+      "model_version": "sonave-ensemble-v1790609935",
+      "timestamp_utc": "2026-09-28T15:38:55Z",
+      "pytorch_checkpoint": "C:\\Users\\Derek\\AppData\\Local\\Temp\\pytest-of-Derek\\pytest-604\\test_model_registry_and_lineag0\\checkpoints\\sonave-ensemble-v1790609935.pt",
+      "compiled_checkpoint": "C:\\Users\\Derek\\AppData\\Local\\Temp\\pytest-of-Derek\\pytest-604\\test_model_registry_and_lineag0\\checkpoints\\sonave-ensemble-v1790609935_compiled.pt",
+      "hyperparameters": {
+        "epochs": 2,
+        "batch_size": 16
+      },
+      "training_metrics": {
+        "loss": 0.05,
+        "accuracy": 0.95
+      },
+      "evaluation_metrics": {
+        "equal_error_rate_pct": 2.5,
+        "catch_rate_at_1pct_far": 97.5
+      }
+    },
+    {
+      "model_version": "sonave-ensemble-v1790610085",
+      "timestamp_utc": "2026-09-28T15:41:25Z",
+      "pytorch_checkpoint": "C:\\Users\\Derek\\AppData\\Local\\Temp\\pytest-of-Derek\\pytest-605\\test_model_registry_and_lineag0\\checkpoints\\sonave-ensemble-v1790610085.pt",
+      "compiled_checkpoint": "C:\\Users\\Derek\\AppData\\Local\\Temp\\pytest-of-Derek\\pytest-605\\test_model_registry_and_lineag0\\checkpoints\\sonave-ensemble-v1790610085_compiled.pt",
+      "hyperparameters": {
+        "epochs": 2,
+        "batch_size": 16
+      },
+      "training_metrics": {
+        "loss": 0.05,
+        "accuracy": 0.95
+      },
+      "evaluation_metrics": {
+        "equal_error_rate_pct": 2.5,
+        "catch_rate_at_1pct_far": 97.5
+      }
     }
   ],
-  "latest_model_version": "sonave-ensemble-v1789846111",
-  "total_epochs_trained": 66
+  "latest_model_version": "sonave-ensemble-v1790610085",
+  "total_epochs_trained": 72
 }

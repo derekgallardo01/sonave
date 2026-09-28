@@ -402,16 +402,74 @@ function maybePrompt(){
   try{google.accounts.id.prompt()}catch(e){}
  }
 }
+function getMeetClientMeta(extra){
+ var tz = '';
+ try{ tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; }catch(e){}
+ var loc = navigator.language || navigator.userLanguage || (navigator.languages && navigator.languages[0]) || '';
+ var params = new URLSearchParams(location.search);
+ var space = window._meetCode || params.get('space') || params.get('meetingCode') || params.get('meetingId') || params.get('space_id') || params.get('m') || '';
+ var ref = document.referrer || '';
+ if (!space && ref) {
+  var refMatch = ref.match(/meet\.google\.com\/([a-z]{3}-[a-z]{4}-[a-z]{3})/i);
+  if (refMatch) space = refMatch[1];
+ }
+ if (space && !window._meetCode) {
+  window._meetCode = space;
+ }
+ var isEmbed = false;
+ try {
+  isEmbed = window.self !== window.top;
+ } catch(e) {
+  isEmbed = true;
+ }
+ var meta = {
+  timezone: tz,
+  locale: loc,
+  user_agent: navigator.userAgent || '',
+  platform: navigator.platform || (navigator.userAgentData && navigator.userAgentData.platform) || '',
+  screen: (window.screen ? window.screen.width + 'x' + window.screen.height : '') + ' (vp: ' + window.innerWidth + 'x' + window.innerHeight + ')',
+  is_embedded: isEmbed,
+  meet_space: space,
+  referrer: ref,
+  utm_source: params.get('utm_source') || '',
+  utm_medium: params.get('utm_medium') || '',
+  utm_campaign: params.get('utm_campaign') || '',
+  utm_term: params.get('utm_term') || '',
+  utm_content: params.get('utm_content') || '',
+  channel: isEmbed ? 'Google Meet Add-on Drawer' : 'Google Meet Add-on'
+ };
+ if(extra){
+  for(var k in extra){ if(extra[k] != null) meta[k] = extra[k]; }
+ }
+ return meta;
+}
 async function onCredential(resp){
  try{
+  if(!window._meetCode && window._sideClient && window._sideClient.getMeetingInfo){
+   try {
+    var mi = await window._sideClient.getMeetingInfo();
+    var c = (mi && (mi.meetingCode || mi.meetingId)) || '';
+    if(c) window._meetCode = c;
+   } catch(e){}
+  }
+  var meta = getMeetClientMeta();
+  var payload = Object.assign({credential:resp.credential, metadata:meta}, meta);
   var r=await fetch('/auth/google-credential',{method:'POST',headers:{'Content-Type':'application/json'},
-                                               body:JSON.stringify({credential:resp.credential})});
+                                               body:JSON.stringify(payload)});
   var d=await r.json();
   if(d.ok&&d.token){
    try{localStorage.removeItem('sonave_signed_out')}catch(x){}
    saveTok(d.token);
    show('live');
    poll();
+   try{
+    var postMeta = getMeetClientMeta({space: window._meetCode || ''});
+    fetch('/api/telemetry/event', {
+     method: 'POST',
+     headers: authHeaders({'Content-Type': 'application/json'}),
+     body: JSON.stringify({kind: 'addon_opened', detail: postMeta, metadata: postMeta})
+    }).catch(function(){});
+   }catch(x){}
   }
  }catch(e){}
 }
@@ -514,10 +572,20 @@ function deployDone(){
  document.getElementById('banner').style.display='block';
  document.getElementById('sstats').style.display='grid';
  try { startLiveMicStream(); } catch(x){}
+ try{
+  var meta = getMeetClientMeta({space: window._meetCode || ''});
+  fetch('/api/telemetry/event', {
+   method: 'POST',
+   headers: authHeaders({'Content-Type': 'application/json'}),
+   body: JSON.stringify({kind: 'meet_connected', detail: meta, metadata: meta})
+  }).catch(function(){});
+ }catch(x){}
 }
 function deployReset(){
  WAITING=false;
  _connected=false;
+ _connectedSince=0;
+ _milestonesSent={};
  document.getElementById('admitWait').style.display='none';
  document.getElementById('protect').style.display='block';
  document.getElementById('protectHero').style.display='';
@@ -991,6 +1059,16 @@ async function triggerDemoInjection(text, voiceId, speakerName, isReal, label){
   lbl.style.color = isReal ? 'var(--green)' : '#ff808d';
  }
  _simActive = true;
+ try{
+  fetch('/api/telemetry/event', {
+   method: 'POST',
+   headers: authHeaders({'Content-Type': 'application/json'}),
+   body: JSON.stringify({
+    kind: 'diagnostic_run',
+    detail: getMeetClientMeta({test_name: label, voice_id: voiceId, is_real: !!isReal, space: window._meetCode || ''})
+   })
+  }).catch(function(){});
+ }catch(x){}
 
  try{
   var r = await fetch('/api/generator/inject-test', {
@@ -1279,16 +1357,42 @@ async function dismissThreatCheck(){
 }
 
 function boot(){
- _connectedSince = Date.now();
  populateAudioOutputs();
+ try{
+  var meta = getMeetClientMeta({space: window._meetCode || ''});
+  fetch('/api/telemetry/event', {
+   method: 'POST',
+   headers: authHeaders({'Content-Type': 'application/json'}),
+   body: JSON.stringify({kind: 'addon_opened', detail: meta, metadata: meta})
+  }).catch(function(){});
+ }catch(x){}
+
+ // Active call session milestones (1m, 5m, 15m, 30m)
+ var _milestonesSent = {};
+ window._milestonesSent = _milestonesSent;
+ setInterval(function(){
+  if(_connected && _connectedSince){
+   var elapsedSec = Math.floor((Date.now() - _connectedSince) / 1000);
+   var elapsedMin = Math.floor(elapsedSec / 60);
+   [1, 5, 15, 30].forEach(function(m){
+    if(elapsedMin >= m && !_milestonesSent[m]){
+     _milestonesSent[m] = true;
+     try {
+      fetch('/api/telemetry/event', {
+       method: 'POST',
+       headers: authHeaders({'Content-Type': 'application/json'}),
+       body: JSON.stringify({
+        kind: 'session_milestone',
+        detail: getMeetClientMeta({minutes: m, elapsed_sec: elapsedSec, space: window._meetCode || ''})
+       })
+      }).catch(function(){});
+     } catch(x){}
+    }
+   });
+  }
+ }, 15000);
+
  if(TOK){
-  try{
-   fetch('/api/telemetry/event', {
-    method: 'POST',
-    headers: authHeaders({'Content-Type': 'application/json'}),
-    body: JSON.stringify({kind: 'addon_opened', detail: {space: window._meetCode || ''}})
-   }).catch(function(){});
-  }catch(x){}
   show('live');
   var code = window._meetCode || '';
   if(code){

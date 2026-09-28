@@ -1420,21 +1420,93 @@ document.addEventListener('keydown', (e) => {
 </script>
 
 <script>
-// Privacy-First Lightweight Website Telemetry
+// Privacy-First Lightweight Website Telemetry & Acquisition Tracking
 (function(){
   try {
-    var ref = document.referrer || 'direct';
+    var ref = document.referrer || '';
     var path = location.pathname;
     var params = new URLSearchParams(location.search);
     var src = params.get('utm_source') || params.get('ref') || '';
-    
-    // Pageview beacon
+    var med = params.get('utm_medium') || '';
+    var camp = params.get('utm_campaign') || '';
+    var term = params.get('utm_term') || '';
+    var cont = params.get('utm_content') || '';
+    var tz = '';
+    try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch(e){}
+    var loc = navigator.language || (navigator.languages && navigator.languages[0]) || '';
+    var plat = navigator.platform || (navigator.userAgentData && navigator.userAgentData.platform) || '';
+
+    // Persist attribution in sessionStorage and localStorage across navigations
+    if (src) {
+      sessionStorage.setItem('sonave_utm_source', src);
+      try { localStorage.setItem('sonave_utm_source', src); } catch(e){}
+    }
+    if (med) {
+      sessionStorage.setItem('sonave_utm_medium', med);
+      try { localStorage.setItem('sonave_utm_medium', med); } catch(e){}
+    }
+    if (camp) {
+      sessionStorage.setItem('sonave_utm_campaign', camp);
+      try { localStorage.setItem('sonave_utm_campaign', camp); } catch(e){}
+    }
+    if (term) {
+      sessionStorage.setItem('sonave_utm_term', term);
+      try { localStorage.setItem('sonave_utm_term', term); } catch(e){}
+    }
+    if (cont) {
+      sessionStorage.setItem('sonave_utm_content', cont);
+      try { localStorage.setItem('sonave_utm_content', cont); } catch(e){}
+    }
+    if (ref) {
+      sessionStorage.setItem('sonave_referrer', ref);
+      try { localStorage.setItem('sonave_referrer', ref); } catch(e){}
+    }
+
+    var sSrc = sessionStorage.getItem('sonave_utm_source') || (function(){try{return localStorage.getItem('sonave_utm_source')}catch(e){return ''}})() || '';
+    var sMed = sessionStorage.getItem('sonave_utm_medium') || (function(){try{return localStorage.getItem('sonave_utm_medium')}catch(e){return ''}})() || '';
+    var sCamp = sessionStorage.getItem('sonave_utm_campaign') || (function(){try{return localStorage.getItem('sonave_utm_campaign')}catch(e){return ''}})() || '';
+    var sTerm = sessionStorage.getItem('sonave_utm_term') || (function(){try{return localStorage.getItem('sonave_utm_term')}catch(e){return ''}})() || '';
+    var sCont = sessionStorage.getItem('sonave_utm_content') || (function(){try{return localStorage.getItem('sonave_utm_content')}catch(e){return ''}})() || '';
+    var sRef = sessionStorage.getItem('sonave_referrer') || (function(){try{return localStorage.getItem('sonave_referrer')}catch(e){return ''}})() || '';
+
+    // Preserve UTM & acquisition params on links to /console and /auth/login
+    function preserveOutboundLinks(){
+      var links = document.querySelectorAll('a[href*="/console"], a[href*="/auth/login"]');
+      links.forEach(function(a){
+        var href = a.getAttribute('href');
+        if (!href || href.startsWith('#')) return;
+        try {
+          var u = new URL(a.href, location.origin);
+          var q = u.searchParams;
+          if (sSrc && !q.has('utm_source')) q.set('utm_source', sSrc);
+          if (sMed && !q.has('utm_medium')) q.set('utm_medium', sMed);
+          if (sCamp && !q.has('utm_campaign')) q.set('utm_campaign', sCamp);
+          if (sTerm && !q.has('utm_term')) q.set('utm_term', sTerm);
+          if (sCont && !q.has('utm_content')) q.set('utm_content', sCont);
+          if (sRef && !q.has('ref')) q.set('ref', sRef);
+          if (tz && !q.has('tz')) q.set('tz', tz);
+          if (loc && !q.has('loc')) q.set('loc', loc);
+          a.href = u.pathname + '?' + q.toString() + u.hash;
+        } catch(e){}
+      });
+    }
+    preserveOutboundLinks();
+    window.addEventListener('DOMContentLoaded', preserveOutboundLinks);
+
+    // Pageview beacon with rich acquisition detail
     var pv = {
       kind: 'web_page_view',
       detail: {
         path: path,
-        referrer: ref,
-        utm_source: src,
+        referrer: sRef || ref || 'direct',
+        utm_source: sSrc,
+        utm_medium: sMed,
+        utm_campaign: sCamp,
+        utm_term: sTerm,
+        utm_content: sCont,
+        timezone: tz,
+        locale: loc,
+        platform: plat,
         screen: window.innerWidth + 'x' + window.innerHeight
       }
     };
@@ -1465,7 +1537,10 @@ document.addEventListener('keydown', (e) => {
             href: href,
             text: txt,
             page: path,
-            referrer: ref
+            referrer: sRef || ref || 'direct',
+            utm_source: sSrc,
+            utm_medium: sMed,
+            utm_campaign: sCamp
           }
         };
         if (navigator.sendBeacon) {

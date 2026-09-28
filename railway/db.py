@@ -26,7 +26,8 @@ CREATE TABLE IF NOT EXISTS users (
     role          TEXT DEFAULT 'member',
     session_ver   INTEGER DEFAULT 1,
     created_ts    REAL,
-    last_login_ts REAL
+    last_login_ts REAL,
+    metadata      TEXT DEFAULT '{}'
 );
 CREATE TABLE IF NOT EXISTS oauth_tokens (
     user_id       TEXT,
@@ -119,6 +120,8 @@ def _conn() -> sqlite3.Connection:
         c.execute("ALTER TABLE users ADD COLUMN ical_url TEXT")
     if "webhook_secret" not in cols:                 # HMAC webhook signing secret
         c.execute("ALTER TABLE users ADD COLUMN webhook_secret TEXT")
+    if "metadata" not in cols:                       # rich acquisition & client metadata
+        c.execute("ALTER TABLE users ADD COLUMN metadata TEXT DEFAULT '{}'")
     c.execute("CREATE TABLE IF NOT EXISTS autojoin_log ("
               "user_id TEXT, event_key TEXT, bot_id TEXT, ts REAL, "
               "PRIMARY KEY (user_id, event_key))")
@@ -179,12 +182,12 @@ def admin_user_rollup(month: str) -> list[dict]:
     try:
         rows = c.execute(
             "SELECT u.id, u.email, u.name, u.role, u.created_ts, u.last_login_ts, "
-            "       u.ical_url, s.status AS sub_status, "
+            "       u.ical_url, u.metadata, s.status AS sub_status, "
             "       (SELECT COUNT(*) FROM bots b WHERE b.user_id = u.id) AS bots_total, "
             "       COALESCE(g.minutes, 0) AS minutes_month, "
             "       (SELECT MAX(ts) FROM events e WHERE e.user_id = u.id) AS last_event_ts, "
-            "       (SELECT COUNT(*) FROM events e WHERE e.user_id = u.id AND e.kind = 'simulation_run') AS sims_total, "
-            "       (SELECT COUNT(*) FROM events e WHERE e.user_id = u.id AND e.kind = 'meet_media_connect') AS meets_total, "
+            "       (SELECT COUNT(*) FROM events e WHERE e.user_id = u.id AND e.kind IN ('simulation_run', 'diagnostic_run')) AS sims_total, "
+            "       (SELECT COUNT(*) FROM events e WHERE e.user_id = u.id AND e.kind IN ('meet_media_connect', 'meet_connected', 'addon_opened')) AS meets_total, "
             "       (SELECT COUNT(*) FROM events e WHERE e.user_id = u.id AND e.kind = 'incident_open') AS incidents_total, "
             "       (SELECT COUNT(*) FROM events e WHERE e.user_id = u.id AND e.kind IN ('client_error', 'server_error', 'scorer_error')) AS errors_total "
             "FROM users u "
@@ -198,6 +201,19 @@ def admin_user_rollup(month: str) -> list[dict]:
                          else "metered" if (d.get("sub_status") or "") in ("active", "trialing")
                          else "free")
             d["autojoin"] = bool(d.pop("ical_url", None))
+            raw_meta = d.pop("metadata", None)
+            meta = {}
+            if raw_meta:
+                try:
+                    meta = json.loads(raw_meta) if isinstance(raw_meta, str) else dict(raw_meta)
+                except Exception:
+                    meta = {}
+            d["metadata"] = meta
+            d["channel"] = meta.get("channel") or ("Meet Add-on" if meta.get("is_embedded") else ("Web" if meta else ""))
+            d["timezone"] = meta.get("timezone") or ""
+            d["locale"] = meta.get("locale") or ""
+            d["initial_space"] = meta.get("meet_space") or meta.get("space") or ""
+            d["utm_source"] = meta.get("utm_source") or ""
             out.append(d)
         return out
     finally:
@@ -208,44 +224,67 @@ def get_user_telemetry(user_id: str) -> dict:
     """Detailed telemetry and activity summary for an individual user."""
     c = _conn()
     try:
-        u = c.execute("SELECT id, email, name, role, created_ts, last_login_ts, google_sub, picture, alert_webhook FROM users WHERE id=?", (user_id,)).fetchone()
+        u = c.execute("SELECT id, email, name, role, created_ts, last_login_ts, google_sub, picture, alert_webhook, metadata FROM users WHERE id=?", (user_id,)).fetchone()
         if not u:
             return {}
         res = dict(u)
+        user_meta = {}
+        try:
+            raw_m = res.get("metadata")
+            if raw_m:
+                user_meta = json.loads(raw_m) if isinstance(raw_m, str) else dict(raw_m)
+        except Exception:
+            pass
+        res["metadata"] = user_meta
+        res["timezone"] = user_meta.get("timezone") or ""
+        res["locale"] = user_meta.get("locale") or ""
+        res["channel"] = user_meta.get("channel") or ("Meet Add-on" if user_meta.get("is_embedded") else ("Web" if user_meta else ""))
+        res["referrer"] = user_meta.get("referrer") or ""
+        res["initial_space"] = user_meta.get("meet_space") or user_meta.get("space") or ""
+        res["utm_source"] = user_meta.get("utm_source") or ""
+        res["utm_medium"] = user_meta.get("utm_medium") or ""
+        res["utm_campaign"] = user_meta.get("utm_campaign") or ""
+        res["platform"] = user_meta.get("platform") or ""
+        res["screen"] = user_meta.get("screen") or ""
+        res["is_embedded"] = bool(user_meta.get("is_embedded"))
+
         res["total_events"] = c.execute("SELECT COUNT(*) FROM events WHERE user_id=?", (user_id,)).fetchone()[0]
-        res["sims_total"] = c.execute("SELECT COUNT(*) FROM events WHERE user_id=? AND kind = 'simulation_run'", (user_id,)).fetchone()[0]
-        res["meets_total"] = c.execute("SELECT COUNT(*) FROM events WHERE user_id=? AND kind = 'meet_media_connect'", (user_id,)).fetchone()[0]
+        res["sims_total"] = c.execute("SELECT COUNT(*) FROM events WHERE user_id=? AND kind IN ('simulation_run', 'diagnostic_run')", (user_id,)).fetchone()[0]
+        res["meets_total"] = c.execute("SELECT COUNT(*) FROM events WHERE user_id=? AND kind IN ('meet_media_connect', 'meet_connected', 'addon_opened')", (user_id,)).fetchone()[0]
         res["incidents_total"] = c.execute("SELECT COUNT(*) FROM events WHERE user_id=? AND kind = 'incident_open'", (user_id,)).fetchone()[0]
         res["acks_total"] = c.execute("SELECT COUNT(*) FROM events WHERE user_id=? AND kind = 'incident_ack'", (user_id,)).fetchone()[0]
         res["errors_total"] = c.execute("SELECT COUNT(*) FROM events WHERE user_id=? AND kind IN ('client_error', 'server_error', 'scorer_error')", (user_id,)).fetchone()[0]
         res["emails_total"] = c.execute("SELECT COUNT(*) FROM events WHERE user_id=? AND kind = 'email_sent'", (user_id,)).fetchone()[0]
 
-        # Recent distinct meet spaces
+        # Recent distinct meet spaces from all Meet events
         space_rows = c.execute(
-            "SELECT detail, ts FROM events WHERE user_id=? AND kind='meet_media_connect' ORDER BY id DESC LIMIT 25",
+            "SELECT detail, ts FROM events WHERE user_id=? AND kind IN ('meet_media_connect', 'meet_connected', 'addon_opened', 'session_milestone') ORDER BY id DESC LIMIT 50",
             (user_id,)
         ).fetchall()
         spaces = []
         for r in space_rows:
             try:
                 det = json.loads(r["detail"]) if r["detail"] else {}
-                sp = det.get("space")
-                if sp and sp not in spaces:
+                sp = det.get("space") or det.get("meet_space") or det.get("space_id")
+                if sp and sp not in ("this-call", "live-room", "active-call") and sp not in spaces:
                     spaces.append(sp)
             except Exception:
                 pass
+        init_sp = res.get("initial_space")
+        if init_sp and init_sp not in spaces:
+            spaces.insert(0, init_sp)
         res["recent_spaces"] = spaces
 
-        # Recent simulations tested
+        # Recent simulations & diagnostic tests tested
         sim_rows = c.execute(
-            "SELECT detail, ts FROM events WHERE user_id=? AND kind='simulation_run' ORDER BY id DESC LIMIT 25",
+            "SELECT detail, ts FROM events WHERE user_id=? AND kind IN ('simulation_run', 'diagnostic_run') ORDER BY id DESC LIMIT 50",
             (user_id,)
         ).fetchall()
         simulations = []
         for r in sim_rows:
             try:
                 det = json.loads(r["detail"]) if r["detail"] else {}
-                vname = det.get("voice_name") or det.get("voice_id")
+                vname = det.get("test_name") or det.get("voice_name") or det.get("voice_id")
                 if vname and vname not in simulations:
                     simulations.append(vname)
             except Exception:
@@ -267,7 +306,8 @@ def get_user(uid: str) -> dict | None:
         c.close()
 
 
-def upsert_google_user(sub: str, email: str, name: str, picture: str, role: str) -> dict:
+def upsert_google_user(sub: str, email: str, name: str, picture: str, role: str,
+                       metadata: dict | None = None) -> dict:
     """Create-or-update by google_sub; role only ever upgrades to admin."""
     now = time.time()
     with _LOCK:
@@ -276,15 +316,53 @@ def upsert_google_user(sub: str, email: str, name: str, picture: str, role: str)
             r = c.execute("SELECT * FROM users WHERE google_sub=?", (sub,)).fetchone()
             if r:
                 new_role = "admin" if (role == "admin" or r["role"] == "admin") else r["role"]
-                c.execute("UPDATE users SET email=?, name=?, picture=?, role=?, last_login_ts=? WHERE id=?",
-                          (email, name, picture, new_role, now, r["id"]))
+                merged_meta = {}
+                try:
+                    if "metadata" in r.keys() and r["metadata"]:
+                        merged_meta = json.loads(r["metadata"]) if isinstance(r["metadata"], str) else dict(r["metadata"])
+                except Exception:
+                    pass
+                if metadata:
+                    for k, v in metadata.items():
+                        if v not in (None, ""):
+                            merged_meta[k] = v
+                meta_json = json.dumps(merged_meta)
+                c.execute("UPDATE users SET email=?, name=?, picture=?, role=?, last_login_ts=?, metadata=? WHERE id=?",
+                          (email, name, picture, new_role, now, meta_json, r["id"]))
                 c.commit()
                 return dict(c.execute("SELECT * FROM users WHERE id=?", (r["id"],)).fetchone())
             uid = "u_" + secrets.token_hex(8)
-            c.execute("INSERT INTO users (id, google_sub, email, name, picture, role, created_ts, last_login_ts) "
-                      "VALUES (?,?,?,?,?,?,?,?)", (uid, sub, email, name, picture, role, now, now))
+            meta_json = json.dumps(metadata or {})
+            c.execute("INSERT INTO users (id, google_sub, email, name, picture, role, created_ts, last_login_ts, metadata) "
+                      "VALUES (?,?,?,?,?,?,?,?,?)", (uid, sub, email, name, picture, role, now, now, meta_json))
             c.commit()
             return dict(c.execute("SELECT * FROM users WHERE id=?", (uid,)).fetchone())
+        finally:
+            c.close()
+
+
+def update_user_metadata(user_id: str, meta: dict) -> dict | None:
+    """Merge new metadata keys into a user's existing metadata JSON."""
+    if not meta:
+        return get_user(user_id)
+    with _LOCK:
+        c = _conn()
+        try:
+            r = c.execute("SELECT id, metadata FROM users WHERE id=?", (user_id,)).fetchone()
+            if not r:
+                return None
+            existing = {}
+            try:
+                if "metadata" in r.keys() and r["metadata"]:
+                    existing = json.loads(r["metadata"]) if isinstance(r["metadata"], str) else dict(r["metadata"])
+            except Exception:
+                pass
+            for k, v in meta.items():
+                if v not in (None, ""):
+                    existing[k] = v
+            c.execute("UPDATE users SET metadata=? WHERE id=?", (json.dumps(existing), user_id))
+            c.commit()
+            return dict(c.execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone())
         finally:
             c.close()
 

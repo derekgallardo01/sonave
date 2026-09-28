@@ -997,6 +997,39 @@ a:hover{color:var(--green-hover)}
     </div>
    </div>
 
+   <div style="background:#131a22; border:1px solid #1c2633; border-radius:10px; padding:14px 16px;">
+    <div style="font-size:11px; font-weight:700; color:#8599a8; letter-spacing:0.04em; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between;">
+     <span>ACQUISITION ATTRIBUTION &amp; DEVICE METADATA</span>
+     <span id="utChannelBadge" style="font-size:10px; font-weight:700; padding:2px 8px; border-radius:6px; background:rgba(56,189,248,0.12); color:#38bdf8; border:1px solid rgba(56,189,248,0.3);">CHANNEL</span>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; font-size:11.5px;">
+     <div>
+      <span style="color:#556677; display:block; font-size:10px; font-weight:600; text-transform:uppercase;">Timezone &amp; Locale</span>
+      <span id="utTzLocale" style="color:#e8eef2; font-family:var(--mono); font-weight:600;">—</span>
+     </div>
+     <div>
+      <span style="color:#556677; display:block; font-size:10px; font-weight:600; text-transform:uppercase;">Discovery Channel / Source</span>
+      <span id="utChannel" style="color:#e8eef2; font-weight:600;">—</span>
+     </div>
+     <div>
+      <span style="color:#556677; display:block; font-size:10px; font-weight:600; text-transform:uppercase;">Initial Meet Space</span>
+      <span id="utInitSpace" style="color:#38bdf8; font-family:var(--mono); font-weight:600;">—</span>
+     </div>
+     <div>
+      <span style="color:#556677; display:block; font-size:10px; font-weight:600; text-transform:uppercase;">Marketing Campaign (UTM)</span>
+      <span id="utUtm" style="color:#e8eef2; font-family:var(--mono);">—</span>
+     </div>
+     <div>
+      <span style="color:#556677; display:block; font-size:10px; font-weight:600; text-transform:uppercase;">Referrer</span>
+      <span id="utReferrer" style="color:#adb5bd; overflow:hidden; text-overflow:ellipsis; display:block; white-space:nowrap;">—</span>
+     </div>
+     <div>
+      <span style="color:#556677; display:block; font-size:10px; font-weight:600; text-transform:uppercase;">Device &amp; Display</span>
+      <span id="utDevice" style="color:#adb5bd; font-family:var(--mono);">—</span>
+     </div>
+    </div>
+   </div>
+
    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
     <div style="background:#131a22; border:1px solid #1c2633; border-radius:10px; padding:14px;">
      <div style="font-size:11px; font-weight:700; color:#8599a8; letter-spacing:0.04em; margin-bottom:8px;">GOOGLE MEET SPACES JOINED</div>
@@ -1084,6 +1117,105 @@ a:hover{color:var(--green-hover)}
   sendErr({message: 'Unhandled Promise Rejection: ' + (e.reason ? (e.reason.message || e.reason) : 'unknown'), error: e.reason});
  });
  window._reportError = sendErr;
+})();
+
+// Acquisition Attribution & Device Metadata Tracking
+(function initAcquisitionTracking(){
+ try {
+  var params = new URLSearchParams(location.search);
+  var utmSource = params.get('utm_source') || params.get('ref') || '';
+  var utmMedium = params.get('utm_medium') || '';
+  var utmCampaign = params.get('utm_campaign') || '';
+  var utmTerm = params.get('utm_term') || '';
+  var utmContent = params.get('utm_content') || '';
+  var ref = document.referrer || '';
+  var tz = '';
+  try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch(x){}
+  var loc = navigator.language || (navigator.languages && navigator.languages[0]) || '';
+  var platform = navigator.platform || (navigator.userAgentData && navigator.userAgentData.platform) || '';
+  var screen = window.innerWidth + 'x' + window.innerHeight;
+
+  if (utmSource) {
+   sessionStorage.setItem('sonave_utm_source', utmSource);
+   try { localStorage.setItem('sonave_utm_source', utmSource); }catch(e){}
+  }
+  if (utmMedium) {
+   sessionStorage.setItem('sonave_utm_medium', utmMedium);
+   try { localStorage.setItem('sonave_utm_medium', utmMedium); }catch(e){}
+  }
+  if (utmCampaign) {
+   sessionStorage.setItem('sonave_utm_campaign', utmCampaign);
+   try { localStorage.setItem('sonave_utm_campaign', utmCampaign); }catch(e){}
+  }
+  if (utmTerm) {
+   sessionStorage.setItem('sonave_utm_term', utmTerm);
+   try { localStorage.setItem('sonave_utm_term', utmTerm); }catch(e){}
+  }
+  if (utmContent) {
+   sessionStorage.setItem('sonave_utm_content', utmContent);
+   try { localStorage.setItem('sonave_utm_content', utmContent); }catch(e){}
+  }
+  if (ref) {
+   sessionStorage.setItem('sonave_referrer', ref);
+   try { localStorage.setItem('sonave_referrer', ref); }catch(e){}
+  }
+
+  var sSource = sessionStorage.getItem('sonave_utm_source') || (function(){try{return localStorage.getItem('sonave_utm_source')}catch(e){return ''}})() || '';
+  var sMed = sessionStorage.getItem('sonave_utm_medium') || (function(){try{return localStorage.getItem('sonave_utm_medium')}catch(e){return ''}})() || '';
+  var sCamp = sessionStorage.getItem('sonave_utm_campaign') || (function(){try{return localStorage.getItem('sonave_utm_campaign')}catch(e){return ''}})() || '';
+  var sTerm = sessionStorage.getItem('sonave_utm_term') || (function(){try{return localStorage.getItem('sonave_utm_term')}catch(e){return ''}})() || '';
+  var sContent = sessionStorage.getItem('sonave_utm_content') || (function(){try{return localStorage.getItem('sonave_utm_content')}catch(e){return ''}})() || '';
+  var sRef = sessionStorage.getItem('sonave_referrer') || (function(){try{return localStorage.getItem('sonave_referrer')}catch(e){return ''}})() || '';
+
+  // Dynamically update Sign-in with Google links with acquisition & device params
+  function updateAuthLinks(){
+   var links = document.querySelectorAll('a[href^="/auth/login"]');
+   links.forEach(function(a){
+    var u;
+    try { u = new URL(a.href, location.origin); } catch(e){ return; }
+    var q = u.searchParams;
+    if (sSource && !q.has('utm_source')) q.set('utm_source', sSource);
+    if (sMed && !q.has('utm_medium')) q.set('utm_medium', sMed);
+    if (sCamp && !q.has('utm_campaign')) q.set('utm_campaign', sCamp);
+    if (sTerm && !q.has('utm_term')) q.set('utm_term', sTerm);
+    if (sContent && !q.has('utm_content')) q.set('utm_content', sContent);
+    if (sRef && !q.has('ref')) q.set('ref', sRef);
+    if (tz && !q.has('tz')) q.set('tz', tz);
+    if (loc && !q.has('loc')) q.set('loc', loc);
+    a.href = u.pathname + '?' + q.toString();
+   });
+  }
+  updateAuthLinks();
+  window.addEventListener('DOMContentLoaded', updateAuthLinks);
+
+  // Send web page view telemetry with acquisition parameters
+  var pv = {
+   kind: 'web_page_view',
+   detail: {
+    page: 'console',
+    referrer: sRef || ref || 'direct',
+    utm_source: sSource,
+    utm_medium: sMed,
+    utm_campaign: sCamp,
+    utm_term: sTerm,
+    utm_content: sContent,
+    timezone: tz,
+    locale: loc,
+    platform: platform,
+    screen: screen
+   }
+  };
+  if (navigator.sendBeacon) {
+   navigator.sendBeacon('/api/telemetry/event', JSON.stringify(pv));
+  } else {
+   fetch('/api/telemetry/event', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(pv),
+    keepalive: true
+   }).catch(function(){});
+  }
+ } catch(e){}
 })();
 
 /* Tokens never travel in URLs (ASVS 2.1.1): the old ?tok= bootstrap is gone;
@@ -1362,12 +1494,15 @@ var _admUsersCache=[];
 function admUsersFilter(){
  var q=(document.getElementById('admUserSearch')||{value:''}).value.toLowerCase().trim();
  var users=_admUsersCache.filter(function(u){
-  return !q||(u.email||'').toLowerCase().includes(q)||String(u.id).toLowerCase().includes(q);
+  return !q||(u.email||'').toLowerCase().includes(q)||String(u.id).toLowerCase().includes(q)||
+   (u.channel||'').toLowerCase().includes(q)||(u.timezone||'').toLowerCase().includes(q)||
+   (u.locale||'').toLowerCase().includes(q)||(u.initial_space||'').toLowerCase().includes(q)||
+   (u.utm_source||'').toLowerCase().includes(q);
  });
  renderAdmUserList(users);
 }
 function renderAdmUserList(users){
- var h='<div class="adm-grid hist-head"><span>USER</span><span>PLAN</span><span class="hide-sm">CALLS</span><span>TESTS</span><span>THREATS</span><span class="hide-sm">ERRORS</span><span>LAST ACTIVE</span></div>';
+ var h='<div class="adm-grid hist-head"><span>USER &amp; ORIGIN</span><span>PLAN</span><span class="hide-sm">CALLS</span><span>TESTS</span><span>THREATS</span><span class="hide-sm">ERRORS</span><span>LAST ACTIVE</span></div>';
  users.forEach(function(u){
   var roleCls=u.role==='admin'?'r-admin':'r-member';
   var planBadge=u.plan==='admin'?'unlimited':(u.plan||'free');
@@ -1376,11 +1511,27 @@ function renderAdmUserList(users){
   var threats = u.incidents_total || 0;
   var errors = u.errors_total || 0;
   var lastActive = u.last_event_ts ? (rel(u.last_event_ts) + ' ago') : (u.last_login_ts ? (rel(u.last_login_ts) + ' ago') : '—');
+  var chanBadge = '';
+  if (u.channel) {
+   var isMeet = /meet/i.test(u.channel);
+   chanBadge = '<span style="font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:4px;background:' + (isMeet ? 'rgba(56,189,248,0.14);border:1px solid rgba(56,189,248,0.3);color:#38bdf8' : 'rgba(46,229,132,0.12);border:1px solid rgba(46,229,132,0.3);color:#2ee584') + '">' + esc(u.channel) + '</span>';
+  }
+  var subInfo = [];
+  if (u.initial_space) subInfo.push('space: ' + esc(u.initial_space));
+  if (u.timezone) subInfo.push(esc(u.timezone) + (u.locale ? (' (' + esc(u.locale) + ')') : ''));
+  else if (u.locale) subInfo.push(esc(u.locale));
+  if (u.utm_source) subInfo.push('utm: ' + esc(u.utm_source));
+  var subHtml = subInfo.length ? ('<div style="font-size:10px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + subInfo.join(' · ') + '</div>') : '';
+
   h+='<div class="adm-grid adm-row" onclick="openUserTelemetry(\''+esc(u.id)+'\')" title="Click to view full user telemetry &amp; timeline">'+
-   '<span class="hist-spk" style="overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px">'+
-    '<span style="width:7px;height:7px;border-radius:50%;background:'+(u.last_event_ts && (Date.now()/1000 - u.last_event_ts < 86400)?'var(--green)':'var(--line)')+';flex-shrink:0"></span>'+
-    '<span>'+esc(u.email||u.id)+'</span>'+
-   '</span>'+
+   '<div style="overflow:hidden;min-width:0">'+
+    '<div class="hist-spk" style="overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px">'+
+     '<span style="width:7px;height:7px;border-radius:50%;background:'+(u.last_event_ts && (Date.now()/1000 - u.last_event_ts < 86400)?'var(--green)':'var(--line)')+';flex-shrink:0"></span>'+
+     '<span>'+esc(u.email||u.id)+'</span>'+
+     chanBadge+
+    '</div>'+
+    subHtml+
+   '</div>'+
    '<span class="hist-cell">'+esc(planBadge)+'</span>'+
    '<span class="hist-cell hide-sm"><span class="badge-num" style="color:'+(calls>0?'#38bdf8':'var(--muted)')+'">'+calls+'</span></span>'+
    '<span class="hist-cell"><span class="badge-num" style="color:'+(sims>0?'#c084fc':'var(--muted)')+'">'+sims+'</span></span>'+
@@ -1407,6 +1558,12 @@ async function openUserTelemetry(userId){
  document.getElementById('utAcks').textContent = '—';
  document.getElementById('utErrors').textContent = '—';
  document.getElementById('utTotalEvents').textContent = '—';
+ document.getElementById('utTzLocale').textContent = '—';
+ document.getElementById('utChannel').textContent = '—';
+ document.getElementById('utInitSpace').textContent = '—';
+ document.getElementById('utUtm').textContent = '—';
+ document.getElementById('utReferrer').textContent = '—';
+ document.getElementById('utDevice').textContent = '—';
  document.getElementById('utFeed').innerHTML = '<div style="color:var(--muted);font-size:12px;padding:12px 0">Loading telemetry...</div>';
  document.getElementById('utSpacesList').innerHTML = '<span style="font-size:11px;color:#556677;">Loading...</span>';
  document.getElementById('utSimList').innerHTML = '<span style="font-size:11px;color:#556677;">Loading...</span>';
@@ -1424,6 +1581,31 @@ async function openUserTelemetry(userId){
   document.getElementById('utCreated').textContent = 'Joined: ' + (u.created_ts ? est(u.created_ts) : '—');
   document.getElementById('utLastLogin').textContent = 'Last login: ' + (u.last_login_ts ? est(u.last_login_ts) : '—');
   document.getElementById('utEmailBtn').href = 'mailto:' + encodeURIComponent(u.email || '') + '?subject=' + encodeURIComponent('Sonave Voice Security — Following up');
+
+  var tz = u.timezone || (u.metadata && u.metadata.timezone) || '';
+  var loc = u.locale || (u.metadata && u.metadata.locale) || '';
+  document.getElementById('utTzLocale').textContent = (tz && loc) ? (tz + ' (' + loc + ')') : (tz || loc || 'Unknown / Not reported');
+
+  var chan = u.channel || (u.metadata && u.metadata.channel) || (u.is_embedded ? 'Google Meet Add-on Drawer' : 'Web Console');
+  document.getElementById('utChannel').textContent = chan;
+  var chanBadge = document.getElementById('utChannelBadge');
+  if (chanBadge) chanBadge.textContent = chan.toUpperCase();
+
+  var initSp = u.initial_space || (u.metadata && (u.metadata.meet_space || u.metadata.space)) || (u.recent_spaces && u.recent_spaces[0]) || '—';
+  document.getElementById('utInitSpace').textContent = initSp;
+
+  var m = u.metadata || {};
+  var utmS = u.utm_source || m.utm_source || '';
+  var utmM = u.utm_medium || m.utm_medium || '';
+  var utmC = u.utm_campaign || m.utm_campaign || '';
+  var utmText = utmS ? (utmS + (utmM ? (' / ' + utmM) : '') + (utmC ? (' (' + utmC + ')') : '')) : 'Direct / None';
+  document.getElementById('utUtm').textContent = utmText;
+
+  document.getElementById('utReferrer').textContent = u.referrer || m.referrer || 'direct';
+
+  var dev = (u.platform || m.platform || '') + ((u.screen || m.screen) ? (' · ' + (u.screen || m.screen)) : '');
+  if(u.is_embedded || m.is_embedded) dev += ' · [Meet iframe]';
+  document.getElementById('utDevice').textContent = dev || 'Standard Web';
 
   document.getElementById('utMeets').textContent = (u.meets_total || 0);
   document.getElementById('utSims').textContent = (u.sims_total || 0);

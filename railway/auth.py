@@ -200,7 +200,7 @@ def _fetch_userinfo(access_token: str) -> dict:
         return json.loads(r.read())
 
 
-def _policy_upsert(info: dict) -> dict:
+def _policy_upsert(info: dict, metadata: dict | None = None) -> dict:
     """Shared identity policy: verified email, admin allowlist, signup mode."""
     if str(info.get("email_verified", "")).lower() not in ("true", "1"):
         raise ValueError("email not verified")
@@ -212,14 +212,14 @@ def _policy_upsert(info: dict) -> dict:
         if not existing:
             raise ValueError("signups closed")
     return db.upsert_google_user(info["sub"], email, info.get("name", ""),
-                                 info.get("picture", ""), role)
+                                 info.get("picture", ""), role, metadata=metadata)
 
 
-def complete_login(code: str) -> dict:
+def complete_login(code: str, metadata: dict | None = None) -> dict:
     """Code -> tokens -> userinfo -> user row. Raises ValueError on policy failures."""
     tokens = _exchange_code(code)
     info = _fetch_userinfo(tokens["access_token"])
-    return _policy_upsert(info)
+    return _policy_upsert(info, metadata=metadata)
 
 
 # --- incremental Google Calendar authorization (sensitive scope; the console
@@ -287,7 +287,7 @@ def _fetch_tokeninfo(credential: str) -> dict:
         return json.loads(r.read())
 
 
-def complete_credential_login(credential: str) -> dict:
+def complete_credential_login(credential: str, metadata: dict | None = None) -> dict:
     """GIS ID token (One Tap / official Sign in with Google button in the Meet
     panel) -> user row. Signature validation is delegated to Google's tokeninfo
     endpoint (stdlib-only house rule); we enforce audience, issuer and expiry."""
@@ -298,7 +298,7 @@ def complete_credential_login(credential: str) -> dict:
         raise ValueError("wrong issuer")
     if float(info.get("exp") or 0) < time.time():
         raise ValueError("credential expired")
-    return _policy_upsert(info)
+    return _policy_upsert(info, metadata=metadata)
 
 
 # --- principals ---------------------------------------------------------------

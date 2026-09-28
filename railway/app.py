@@ -138,7 +138,8 @@ _NOTIFY_KINDS = {"incident_open", "bot_created", "meeting_started",
                  "client_error", "server_error", "bot_denied", "usage_threshold",
                  "meet_media_connect", "meet_media_disconnect", "simulation_run",
                  "incident_ack", "cloner_opened", "mic_soundcheck",
-                 "web_cta_click", "review_prompt_clicked", "support_inquiry"}
+                 "web_cta_click", "review_prompt_clicked", "support_inquiry",
+                 "addon_opened", "session_milestone", "diagnostic_run", "meet_connected"}
 
 
 def _now_et() -> str:
@@ -151,10 +152,61 @@ def _now_et() -> str:
         return datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
 
 
+def _format_signup_alert(user: dict, meta: dict | None = None) -> str:
+    """Growth push founder alert on new user signup with rich acquisition metadata."""
+    m = dict(meta or {})
+    if not m and user.get("metadata"):
+        try:
+            m = json.loads(user["metadata"]) if isinstance(user["metadata"], str) else dict(user["metadata"])
+        except Exception:
+            m = {}
+    email = user.get("email") or "Unknown"
+    tz = m.get("timezone") or ""
+    loc = m.get("locale") or ""
+    tz_loc = f"{tz} ({loc})" if (tz and loc) else (tz or loc or "")
+    chan = m.get("channel") or ("Google Meet Add-on Drawer" if m.get("is_embedded") else ("Google Meet Add-on" if (m.get("meet_space") or m.get("space")) else "Web Console"))
+    space = m.get("meet_space") or m.get("space") or ""
+    parts = [f"👤 New Signup: {email}"]
+    if tz_loc:
+        parts.append(f"Timezone: {tz_loc}")
+    if chan:
+        parts.append(f"Channel: {chan}")
+    if space:
+        parts.append(f"Space: {space}")
+    utm_src = m.get("utm_source") or ""
+    utm_med = m.get("utm_medium") or ""
+    utm_camp = m.get("utm_campaign") or ""
+    if utm_src:
+        utm_str = f"{utm_src}" + (f"/{utm_med}" if utm_med else "") + (f" ({utm_camp})" if utm_camp else "")
+        parts.append(f"UTM: {utm_str}")
+    ref = m.get("referrer") or ""
+    if ref and ref != "direct" and not ref.startswith("android-app://"):
+        parts.append(f"Ref: {ref[:60]}")
+    parts.append(_now_et())
+    return " · ".join(parts)
+
+
 def _format_activity(user_id: str, kind: str, detail: dict) -> str:
     """One-line founder-alert summary for a whitelisted activity event."""
     email = detail.get("email") or (db.get_user(user_id) or {}).get("email") or user_id
     ts = _now_et()
+    if kind == "addon_opened":
+        space = detail.get("space") or detail.get("meet_space") or "Google Meet"
+        tz = detail.get("timezone") or ""
+        loc = detail.get("locale") or ""
+        env_str = "in-meeting drawer" if detail.get("is_embedded") else "standalone"
+        geo = f" · {tz} ({loc})" if (tz or loc) else ""
+        return f"🚀 Meet Add-on Opened: {email} · {space} ({env_str}){geo} · {ts}"
+    if kind == "session_milestone":
+        mins = detail.get("minutes") or (round(detail.get("elapsed_sec", 0)/60) if detail.get("elapsed_sec") else None) or detail.get("sec") or "?"
+        space = detail.get("space") or detail.get("meet_space") or "Call"
+        return f"⏱️ Active Call Milestone: {email} · {mins} min in space '{space}' · {ts}"
+    if kind == "diagnostic_run":
+        name = detail.get("test_name") or detail.get("voice_id") or detail.get("test") or "Alarm Probe"
+        return f"🔬 Diagnostic Test Run: {email} · '{name}' · {ts}"
+    if kind == "meet_connected":
+        space = detail.get("space") or detail.get("space_id") or detail.get("meet_space") or "Call"
+        return f"🎧 Audio Stream Attached: {email} · space '{space}' · {ts}"
     if kind == "support_inquiry":
         name = detail.get("name") or "User"
         top = detail.get("topic") or "General"
@@ -204,7 +256,13 @@ def _format_activity(user_id: str, kind: str, detail: dict) -> str:
     if kind == "host_rejoined":
         return f"Host rejoined — {email} · {ts}"
     if kind == "signin":
-        return f"Sign-in: {email} · {ts}"
+        chan = f" via {detail['channel']}" if detail.get("channel") else ""
+        sp = detail.get("meet_space") or detail.get("space") or ""
+        sp_str = f" · space '{sp}'" if sp else ""
+        tz = detail.get("timezone") or ""
+        loc = detail.get("locale") or ""
+        tz_str = f" ({tz}, {loc})" if (tz and loc) else (f" ({tz})" if tz else (f" ({loc})" if loc else ""))
+        return f"Sign-in: {email}{chan}{sp_str}{tz_str} · {ts}"
     if kind == "client_error":
         return f"🚨 Client bug: {detail.get('page', '')} — {str(detail.get('message', ''))[:80]} — {email} · {ts}"
     if kind == "server_error":
@@ -734,6 +792,10 @@ def api_telemetry_client_error(req: ClientErrorReq, request: Request):
 class ClientEventReq(BaseModel):
     kind: str
     detail: dict = {}
+    metadata: dict | None = None
+
+    class Config:
+        extra = "ignore"
 
 
 @app.post("/api/telemetry/event", status_code=204)
@@ -750,12 +812,43 @@ def api_telemetry_event(req: ClientEventReq, request: Request):
                 email = u.get("email") or ""
     except Exception:
         pass
-    allowed = {"cloner_opened", "addon_opened", "simulation_run", "web_page_view", "web_cta_click", "review_prompt_clicked", "support_inquiry"}
+    allowed = {
+        "cloner_opened", "addon_opened", "simulation_run", "web_page_view", "web_cta_click",
+        "review_prompt_clicked", "support_inquiry", "session_milestone", "diagnostic_run",
+        "mic_soundcheck", "meet_connected"
+    }
     if req.kind in allowed:
         d = dict(req.detail or {})
+        if req.metadata:
+            for mk, mv in req.metadata.items():
+                if mk not in d and mv not in (None, ""):
+                    d[mk] = mv
+        # Infer client context headers if omitted
+        if "user_agent" not in d and request.headers.get("user-agent"):
+            d["user_agent"] = request.headers.get("user-agent", "")
+        if "locale" not in d and request.headers.get("accept-language"):
+            d["locale"] = request.headers.get("accept-language", "").split(",")[0]
+        if "referrer" not in d and request.headers.get("referer"):
+            d["referrer"] = request.headers.get("referer", "")
         if email and "email" not in d:
             d["email"] = email
         _track(uid, req.kind, **d)
+
+        # Merge new acquisition metadata into user profile if identified
+        if uid != "anonymous":
+            meta_update = {}
+            for field in ("timezone", "locale", "channel", "referrer", "utm_source",
+                          "utm_medium", "utm_campaign", "utm_term", "utm_content",
+                          "platform", "screen", "is_embedded", "meet_space"):
+                if field in d and d[field] not in (None, ""):
+                    meta_update[field] = d[field]
+            if "space" in d and "meet_space" not in meta_update and d["space"] not in (None, ""):
+                meta_update["meet_space"] = d["space"]
+            if meta_update:
+                try:
+                    db.update_user_metadata(uid, meta_update)
+                except Exception:
+                    pass
     return Response(status_code=204)
 
 
@@ -3009,7 +3102,9 @@ def download(name: str, p: auth.Principal = Depends(require_principal)):
 
 # --- Google OAuth ------------------------------------------------------------
 @app.get("/auth/login")
-def auth_login(ctx: str = ""):
+def auth_login(request: Request, ctx: str = "", utm_source: str = "", utm_medium: str = "",
+               utm_campaign: str = "", utm_term: str = "", utm_content: str = "",
+               ref: str = "", tz: str = "", loc: str = "", space: str = ""):
     if not auth.google_configured():
         return RedirectResponse("/console", status_code=302)
     state = auth.make_state(ctx)
@@ -3017,6 +3112,23 @@ def auth_login(ctx: str = ""):
     resp = RedirectResponse(target_url, status_code=302)
     resp.set_cookie(auth.STATE_COOKIE, state, max_age=auth.STATE_TTL,
                     httponly=True, samesite="lax", secure=True, path="/auth")
+    # Capture acquisition & attribution metadata
+    acq_meta = {}
+    if utm_source: acq_meta["utm_source"] = utm_source
+    if utm_medium: acq_meta["utm_medium"] = utm_medium
+    if utm_campaign: acq_meta["utm_campaign"] = utm_campaign
+    if utm_term: acq_meta["utm_term"] = utm_term
+    if utm_content: acq_meta["utm_content"] = utm_content
+    referrer = ref or request.headers.get("referer", "")
+    if referrer: acq_meta["referrer"] = referrer
+    if tz: acq_meta["timezone"] = tz
+    locale = loc or (request.headers.get("accept-language", "").split(",")[0] if request.headers.get("accept-language") else "")
+    if locale: acq_meta["locale"] = locale
+    if space: acq_meta["meet_space"] = space
+    acq_meta["channel"] = "Google Meet Add-on" if ctx == "meet" else "Web Console"
+    if acq_meta:
+        resp.set_cookie("sonave_acq", json.dumps(acq_meta), max_age=600,
+                        httponly=True, samesite="lax", secure=True, path="/auth")
     return resp
 
 
@@ -3104,8 +3216,21 @@ def auth_callback(request: Request, code: str = "", state: str = ""):
             except Exception as e:
                 logger.warning("meet oauth connect failed: %s", repr(e)[:120])
             return resp
+    acq_cookie = request.cookies.get("sonave_acq")
+    client_meta = {}
+    if acq_cookie:
+        try:
+            client_meta = json.loads(acq_cookie)
+        except Exception:
+            pass
+    if not client_meta.get("locale") and request.headers.get("accept-language"):
+        client_meta["locale"] = request.headers.get("accept-language", "").split(",")[0]
+    if not client_meta.get("user_agent") and request.headers.get("user-agent"):
+        client_meta["user_agent"] = request.headers.get("user-agent", "")
+    if not client_meta.get("channel"):
+        client_meta["channel"] = "Google Meet Add-on" if auth.state_ctx(state) in ("meet", "popup") else "Web Console"
     try:
-        user = auth.complete_login(code)
+        user = auth.complete_login(code, metadata=client_meta)
     except ValueError as e:
         raise HTTPException(status_code=403, detail=str(e))
     except Exception as e:  # noqa: BLE001 — Google/network failures
@@ -3133,16 +3258,17 @@ def auth_callback(request: Request, code: str = "", state: str = ""):
                         f"{auth.PARTITIONED_COOKIE}={session_tok}; Max-Age={auth.SESSION_TTL}; "
                         f"Path=/; Secure; HttpOnly; SameSite=None; Partitioned")
     resp.delete_cookie(auth.STATE_COOKIE, path="/auth")
+    resp.delete_cookie("sonave_acq", path="/auth")
     logger.info("login: %s (%s)", _mask_email(user.get("email")), user.get("role"))
     # exact-equal floats only on the INSERT path (db.upsert_google_user uses one `now`)
     if user.get("created_ts") == user.get("last_login_ts"):
-        _track(user["id"], "signup", email=user.get("email") or "")
-        _notify_admin(f"👤 New Signup: {user.get('email')} · {_now_et()}")
+        _track(user["id"], "signup", email=user.get("email") or "", **client_meta)
+        _notify_admin(_format_signup_alert(user, client_meta))
         if user.get("email"):
             _send_welcome_email(user["email"], user.get("name", ""))
             _track(user["id"], "email_sent", type="welcome", to=user["email"])
     else:
-        _track(user["id"], "signin", email=user.get("email") or "")
+        _track(user["id"], "signin", email=user.get("email") or "", **client_meta)
     if user.get("role") == "admin":
         db.migrate_legacy(DATA_DIR, enroll.ENROLL_DIR, user["id"])
     return resp
@@ -3150,29 +3276,64 @@ def auth_callback(request: Request, code: str = "", state: str = ""):
 
 class CredReq(BaseModel):
     credential: str
+    metadata: dict | None = None
+    timezone: str | None = None
+    locale: str | None = None
+    user_agent: str | None = None
+    platform: str | None = None
+    screen: str | None = None
+    is_embedded: bool | None = None
+    meet_space: str | None = None
+    referrer: str | None = None
+    utm_source: str | None = None
+    utm_medium: str | None = None
+    utm_campaign: str | None = None
+    utm_term: str | None = None
+    utm_content: str | None = None
+    channel: str | None = None
+
+    class Config:
+        extra = "ignore"
 
 
 @app.post("/auth/google-credential")
-def auth_google_credential(req: CredReq):
+def auth_google_credential(req: CredReq, request: Request):
     """GIS One Tap / Sign-in-with-Google in the Meet panel: verify the ID token,
     mint a Sonave session token (returned as JSON — no cookies, so the flow
     works with third-party cookies disabled)."""
     if not auth.google_configured():
         raise HTTPException(status_code=400, detail="google sign-in not configured")
+    client_meta = dict(req.metadata or {})
+    for k in ("timezone", "locale", "user_agent", "platform", "screen",
+              "is_embedded", "meet_space", "referrer", "utm_source",
+              "utm_medium", "utm_campaign", "utm_term", "utm_content", "channel"):
+        val = getattr(req, k, None)
+        if val is not None and k not in client_meta:
+            client_meta[k] = val
+
+    if not client_meta.get("user_agent") and request.headers.get("user-agent"):
+        client_meta["user_agent"] = request.headers.get("user-agent", "")
+    if not client_meta.get("locale") and request.headers.get("accept-language"):
+        client_meta["locale"] = request.headers.get("accept-language", "").split(",")[0]
+    if not client_meta.get("referrer") and request.headers.get("referer"):
+        client_meta["referrer"] = request.headers.get("referer", "")
+    if not client_meta.get("channel"):
+        client_meta["channel"] = "Google Meet Add-on Drawer" if client_meta.get("is_embedded") else ("Google Meet Add-on" if (client_meta.get("meet_space") or client_meta.get("space")) else "Google Meet Panel")
+
     try:
-        user = auth.complete_credential_login(req.credential)
+        user = auth.complete_credential_login(req.credential, metadata=client_meta)
     except ValueError as e:
         raise HTTPException(status_code=403, detail=str(e))
     except Exception:
         raise HTTPException(status_code=403, detail="credential verification failed")
     if user.get("created_ts") == user.get("last_login_ts"):
-        _track(user["id"], "signup", email=user.get("email") or "")
-        _notify_admin(f"👤 New Signup: {user.get('email')} · {_now_et()}")
+        _track(user["id"], "signup", email=user.get("email") or "", **client_meta)
+        _notify_admin(_format_signup_alert(user, client_meta))
         if user.get("email"):
             _send_welcome_email(user["email"], user.get("name", ""))
             _track(user["id"], "email_sent", type="welcome", to=user["email"])
     else:
-        _track(user["id"], "signin", email=user.get("email") or "")
+        _track(user["id"], "signin", email=user.get("email") or "", **client_meta)
     logger.info("credential login: %s (%s)", _mask_email(user.get("email")), user.get("role"))
     if user.get("role") == "admin":
         db.migrate_legacy(DATA_DIR, enroll.ENROLL_DIR, user["id"])
