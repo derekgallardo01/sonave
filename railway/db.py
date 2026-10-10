@@ -214,6 +214,8 @@ def admin_user_rollup(month: str) -> list[dict]:
             d["locale"] = meta.get("locale") or ""
             d["initial_space"] = meta.get("meet_space") or meta.get("space") or ""
             d["utm_source"] = meta.get("utm_source") or ""
+            d["bonus_minutes"] = int(meta.get("bonus_minutes") or 0)
+            d["review_bonus_awarded"] = bool(meta.get("review_bonus_awarded"))
             out.append(d)
         return out
     finally:
@@ -247,6 +249,9 @@ def get_user_telemetry(user_id: str) -> dict:
         res["platform"] = user_meta.get("platform") or ""
         res["screen"] = user_meta.get("screen") or ""
         res["is_embedded"] = bool(user_meta.get("is_embedded"))
+        res["bonus_minutes"] = int(user_meta.get("bonus_minutes") or 0)
+        res["review_bonus_awarded"] = bool(user_meta.get("review_bonus_awarded"))
+        res["reviewed_at"] = user_meta.get("reviewed_at")
 
         res["total_events"] = c.execute("SELECT COUNT(*) FROM events WHERE user_id=?", (user_id,)).fetchone()[0]
         res["sims_total"] = c.execute("SELECT COUNT(*) FROM events WHERE user_id=? AND kind IN ('simulation_run', 'diagnostic_run')", (user_id,)).fetchone()[0]
@@ -314,6 +319,8 @@ def upsert_google_user(sub: str, email: str, name: str, picture: str, role: str,
         c = _conn()
         try:
             r = c.execute("SELECT * FROM users WHERE google_sub=?", (sub,)).fetchone()
+            if not r and email:
+                r = c.execute("SELECT * FROM users WHERE lower(email)=lower(?) ORDER BY last_login_ts DESC LIMIT 1", (email.strip(),)).fetchone()
             if r:
                 new_role = "admin" if (role == "admin" or r["role"] == "admin") else r["role"]
                 merged_meta = {}
@@ -327,8 +334,8 @@ def upsert_google_user(sub: str, email: str, name: str, picture: str, role: str,
                         if v not in (None, ""):
                             merged_meta[k] = v
                 meta_json = json.dumps(merged_meta)
-                c.execute("UPDATE users SET email=?, name=?, picture=?, role=?, last_login_ts=?, metadata=? WHERE id=?",
-                          (email, name, picture, new_role, now, meta_json, r["id"]))
+                c.execute("UPDATE users SET google_sub=?, email=?, name=?, picture=?, role=?, last_login_ts=?, metadata=? WHERE id=?",
+                          (sub, email, name or r["name"], picture or r["picture"], new_role, now, meta_json, r["id"]))
                 c.commit()
                 return dict(c.execute("SELECT * FROM users WHERE id=?", (r["id"],)).fetchone())
             uid = "u_" + secrets.token_hex(8)
@@ -374,6 +381,43 @@ def get_user_by_sub(sub: str) -> dict | None:
         return dict(r) if r else None
     finally:
         c.close()
+
+
+def get_user_by_email(email: str) -> dict | None:
+    if not email:
+        return None
+    c = _conn()
+    try:
+        r = c.execute("SELECT * FROM users WHERE lower(email)=lower(?) ORDER BY last_login_ts DESC LIMIT 1", (email.strip(),)).fetchone()
+        return dict(r) if r else None
+    finally:
+        c.close()
+
+
+def award_review_bonus(user_id: str, bonus_minutes: int = 240) -> dict | None:
+    """Grant +4 free hours (+240 min) marketplace review bonus to user's profile metadata."""
+    u = get_user(user_id)
+    if not u and "@" in str(user_id):
+        u = get_user_by_email(user_id)
+        if u:
+            user_id = u["id"]
+    if not u:
+        return None
+    meta = {}
+    if u.get("metadata"):
+        try:
+            meta = json.loads(u["metadata"]) if isinstance(u["metadata"], str) else dict(u["metadata"])
+        except Exception:
+            meta = {}
+    cur_bonus = int(meta.get("bonus_minutes") or 0)
+    new_bonus = max(cur_bonus, bonus_minutes) if meta.get("review_bonus_awarded") else (cur_bonus + bonus_minutes)
+    now_ts = meta.get("reviewed_at") or time.time()
+    update = {
+        "bonus_minutes": new_bonus,
+        "review_bonus_awarded": True,
+        "reviewed_at": now_ts,
+    }
+    return update_user_metadata(user_id, update)
 
 
 def first_admin_id() -> str | None:

@@ -218,7 +218,7 @@ def _format_activity(user_id: str, kind: str, detail: dict) -> str:
         ref = detail.get("page") or ""
         return f"🎯 Website Action: '{cta}' ('{txt}') on {ref} · {ts}"
     if kind == "review_prompt_clicked":
-        return f"⭐ Marketplace Review Clicked: {email} · {ts}"
+        return f"⭐ Marketplace Review Clicked (+4 Free Hours Unlocked): {email} · {ts}"
     if kind == "mic_soundcheck":
         spk = detail.get("speaker") or "Host"
         return f"🎙️ Mic Soundcheck Verified: '{spk}' (97.9% Real baseline) — {email} · {ts}"
@@ -832,6 +832,32 @@ def api_telemetry_event(req: ClientEventReq, request: Request):
             d["referrer"] = request.headers.get("referer", "")
         if email and "email" not in d:
             d["email"] = email
+        if (uid in ("anonymous", "admin") or (p and p.kind == "machine")) and d.get("email"):
+            u_by_email = db.get_user_by_email(d["email"])
+            if not u_by_email and req.kind == "review_prompt_clicked":
+                try:
+                    u_by_email = db.upsert_google_user(
+                        f"email:{d['email'].strip().lower()}",
+                        d["email"].strip().lower(),
+                        d.get("name") or d["email"].split("@")[0],
+                        "",
+                        "member"
+                    )
+                except Exception:
+                    u_by_email = None
+            if u_by_email:
+                uid = u_by_email["id"]
+                email = u_by_email.get("email") or email
+
+        if req.kind == "review_prompt_clicked":
+            if uid != "anonymous":
+                try:
+                    db.award_review_bonus(uid, 240)
+                except Exception:
+                    pass
+            d["bonus_minutes"] = 240
+            d["review_bonus_awarded"] = True
+
         _track(uid, req.kind, **d)
 
         # Merge new acquisition metadata into user profile if identified
@@ -3388,6 +3414,18 @@ def api_me(p: auth.Principal = Depends(require_principal)):
            "meet_oauth": True,
            "meet_connected": bool(meet_tok)}
     out.update(billing.entitlement(p.user_id, p.role))
+    if p.kind == "user":
+        u = db.get_user(p.user_id)
+        if u and u.get("metadata"):
+            try:
+                m = json.loads(u["metadata"]) if isinstance(u["metadata"], str) else dict(u["metadata"])
+                out["review_bonus_awarded"] = bool(m.get("review_bonus_awarded"))
+                if "bonus_minutes" not in out:
+                    out["bonus_minutes"] = int(m.get("bonus_minutes") or 0)
+            except Exception:
+                pass
+    out.setdefault("review_bonus_awarded", False)
+    out.setdefault("bonus_minutes", 0)
     return out
 
 

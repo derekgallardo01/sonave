@@ -194,3 +194,47 @@ def test_meter_usage_triggers_threshold_milestones(mod):
     assert len(milestones) == 2
     assert milestones[1][0] == 100
     assert milestones[1][1] == pytest.approx(305.0)
+
+
+# --- review bonus wiring & extended allowance ---------------------------------
+def test_free_minutes_accounting_with_review_bonus(mod):
+    u = _user(mod, sub="s-bonus-calc", email="bonus@x.com")
+    assert mod.billing.free_minutes(u["id"]) == 300
+    assert mod.billing.free_minutes(u) == 300
+    assert mod.billing.free_minutes() == 300
+
+    mod.db.award_review_bonus(u["id"], 240)
+    assert mod.billing.free_minutes(u["id"]) == 540
+    ent = mod.billing.entitlement(u["id"])
+    assert ent["free_minutes"] == 540
+    assert ent["bonus_minutes"] == 240
+    assert ent["remaining_free"] == 540
+
+
+def test_review_bonus_delivers_extended_quota_allowance(mod):
+    u = _user(mod, sub="s-bonus-allow", email="allow@x.com")
+    mod.db.add_usage_minutes(u["id"], mod.billing.month_key(), 310)
+
+    # 310 min used > 300 min base -> denied
+    denied = mod.billing.can_launch_bot(u["id"])
+    assert denied and denied["code"] == "quota_exceeded"
+
+    # User reviews -> gets +4 free hours (+240 min, total 540)
+    c = _client_as(mod, u["id"])
+    r = c.post("/api/telemetry/event", json={
+        "kind": "review_prompt_clicked",
+        "detail": {"space": "meet-bonus-space"}
+    })
+    assert r.status_code == 204
+
+    # Now with 540 min free allowance, 310 min used is well within quota!
+    assert mod.billing.can_launch_bot(u["id"]) is None
+    ent = mod.billing.entitlement(u["id"])
+    assert ent["remaining_free"] == 230.0
+
+    # User exceeds 540 min
+    mod.db.add_usage_minutes(u["id"], mod.billing.month_key(), 235)
+    denied_over = mod.billing.can_launch_bot(u["id"])
+    assert denied_over and denied_over["code"] == "quota_exceeded"
+    assert "Free 9 monitored hours" in denied_over["detail"]
+

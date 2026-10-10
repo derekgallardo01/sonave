@@ -917,9 +917,10 @@ a:hover{color:var(--green-hover)}
       <span class="pill" onclick="setAdmKind('signup',this)">Signups</span>
       <span class="pill" onclick="setAdmKind('signin',this)">Sign-ins</span>
       <span class="pill" onclick="setAdmKind('meet_media_connect,meet_media_disconnect,bot_created',this)">Meet Calls</span>
-      <span class="pill" onclick="setAdmKind('simulation_run,cloner_opened',this)" style="color:#c084fc">Diagnostics</span>
+      <span class="pill" onclick="setAdmKind('simulation_run,cloner_opened,diagnostic_run',this)" style="color:#c084fc">Diagnostics</span>
       <span class="pill" onclick="setAdmKind('incident_open,incident_ack',this)">Threats &amp; Holds</span>
-      <span class="pill" onclick="setAdmKind('subscription_checkout,usage_threshold',this)">Billing</span>
+      <span class="pill" onclick="setAdmKind('subscription_checkout,usage_threshold,review_prompt_clicked',this)">Billing</span>
+      <span class="pill" onclick="setAdmKind('review_prompt_clicked',this)" style="color:var(--green)">Reviews</span>
       <span class="pill" onclick="setAdmKind('email_sent',this)">Emails</span>
       <span class="pill" onclick="setAdmKind('client_error,server_error,scorer_error',this)" style="color:var(--red)">Errors &amp; Bugs</span>
      </div>
@@ -939,6 +940,7 @@ a:hover{color:var(--green-hover)}
       <span id="utEmail" style="font-size:15px; font-weight:700; color:#fff;">user@example.com</span>
       <span id="utRoleBadge" class="role-badge r-member">member</span>
       <span id="utPlanBadge" style="font-size:10px; font-weight:700; padding:2px 7px; border-radius:6px; background:rgba(46,229,132,0.12); color:#2ee584; border:1px solid rgba(46,229,132,0.3);">FREE</span>
+      <span id="utBonusBadge" style="display:none; font-size:10px; font-weight:800; font-family:var(--mono); padding:2px 7px; border-radius:6px; background:rgba(46,229,132,0.18); color:var(--green); border:1px solid rgba(46,229,132,0.4);">+4h BONUS</span>
      </div>
      <div style="display:flex; align-items:center; gap:12px; font-size:11px; color:#8599a8; margin-top:3px; flex-wrap:wrap;">
       <span>ID: <code id="utId" style="font-family:var(--mono); color:#adb5bd; cursor:pointer;" onclick="copyUtId()" title="Click to copy ID">u_...</code></span>
@@ -1009,6 +1011,10 @@ a:hover{color:var(--green-hover)}
       <span id="utInitSpace" style="color:#38bdf8; font-family:var(--mono); font-weight:600;">—</span>
      </div>
      <div>
+      <span style="color:#556677; display:block; font-size:10px; font-weight:600; text-transform:uppercase;">Review Bonus / Allowance</span>
+      <span id="utBonusHours" style="color:var(--green); font-family:var(--mono); font-weight:700;">—</span>
+     </div>
+     <div>
       <span style="color:#556677; display:block; font-size:10px; font-weight:600; text-transform:uppercase;">Marketing Campaign (UTM)</span>
       <span id="utUtm" style="color:#e8eef2; font-family:var(--mono);">—</span>
      </div>
@@ -1043,8 +1049,9 @@ a:hover{color:var(--green-hover)}
      <div style="font-size:11px; font-weight:700; color:#8599a8; letter-spacing:0.04em;">CHRONOLOGICAL TELEMETRY TIMELINE</div>
      <div class="pills" id="utPills">
       <span class="pill on" onclick="filterUtEvents('',this)">All</span>
-      <span class="pill" onclick="filterUtEvents('meet_media_connect,meet_media_disconnect,bot_created,meeting_ended',this)">Calls</span>
-      <span class="pill" onclick="filterUtEvents('simulation_run,cloner_opened',this)" style="color:#c084fc">Diagnostics</span>
+      <span class="pill" onclick="filterUtEvents('meet_media_connect,meet_media_disconnect,bot_created,meeting_ended,session_milestone,addon_opened',this)">Calls</span>
+      <span class="pill" onclick="filterUtEvents('simulation_run,cloner_opened,diagnostic_run,mic_soundcheck',this)" style="color:#c084fc">Diagnostics</span>
+      <span class="pill" onclick="filterUtEvents('review_prompt_clicked',this)" style="color:var(--green)">⭐ Reviews</span>
       <span class="pill" onclick="filterUtEvents('incident_open,incident_ack',this)">Threats</span>
       <span class="pill" onclick="filterUtEvents('client_error,server_error,scorer_error',this)" style="color:var(--red)">Errors</span>
       <span class="pill" onclick="filterUtEvents('email_sent',this)">Emails</span>
@@ -1439,9 +1446,10 @@ function est(ts){/* seconds -> "Aug 14, 9:48 AM" pinned to US Eastern */
 function setAdmKind(k,el){_admKind=k;document.querySelectorAll('#admPills .pill').forEach(function(p){p.classList.remove('on')});el.classList.add('on');admEvents()}
 function kcol(k){
  if(k=='client_error'||k=='server_error'||k=='scorer_error')return'var(--red)';
- if(k=='signup'||k=='subscription_checkout'||k=='enroll_added'||k=='host_rejoined'||k=='incident_ack'||k=='mic_soundcheck')return'var(--green)';
- if(k=='simulation_run'||k=='cloner_opened')return'#c084fc';
- if(k=='email_sent')return'#38bdf8';
+ if(k=='signup'||k=='subscription_checkout'||k=='enroll_added'||k=='host_rejoined'||k=='incident_ack'||k=='mic_soundcheck'||k=='review_prompt_clicked')return'var(--green)';
+ if(k=='simulation_run'||k=='cloner_opened'||k=='diagnostic_run')return'#c084fc';
+ if(k=='email_sent'||k=='session_milestone'||k=='meet_connected')return'#38bdf8';
+ if(k=='web_cta_click'||k=='support_inquiry')return'#a78bfa';
  if(k=='meet_media_connect'||k=='addon_opened')return'#38bdf8';
  if(k=='meet_media_disconnect'||k=='host_left'||k=='usage_threshold')return'var(--amber)';
  if(k=='incident_open'||k=='bot_denied'||k=='subscription_canceled')return'var(--red)';
@@ -1449,7 +1457,13 @@ function kcol(k){
  return'#5aa7e8';
 }
 function admSummary(k,d){
- try{d=d?JSON.parse(d):{}}catch(e){d={}}
+ if(typeof d==='string'){try{d=JSON.parse(d)}catch(e){d={}}}else if(!d||typeof d!=='object'){d={}}
+ if(k=='session_milestone')return '⏱️ Active Call: '+(d.minutes||(d.elapsed_sec?Math.round(d.elapsed_sec/60):'?'))+' min in space \''+(d.space||d.meet_space||'Call')+'\'';
+ if(k=='review_prompt_clicked')return '⭐ Clicked Marketplace Review (+4 hrs bonus)';
+ if(k=='web_cta_click')return '🎯 Website Action: \''+(d.cta||'Button')+'\''+(d.text?(' (\''+d.text+'\')'):'')+(d.page?(' on '+d.page):'');
+ if(k=='support_inquiry')return '📩 Support: '+(d.name||'User')+' ['+(d.topic||'General')+']'+(d.message?(': '+d.message):'');
+ if(k=='diagnostic_run')return '🔬 Diagnostic: \''+(d.test_name||d.voice_id||d.test||'Alarm Probe')+'\'';
+ if(k=='meet_connected')return '🎧 Audio Stream Attached: space \''+(d.space||d.space_id||d.meet_space||'Call')+'\'';
  if(k=='mic_soundcheck')return 'Verified Mic Soundcheck: '+(d.speaker||'Host')+' (97.9% Real baseline)';
  if(k=='simulation_run')return 'Alarm Diagnostic: '+(d.voice_name||d.voice_id||'AI Voice')+(d.is_real?' (Real Reference Baseline)':' (Caught '+(d.confidence||'98%')+' Fake)')+(d.speaker?(' · '+d.speaker):'');
  if(k=='incident_ack')return 'Wire hold cleared for Incident #'+(d.incident_id||'');
@@ -1516,6 +1530,7 @@ function renderAdmUserList(users){
   if (u.utm_source) subInfo.push('utm: ' + esc(u.utm_source));
   var subHtml = subInfo.length ? ('<div style="font-size:10px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + subInfo.join(' · ') + '</div>') : '';
 
+  var bonusLbl = (u.bonus_minutes > 0 ? (' <span style="font-size:9.5px;font-weight:700;color:var(--green);font-family:var(--mono);">(+' + Math.round(u.bonus_minutes/60) + 'h)</span>') : '');
   h+='<div class="adm-grid adm-row" onclick="openUserTelemetry(\''+esc(u.id)+'\')" title="Click to view full user telemetry &amp; timeline">'+
    '<div style="overflow:hidden;min-width:0">'+
     '<div class="hist-spk" style="overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px">'+
@@ -1525,7 +1540,7 @@ function renderAdmUserList(users){
     '</div>'+
     subHtml+
    '</div>'+
-   '<span class="hist-cell">'+esc(planBadge)+'</span>'+
+   '<span class="hist-cell">'+esc(planBadge)+bonusLbl+'</span>'+
    '<span class="hist-cell hide-sm"><span class="badge-num" style="color:'+(calls>0?'#38bdf8':'var(--muted)')+'">'+calls+'</span></span>'+
    '<span class="hist-cell"><span class="badge-num" style="color:'+(sims>0?'#c084fc':'var(--muted)')+'">'+sims+'</span></span>'+
    '<span class="hist-cell"><span class="badge-num" style="color:'+(threats>0?'var(--red)':'var(--muted)')+'">'+threats+'</span></span>'+
@@ -1557,6 +1572,9 @@ async function openUserTelemetry(userId){
  document.getElementById('utUtm').textContent = '—';
  document.getElementById('utReferrer').textContent = '—';
  document.getElementById('utDevice').textContent = '—';
+ document.getElementById('utBonusHours').textContent = '—';
+ var bBadgeInit = document.getElementById('utBonusBadge');
+ if(bBadgeInit) bBadgeInit.style.display = 'none';
  document.getElementById('utFeed').innerHTML = '<div style="color:var(--muted);font-size:12px;padding:12px 0">Loading telemetry...</div>';
  document.getElementById('utSpacesList').innerHTML = '<span style="font-size:11px;color:#556677;">Loading...</span>';
  document.getElementById('utSimList').innerHTML = '<span style="font-size:11px;color:#556677;">Loading...</span>';
@@ -1574,6 +1592,21 @@ async function openUserTelemetry(userId){
   document.getElementById('utCreated').textContent = 'Joined: ' + (u.created_ts ? est(u.created_ts) : '—');
   document.getElementById('utLastLogin').textContent = 'Last login: ' + (u.last_login_ts ? est(u.last_login_ts) : '—');
   document.getElementById('utEmailBtn').href = 'mailto:' + encodeURIComponent(u.email || '') + '?subject=' + encodeURIComponent('Sonave Voice Security — Following up');
+
+  var bonusMin = u.bonus_minutes || (u.metadata && u.metadata.bonus_minutes) || 0;
+  var bonusBadge = document.getElementById('utBonusBadge');
+  if(bonusBadge){
+   if(bonusMin > 0){
+    bonusBadge.textContent = '+' + (bonusMin >= 60 ? (bonusMin / 60) + 'h' : bonusMin + 'm') + ' BONUS';
+    bonusBadge.style.display = 'inline-block';
+   } else {
+    bonusBadge.style.display = 'none';
+   }
+  }
+  var utBonusEl = document.getElementById('utBonusHours');
+  if(utBonusEl){
+   utBonusEl.textContent = bonusMin > 0 ? ('+' + (bonusMin / 60) + ' Free Hours (' + bonusMin + ' min unlocked)') : '0 hrs (standard quota)';
+  }
 
   var tz = u.timezone || (u.metadata && u.metadata.timezone) || '';
   var loc = u.locale || (u.metadata && u.metadata.locale) || '';

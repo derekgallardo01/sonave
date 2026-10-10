@@ -1,0 +1,48 @@
+"""Shared test fixtures for railway/tests."""
+from __future__ import annotations
+
+import importlib.util
+import os
+import sys
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).resolve().parent.parent.parent
+for _p in (ROOT, ROOT / "src", ROOT / "service", ROOT / "tools", ROOT / "railway", ROOT / "tests"):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
+
+
+def load_module(name: str, relpath: str):
+    """Import a .py file under a unique module name (avoids app.py name collisions)."""
+    spec = importlib.util.spec_from_file_location(name, ROOT / relpath)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[name] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+@pytest.fixture(autouse=True)
+def _hermetic_sonave_env(monkeypatch, tmp_path):
+    for var in [k for k in os.environ if k.startswith("SONAVE_")]:
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("SONAVE_APP_DB", str(tmp_path / "app.db"))
+    monkeypatch.setenv("SONAVE_SESSION_SECRET", "hermetic-test-secret")
+    monkeypatch.setenv("SONAVE_INCIDENT_DB", str(tmp_path / "incidents.db"))
+    monkeypatch.setenv("SONAVE_DATA_DIR", str(tmp_path / "captured"))
+    monkeypatch.setenv("SONAVE_ENROLL_DIR", str(tmp_path / "enrollments"))
+    inc = sys.modules.get("incidents")
+    if inc is not None:
+        monkeypatch.setattr(inc, "DB_PATH", tmp_path / "incidents.db")
+
+
+@pytest.fixture
+def railway_mod(monkeypatch):
+    monkeypatch.setenv("SONAVE_SCORER_URL", "")
+    monkeypatch.setenv("SONAVE_RECALL_API_KEY", "test-key")
+    mod = load_module("rwapp", "railway/app.py")
+    mod.QUALITY.clear()
+    mod.VERDICTS.clear()
+    mod.ROLL.clear()
+    return mod

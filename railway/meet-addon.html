@@ -595,7 +595,7 @@ async function poll(){
   var d=await r.json();
   if(d._v){if(window._vSeen&&window._vSeen!==d._v){location.reload();return}window._vSeen=d._v}
   show('live');
-  if(!ME){try{ME=await (await fetch('/api/me',{headers:authHeaders()})).json()}catch(e){ME={}}}
+  if(!ME){try{ME=await (await fetch('/api/me',{headers:authHeaders()})).json();if(ME&&(ME.review_bonus_awarded||(ME.bonus_minutes&&ME.bonus_minutes>0))){try{localStorage.setItem('sonave_reviewed','1');}catch(e){}var _rc=document.getElementById('reviewCard');if(_rc)_rc.style.display='none';}}catch(e){ME={}}}
   var ks=Object.keys(d).filter(function(k){return k[0]!=='_'});
   var hasAudio=ks.length>0;
   var isProtected=_connected;
@@ -816,6 +816,7 @@ function show(id){['signin','live'].forEach(function(x){document.getElementById(
 function maybeShowReviewPrompt(){
  try{
   if(localStorage.getItem('sonave_reviewed') || localStorage.getItem('sonave_review_dismissed')) return;
+  if(window.ME && (window.ME.bonus_minutes || window.ME.review_bonus_awarded)) return;
   var card = document.getElementById('reviewCard');
   if(card) card.style.display = 'block';
  }catch(x){}
@@ -832,13 +833,19 @@ function dismissReviewCard(){
 function onReviewClicked(){
  try{
   localStorage.setItem('sonave_reviewed', '1');
+  var meta = typeof getMeetClientMeta === 'function' ? getMeetClientMeta({space: window._meetCode || ''}) : {space: window._meetCode || ''};
+  if(typeof ME !== 'undefined' && ME && ME.email) meta.email = ME.email;
+  else if(window.ME && window.ME.email) meta.email = window.ME.email;
   fetch('/api/telemetry/event', {
    method: 'POST',
    headers: authHeaders({'Content-Type': 'application/json'}),
-   body: JSON.stringify({kind: 'review_prompt_clicked', detail: {space: window._meetCode || ''}})
+   body: JSON.stringify({kind: 'review_prompt_clicked', detail: meta, metadata: meta})
   }).catch(function(){});
+  if(typeof ME !== 'undefined' && ME){ ME.review_bonus_awarded = true; ME.bonus_minutes = (ME.bonus_minutes || 0) + 240; }
+  if(window.ME){ window.ME.review_bonus_awarded = true; window.ME.bonus_minutes = (window.ME.bonus_minutes || 0) + 240; }
   var card = document.getElementById('reviewCard');
   if(card){
+   card.style.display = 'block';
    card.innerHTML = '<div style="font-size:11px; color:var(--green); font-weight:700; text-align:center; padding:6px 0;">✓ Thank you! 4 bonus free hours unlocked on your account.</div>';
    setTimeout(function(){ card.style.display = 'none'; }, 4000);
   }

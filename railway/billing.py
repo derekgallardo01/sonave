@@ -35,8 +35,41 @@ def configured() -> bool:
     return bool(_env("SONAVE_STRIPE_SECRET_KEY"))
 
 
-def free_minutes() -> int:
-    return int(_env("SONAVE_FREE_MINUTES", "300"))
+def free_minutes(user: dict | str | None = None) -> int:
+    base = int(_env("SONAVE_FREE_MINUTES", "300"))
+    if not user:
+        return base
+    meta = {}
+    if isinstance(user, str):
+        try:
+            u = db.get_user(user)
+            if not u and "@" in user:
+                u = db.get_user_by_email(user)
+            if u and u.get("metadata"):
+                meta = json.loads(u["metadata"]) if isinstance(u["metadata"], str) else dict(u["metadata"])
+        except Exception:
+            pass
+    elif isinstance(user, dict):
+        if "bonus_minutes" in user and user["bonus_minutes"] is not None:
+            try:
+                b_val = int(user["bonus_minutes"])
+                if b_val > 0:
+                    return base + b_val
+            except (ValueError, TypeError):
+                pass
+        raw_m = user.get("metadata")
+        if raw_m:
+            try:
+                meta = json.loads(raw_m) if isinstance(raw_m, str) else dict(raw_m)
+            except Exception:
+                pass
+    bonus = 0
+    if isinstance(meta, dict):
+        try:
+            bonus = max(0, int(meta.get("bonus_minutes") or 0))
+        except (ValueError, TypeError):
+            bonus = 0
+    return base + bonus
 
 
 def monthly_cap_usd() -> float:
@@ -75,18 +108,28 @@ def verify_webhook_sig(body: bytes, sig_header: str, secret: str, tolerance: int
 
 # --- entitlements -------------------------------------------------------------
 def entitlement(user_id: str, role: str = "member") -> dict:
-    used = db.get_usage_minutes(user_id, month_key())
-    free = free_minutes()
+    real_uid = user_id
+    if user_id and "@" in str(user_id):
+        u = db.get_user_by_email(user_id)
+        if u:
+            real_uid = u["id"]
+            if role == "member" and u.get("role"):
+                role = u["role"]
+    used = db.get_usage_minutes(real_uid, month_key())
+    free = free_minutes(real_uid)
+    bonus = max(0, free - int(_env("SONAVE_FREE_MINUTES", "300")))
     if role == "admin":
         return {"plan": "admin", "minutes_used": round(used, 1), "free_minutes": free,
+                "bonus_minutes": bonus,
                 "remaining_free": None, "has_card": True, "active": True,
                 "rate_usd_per_hour": RATE_USD_PER_HOUR}
-    sub = db.get_subscription(user_id)
+    sub = db.get_subscription(real_uid)
     active = bool(sub and sub.get("status") in ("active", "trialing"))
     billable_min = max(0.0, used - free)
     spend = billable_min / 60 * RATE_USD_PER_HOUR
     return {"plan": "metered" if active else "free",
             "minutes_used": round(used, 1), "free_minutes": free,
+            "bonus_minutes": bonus,
             "remaining_free": max(0.0, round(free - used, 1)),
             "has_card": active, "active": True,
             "month_spend_usd": round(spend, 2), "monthly_cap_usd": monthly_cap_usd(),
@@ -100,8 +143,9 @@ def can_launch_bot(user_id: str, role: str = "member") -> dict | None:
     ent = entitlement(user_id, role)
     if ent["plan"] == "free":
         if ent["remaining_free"] <= 0:
+            free_h = ent["free_minutes"] // 60
             return {"ok": False, "code": "quota_exceeded",
-                    "detail": f"Free {free_minutes() // 60} monitored hours used this month — "
+                    "detail": f"Free {free_h} monitored hours used this month — "
                               f"add a card to continue at ${RATE_USD_PER_HOUR:g}/hour."}
         return None
     if ent.get("month_spend_usd", 0) >= ent.get("monthly_cap_usd", 1e9):
@@ -140,7 +184,7 @@ def meter_usage(user_id: str, role: str, minutes: float, idempotency_key: str,
     total_after = db.add_usage_minutes(user_id, month, minutes)
     if role == "admin":
         return
-    free = float(free_minutes())
+    free = float(free_minutes(user_id))
     prev = total_after - minutes
     if on_threshold and free > 0:
         if prev < 0.8 * free <= total_after:
