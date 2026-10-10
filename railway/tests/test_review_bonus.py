@@ -267,3 +267,27 @@ def test_reviewed_at_timestamp_preserved_on_idempotent_click(mod):
     meta2 = json.loads(res2["metadata"])
     assert meta2["reviewed_at"] == orig_ts  # Not overwritten!
 
+
+def test_admin_outreach_endpoint(mod):
+    """Admin can dispatch direct outreach emails to target users."""
+    admin = mod.db.upsert_google_user("sub-adm-outreach", "boss2@sonave.dev", "Boss", "", "admin")
+    admin_c = _client_as(mod, admin["id"])
+    target = mod.db.upsert_google_user("sub-target", "client@example.com", "Client Name", "", "member")
+
+    payload = {
+        "to_email": "client@example.com",
+        "subject": "Sonave Voice Security Follow-up",
+        "text": "Hi Client, thanks for using Sonave.",
+        "from_name": "Derek Gallardo",
+        "from_email": "derek@usesonave.com"
+    }
+    r = admin_c.post("/api/admin/outreach", json=payload)
+    assert r.status_code == 200
+    assert r.json()["ok"] is True
+
+    # Check that event was recorded in audit stream
+    events = mod.db.list_events(user_id=target["id"], kind="email_sent")
+    assert len(events) >= 1
+    assert any("founder_outreach" in ev.get("detail", "") for ev in events)
+
+

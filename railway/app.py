@@ -286,7 +286,8 @@ def _track(user_id: str, kind: str, **detail) -> None:
         pass
 
 
-def _send_email(to_email: str, subject: str, text_body: str, html_body: str | None = None) -> None:
+def _send_email(to_email: str, subject: str, text_body: str, html_body: str | None = None,
+                from_sender: str | None = None, reply_to: str | None = None) -> None:
     """Send an off-thread transactional email via configured SMTP relay or Resend API."""
     if not to_email or "@" not in to_email:
         return
@@ -296,13 +297,15 @@ def _send_email(to_email: str, subject: str, text_body: str, html_body: str | No
         resend_key = os.environ.get("RESEND_API_KEY", "")
         if resend_key:
             try:
-                sender = os.environ.get("SONAVE_SMTP_FROM") or "Sonave Alerts <alerts@usesonave.com>"
+                sender = from_sender or os.environ.get("SONAVE_SMTP_FROM") or "Sonave Alerts <alerts@usesonave.com>"
                 payload = {
                     "from": sender,
                     "to": [to_email],
                     "subject": subject,
                     "text": text_body
                 }
+                if reply_to:
+                    payload["reply_to"] = reply_to
                 if html_body:
                     payload["html"] = html_body
                 req = urllib.request.Request(
@@ -323,7 +326,7 @@ def _send_email(to_email: str, subject: str, text_body: str, html_body: str | No
         host = os.environ.get("SONAVE_SMTP_HOST", "")
         user = os.environ.get("SONAVE_SMTP_USER", "")
         password = os.environ.get("SONAVE_SMTP_PASS", "")
-        sender = (os.environ.get("SONAVE_SMTP_FROM") or user or "alerts@usesonave.com")
+        sender = from_sender or (os.environ.get("SONAVE_SMTP_FROM") or user or "alerts@usesonave.com")
         if not host or not user:
             logger.info("Email skipped to %s (SMTP/Resend not configured): %s", _mask_email(to_email), subject)
             return
@@ -333,6 +336,8 @@ def _send_email(to_email: str, subject: str, text_body: str, html_body: str | No
             msg = EmailMessage()
             msg["Subject"] = subject
             msg["From"] = f"Sonave <{sender}>" if "<" not in sender else sender
+            if reply_to:
+                msg["Reply-To"] = reply_to
             msg["To"] = to_email
             msg.set_content(text_body)
             if html_body:
@@ -2115,6 +2120,34 @@ def api_admin_user_telemetry(user_id: str, p: auth.Principal = Depends(require_a
         "user": data,
         "events": events
     }
+
+
+class AdminOutreachReq(BaseModel):
+    to_email: str
+    subject: str
+    text: str
+    html: str | None = None
+    from_name: str | None = "Derek Gallardo"
+    from_email: str | None = "derek@usesonave.com"
+
+
+@app.post("/api/admin/outreach")
+def api_admin_outreach(req: AdminOutreachReq, p: auth.Principal = Depends(require_admin)):
+    """Founder / Admin direct outreach email to high-engagement users."""
+    sender = f"{req.from_name} <{req.from_email}>" if (req.from_name and req.from_email) else None
+    _send_email(
+        req.to_email,
+        req.subject,
+        req.text,
+        req.html,
+        from_sender=sender,
+        reply_to="derek@usesonave.com"
+    )
+    target_user = db.get_user_by_email(req.to_email)
+    target_uid = target_user["id"] if target_user else p.user_id
+    _track(target_uid, "email_sent", type="founder_outreach", to=req.to_email, subject=req.subject)
+    logger.info("Admin outreach dispatched to %s: %s", _mask_email(req.to_email), req.subject)
+    return {"ok": True, "to": req.to_email, "subject": req.subject}
 
 
 @app.get("/api/model", dependencies=[Depends(require_auth)])
