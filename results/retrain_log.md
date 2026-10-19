@@ -63,3 +63,4 @@ One line per weekly retrain (appended by tools/sunday_retrain.ps1).
 - 2026-09-20 — retrain attempt FAILED (step failed: regression gate). Candidate preserved at models\sonave_xlsr_meet_candidate_2026-09-20; deployed checkpoint restored.
 - 2026-09-27 — retrain attempt FAILED (step failed: retrain + validate). Candidate preserved at models\sonave_xlsr_meet_candidate_2026-09-27; deployed checkpoint restored.
 - 2026-10-04 — retrain attempt FAILED (step failed: regression gate). Candidate preserved at models\sonave_xlsr_meet_candidate_2026-10-04; deployed checkpoint restored.
+- 2026-10-11 — retrain attempt FAILED (step failed: regression gate). Candidate preserved at models\sonave_xlsr_meet_candidate_2026-10-11; deployed checkpoint restored.

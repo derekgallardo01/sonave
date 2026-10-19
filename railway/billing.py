@@ -1,6 +1,6 @@
 """billing.py — Stripe metered billing, stdlib-only.
 
-Pricing: free SONAVE_FREE_MINUTES per calendar month (default 300 = 5 monitored
+Pricing: free SONAVE_FREE_MINUTES per calendar month (default 120 = 2 monitored
 hours), then $8/monitored-hour billed through a Stripe metered subscription
 (card on file via Checkout; usage reported as Billing Meter events). A monthly
 spend cap blocks bot launches past SONAVE_MONTHLY_CAP_USD as a surprise-bill and
@@ -36,7 +36,7 @@ def configured() -> bool:
 
 
 def free_minutes(user: dict | str | None = None) -> int:
-    base = int(_env("SONAVE_FREE_MINUTES", "300"))
+    base = int(_env("SONAVE_FREE_MINUTES", "120"))
     if not user:
         return base
     meta = {}
@@ -117,7 +117,7 @@ def entitlement(user_id: str, role: str = "member") -> dict:
                 role = u["role"]
     used = db.get_usage_minutes(real_uid, month_key())
     free = free_minutes(real_uid)
-    bonus = max(0, free - int(_env("SONAVE_FREE_MINUTES", "300")))
+    bonus = max(0, free - int(_env("SONAVE_FREE_MINUTES", "120")))
     if role == "admin":
         return {"plan": "admin", "minutes_used": round(used, 1), "free_minutes": free,
                 "bonus_minutes": bonus,

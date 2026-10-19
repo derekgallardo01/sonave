@@ -200,7 +200,7 @@ In the Stripe dashboard (test mode first): **Billing → Meters → Create meter
 | `SONAVE_STRIPE_WEBHOOK_SECRET` | `whsec_...` from the webhook endpoint |
 | `SONAVE_STRIPE_PRICE_METERED` | `price_...` of the usage-based price |
 | `SONAVE_STRIPE_METER_EVENT` | default `sonave_monitored_minutes` |
-| `SONAVE_FREE_MINUTES` | default `300` (5 monitored hours/month free) |
+| `SONAVE_FREE_MINUTES` | default `120` (2 monitored hours/month free) |
 | `SONAVE_MONTHLY_CAP_USD` | default `200` — bot launches blocked past this spend |
 | `SONAVE_MAX_CONCURRENT_BOTS` | default `2` per non-admin user |
 

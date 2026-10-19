@@ -18,7 +18,7 @@ def mod(monkeypatch, tmp_path):
     monkeypatch.setenv("SONAVE_SESSION_SECRET", "test-secret")
     monkeypatch.setenv("SONAVE_ADMIN_EMAILS", "boss@sonave.dev")
     monkeypatch.setenv("SONAVE_PUBLIC_DOMAIN", "localhost:8000")
-    monkeypatch.setenv("SONAVE_FREE_MINUTES", "300")
+    monkeypatch.delenv("SONAVE_FREE_MINUTES", raising=False)
     monkeypatch.setenv("SONAVE_STRIPE_SECRET_KEY", "sk_test_x")
     m = conftest.load_module("rwapp_bonus", "railway/app.py")
     m.QUALITY.clear()
@@ -38,23 +38,23 @@ def _client_as(m, uid):
 
 
 def test_free_minutes_calculation(mod):
-    """free_minutes() returns base 300, and adds bonus_minutes when provided in user/dict/id."""
+    """free_minutes() returns base 120, and adds bonus_minutes when provided in user/dict/id."""
     # 1. Base / None
-    assert mod.billing.free_minutes() == 300
-    assert mod.billing.free_minutes(None) == 300
+    assert mod.billing.free_minutes() == 120
+    assert mod.billing.free_minutes(None) == 120
 
     # 2. User with no bonus
     u = mod.db.upsert_google_user("sub-u1", "u1@example.com", "U1", "", "member")
-    assert mod.billing.free_minutes(u["id"]) == 300
-    assert mod.billing.free_minutes(u) == 300
+    assert mod.billing.free_minutes(u["id"]) == 120
+    assert mod.billing.free_minutes(u) == 120
 
     # 3. User with bonus_minutes in metadata
     mod.db.update_user_metadata(u["id"], {"bonus_minutes": 240, "review_bonus_awarded": True})
-    assert mod.billing.free_minutes(u["id"]) == 540  # 300 + 240 = 540 min (9 hours)
+    assert mod.billing.free_minutes(u["id"]) == 360  # 120 + 240 = 360 min (6 hours)
 
     # 4. User dict with direct bonus_minutes key
-    assert mod.billing.free_minutes({"bonus_minutes": 240}) == 540
-    assert mod.billing.free_minutes({"metadata": json.dumps({"bonus_minutes": 120})}) == 420
+    assert mod.billing.free_minutes({"bonus_minutes": 240}) == 360
+    assert mod.billing.free_minutes({"metadata": json.dumps({"bonus_minutes": 120})}) == 240
 
 
 def test_review_prompt_clicked_awards_bonus(mod):
@@ -62,10 +62,10 @@ def test_review_prompt_clicked_awards_bonus(mod):
     u = mod.db.upsert_google_user("sub-rev", "derek@usesonave.com", "Derek", "", "member")
     c = _client_as(mod, u["id"])
 
-    # Before review: base 300 min
-    assert mod.billing.free_minutes(u["id"]) == 300
+    # Before review: base 120 min
+    assert mod.billing.free_minutes(u["id"]) == 120
     ent_before = mod.billing.entitlement(u["id"])
-    assert ent_before["free_minutes"] == 300
+    assert ent_before["free_minutes"] == 120
     assert ent_before["bonus_minutes"] == 0
 
     # Send review_prompt_clicked telemetry
@@ -83,11 +83,11 @@ def test_review_prompt_clicked_awards_bonus(mod):
     assert meta["review_bonus_awarded"] is True
     assert "reviewed_at" in meta
 
-    # Verify billing entitlement now reflects 540 minutes (9 free hours)
+    # Verify billing entitlement now reflects 360 minutes (6 free hours)
     ent_after = mod.billing.entitlement(u["id"])
-    assert ent_after["free_minutes"] == 540
+    assert ent_after["free_minutes"] == 360
     assert ent_after["bonus_minutes"] == 240
-    assert ent_after["remaining_free"] == 540
+    assert ent_after["remaining_free"] == 360
 
     # Idempotent click does not double stack
     resp2 = c.post("/api/telemetry/event", json={
@@ -100,32 +100,32 @@ def test_review_prompt_clicked_awards_bonus(mod):
     assert meta2["bonus_minutes"] == 240
 
 
-def test_billing_quota_allows_past_300_minutes_with_bonus(mod):
-    """A user who consumed 320 minutes is blocked under base free tier, but allowed with bonus."""
+def test_billing_quota_allows_past_120_minutes_with_bonus(mod):
+    """A user who consumed 150 minutes is blocked under base free tier, but allowed with bonus."""
     u = mod.db.upsert_google_user("sub-q", "quota_user@example.com", "Quota User", "", "member")
-    mod.db.add_usage_minutes(u["id"], mod.billing.month_key(), 320)
+    mod.db.add_usage_minutes(u["id"], mod.billing.month_key(), 150)
 
-    # 1. Without bonus: 320 > 300 -> blocked
+    # 1. Without bonus: 150 > 120 -> blocked
     denied = mod.billing.can_launch_bot(u["id"])
     assert denied is not None
     assert denied["code"] == "quota_exceeded"
-    assert "Free 5 monitored hours" in denied["detail"]
+    assert "Free 2 monitored hours" in denied["detail"]
 
-    # 2. Award +4 hours (240 min) review bonus -> total 540 min
+    # 2. Award +4 hours (240 min) review bonus -> total 360 min
     mod.db.award_review_bonus(u["id"], 240)
     allowed = mod.billing.can_launch_bot(u["id"])
-    assert allowed is None  # Allowed because 320 < 540!
+    assert allowed is None  # Allowed because 150 < 360!
 
     # Check remaining free minutes
     ent = mod.billing.entitlement(u["id"])
-    assert ent["remaining_free"] == 220.0  # 540 - 320 = 220 min remaining
+    assert ent["remaining_free"] == 210.0  # 360 - 150 = 210 min remaining
 
-    # 3. Consume beyond 540 min (e.g. 545 min) -> blocked with 9 hours in detail
-    mod.db.add_usage_minutes(u["id"], mod.billing.month_key(), 225)  # 320 + 225 = 545
+    # 3. Consume beyond 360 min (e.g. 365 min) -> blocked with 6 hours in detail
+    mod.db.add_usage_minutes(u["id"], mod.billing.month_key(), 215)  # 150 + 215 = 365
     denied2 = mod.billing.can_launch_bot(u["id"])
     assert denied2 is not None
     assert denied2["code"] == "quota_exceeded"
-    assert "Free 9 monitored hours" in denied2["detail"]
+    assert "Free 6 monitored hours" in denied2["detail"]
 
 
 def test_format_activity_review_prompt_clicked(mod):
@@ -143,7 +143,7 @@ def test_api_me_returns_bonus_minutes_and_flag(mod):
     r = c.get("/api/me")
     assert r.status_code == 200
     data = r.json()
-    assert data["free_minutes"] == 540
+    assert data["free_minutes"] == 360
     assert data["bonus_minutes"] == 240
     assert data["review_bonus_awarded"] is True
 
@@ -219,9 +219,9 @@ def test_billing_entitlement_and_free_minutes_by_email(mod):
     u = mod.db.upsert_google_user("sub-email-lookup", "derek@usesonave.com", "Derek", "", "member")
     mod.db.award_review_bonus(u["id"], 240)
 
-    assert mod.billing.free_minutes("derek@usesonave.com") == 540
+    assert mod.billing.free_minutes("derek@usesonave.com") == 360
     ent = mod.billing.entitlement("derek@usesonave.com")
-    assert ent["free_minutes"] == 540
+    assert ent["free_minutes"] == 360
     assert ent["bonus_minutes"] == 240
 
 
@@ -289,5 +289,204 @@ def test_admin_outreach_endpoint(mod):
     events = mod.db.list_events(user_id=target["id"], kind="email_sent")
     assert len(events) >= 1
     assert any("founder_outreach" in ev.get("detail", "") for ev in events)
+
+
+def test_default_free_quota_120_without_env_var(monkeypatch):
+    """billing.free_minutes defaults to 120 (2 hours) when SONAVE_FREE_MINUTES is unset."""
+    monkeypatch.delenv("SONAVE_FREE_MINUTES", raising=False)
+    import billing
+    assert billing.free_minutes() == 120
+    assert billing.free_minutes(None) == 120
+    # Custom env var override works
+    monkeypatch.setenv("SONAVE_FREE_MINUTES", "240")
+    assert billing.free_minutes() == 240
+
+
+def test_post_meeting_review_email_triggered_on_disconnect(mod):
+    """Post-meeting review email is triggered when meeting disconnects for active call with unreviewed user."""
+    u = mod.db.upsert_google_user("sub-post-email", "active_host@example.com", "Active Host", "", "member")
+    c = _client_as(mod, u["id"])
+
+    # 1. User has an active call milestone (e.g. 1 min milestone)
+    resp = c.post("/api/telemetry/event", json={
+        "kind": "session_milestone",
+        "detail": {"space": "meet-growth-room", "minutes": 1, "elapsed_sec": 65}
+    })
+    assert resp.status_code == 204
+
+    # User has not reviewed yet and has not received post-call email
+    meta_before = json.loads(mod.db.get_user(u["id"])["metadata"] or "{}")
+    assert not meta_before.get("review_bonus_awarded")
+    assert not meta_before.get("post_call_email_sent")
+
+    # 2. Meeting ends (session disconnect)
+    r_disc = c.post("/api/meet/sessions/disconnect", json={"space_id": "meet-growth-room"})
+    assert r_disc.status_code == 200
+
+    # 3. User metadata is updated with post_call_email_sent: True
+    u_after = mod.db.get_user(u["id"])
+    meta_after = json.loads(u_after["metadata"])
+    assert meta_after.get("post_call_email_sent") is True
+
+    # 4. email_sent event is logged with type: "post_meeting_review"
+    events = mod.db.list_events(user_id=u["id"], kind="email_sent")
+    assert len(events) >= 1
+    post_events = [ev for ev in events if '"post_meeting_review"' in ev.get("detail", "")]
+    assert len(post_events) == 1
+    post_ev_detail = json.loads(post_events[0]["detail"])
+    assert post_ev_detail["type"] == "post_meeting_review"
+    assert post_ev_detail["to"] == "active_host@example.com"
+
+
+def test_post_meeting_review_email_skipped_if_already_reviewed(mod):
+    """Users who have already claimed review bonus do not receive post-meeting review email."""
+    u = mod.db.upsert_google_user("sub-already-reviewed", "reviewed_host@example.com", "Rev Host", "", "member")
+    mod.db.award_review_bonus(u["id"], 240)
+    c = _client_as(mod, u["id"])
+
+    # Milestone reached
+    c.post("/api/telemetry/event", json={
+        "kind": "session_milestone",
+        "detail": {"space": "meet-growth-room-2", "minutes": 5}
+    })
+
+    # Meeting disconnects
+    c.post("/api/meet/sessions/disconnect", json={"space_id": "meet-growth-room-2"})
+
+    meta = json.loads(mod.db.get_user(u["id"])["metadata"])
+    assert not meta.get("post_call_email_sent")
+    events = mod.db.list_events(user_id=u["id"], kind="email_sent")
+    assert not any("post_meeting_review" in ev.get("detail", "") for ev in events)
+
+
+def test_post_meeting_review_email_skipped_if_already_sent(mod):
+    """If user already received post_call_email_sent, it is not sent again."""
+    u = mod.db.upsert_google_user("sub-already-sent", "sent_host@example.com", "Sent Host", "", "member")
+    mod.db.update_user_metadata(u["id"], {"post_call_email_sent": True})
+    c = _client_as(mod, u["id"])
+
+    # Milestone reached
+    c.post("/api/telemetry/event", json={
+        "kind": "session_milestone",
+        "detail": {"space": "meet-growth-room-3", "minutes": 1}
+    })
+
+    # Meeting disconnects
+    c.post("/api/meet/sessions/disconnect", json={"space_id": "meet-growth-room-3"})
+
+    events = mod.db.list_events(user_id=u["id"], kind="email_sent")
+    assert not any("post_meeting_review" in ev.get("detail", "") for ev in events)
+
+
+def test_post_meeting_review_email_skipped_if_no_active_call(mod):
+    """A user with no active call time (< 1 min, no milestone) does not get post-meeting email."""
+    u = mod.db.upsert_google_user("sub-quick-drop", "quick_drop@example.com", "Quick Drop", "", "member")
+    c = _client_as(mod, u["id"])
+
+    # Connects and immediately disconnects (< 1 min)
+    mod.MEET_SESSION_START[u["id"]] = time.time() - 5.0  # only 5 seconds ago
+    c.post("/api/meet/sessions/disconnect", json={"space_id": "meet-quick-drop"})
+
+    meta = json.loads(mod.db.get_user(u["id"])["metadata"] or "{}")
+    assert not meta.get("post_call_email_sent")
+    events = mod.db.list_events(user_id=u["id"], kind="email_sent")
+    assert not any("post_meeting_review" in ev.get("detail", "") for ev in events)
+
+
+def test_soundcheck_seeds_98_9_percent_real_host(mod):
+    """/api/audio/soundcheck returns 98.9% Real baseline and seeds QUALITY and VERDICTS."""
+    u = mod.db.upsert_google_user("sub-sc", "host_speaker@example.com", "Host Speaker", "", "member")
+    c = _client_as(mod, u["id"])
+
+    resp = c.post("/api/audio/soundcheck", json={"speaker_name": "Host Speaker", "duration_sec": 2.5})
+    assert resp.status_code == 200
+    d = resp.json()
+    assert d["ok"] is True
+    assert d["authenticity_pct"] == 98.9
+    assert d["p_fake"] == 0.011
+    assert d["verdict"] == "real"
+
+
+def test_meet_addon_template_has_auto_verify_and_listening_pulse(mod):
+    """meet-addon.html has active dynamic audio meter, listening pulse, and auto-verify baseline logic."""
+    c = _client(mod)
+    r = c.get("/meet-addon")
+    assert r.status_code == 200
+    html = r.text
+    assert "emptyAudioMeter" in html
+    assert "meterPulseText" in html
+    assert "Listening for speech" in html
+    assert "handleLiveMicAudioFrame" in html
+    assert "triggerHostAutoVerify" in html
+    assert "Verified Authentic Human (98.9% Real)" in html
+    assert "ACOUSTIC BASELINE CALIBRATED" in html
+
+
+def test_post_meeting_review_email_skipped_when_historical_event_exists(mod):
+    """Historical meet_connected events from previous sessions must not cause short drops to trigger emails."""
+    u = mod.db.upsert_google_user("sub-old-hist", "old_hist@example.com", "Old Hist", "", "member")
+    c = _client_as(mod, u["id"])
+
+    # Simulate an old connection event from 2 hours ago
+    mod.db.add_event(u["id"], "meet_connected", json.dumps({"space": "yesterdays-call"}))
+    with mod.db._LOCK:
+        conn = mod.db._conn()
+        conn.execute("UPDATE events SET ts=? WHERE user_id=? AND kind='meet_connected'", (time.time() - 7200, u["id"]))
+        conn.commit()
+        conn.close()
+
+    # User connects today and disconnects after only 4 seconds
+    mod.MEET_SESSION_START[u["id"]] = time.time() - 4.0
+    c.post("/api/meet/sessions/disconnect", json={"space_id": "meet-quick-drop-2"})
+
+    meta = json.loads(mod.db.get_user(u["id"])["metadata"] or "{}")
+    assert not meta.get("post_call_email_sent")
+    events = mod.db.list_events(user_id=u["id"], kind="email_sent")
+    assert not any("post_meeting_review" in ev.get("detail", "") for ev in events)
+
+
+def test_post_meeting_review_email_triggered_by_meeting_ended(mod):
+    """Bot-monitored meeting_ended event with duration >= 60s triggers review email."""
+    u = mod.db.upsert_google_user("sub-bot-ended", "bot_host@example.com", "Bot Host", "", "member")
+
+    # Simulate meeting_ended event with 120s duration
+    mod._track(u["id"], "meeting_ended", bot_id="bot-test-1", duration_sec=120.0, metered_min=2.0)
+
+    meta = json.loads(mod.db.get_user(u["id"])["metadata"])
+    assert meta.get("post_call_email_sent") is True
+    events = mod.db.list_events(user_id=u["id"], kind="email_sent")
+    assert any("post_meeting_review" in ev.get("detail", "") for ev in events)
+
+
+def test_post_meeting_review_email_supports_user_lookup_by_email(mod):
+    """_maybe_send_post_meeting_review_email resolves user by email if passed an email string."""
+    u = mod.db.upsert_google_user("sub-by-email", "by_email@example.com", "By Email", "", "member")
+
+    sent = mod._maybe_send_post_meeting_review_email("by_email@example.com", call_duration_sec=75.0)
+    assert sent is True
+
+    meta = json.loads(mod.db.get_user(u["id"])["metadata"])
+    assert meta.get("post_call_email_sent") is True
+
+
+def test_api_quality_exposes_baseline_and_model_flags(mod):
+    """api_quality exposes baseline and model flags so the Meet Add-on can render the baseline badge."""
+    u = mod.db.upsert_google_user("sub-sc-qual", "qual_host@example.com", "Qual Host", "", "member")
+    c = _client_as(mod, u["id"])
+
+    # Perform soundcheck to seed baseline
+    c.post("/api/audio/soundcheck", json={"speaker_name": "Qual Host", "duration_sec": 2.5})
+
+    r = c.get("/api/quality")
+    assert r.status_code == 200
+    data = r.json()
+    spk_key = "Qual Host (Verified Voice)"
+    assert spk_key in data
+    row = data[spk_key]
+    assert row.get("baseline") is True
+    assert row.get("model") == "soundcheck"
+    assert row.get("auth_verdict") == "real"
+
+
 
 

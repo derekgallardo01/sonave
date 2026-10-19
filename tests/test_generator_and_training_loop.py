@@ -49,8 +49,16 @@ def test_continuous_training_loop(tmp_path, monkeypatch):
 def test_generator_http_endpoints(railway_mod, tmp_path, monkeypatch):
     import db
     import incidents
+    import generator
     monkeypatch.setattr(db, "_db_path", lambda: tmp_path / "test_gen.db")
     monkeypatch.setattr(incidents, "DB_PATH", tmp_path / "test_gen_inc.db")
+
+    async def _mock_generate_synthetic_mp3(*args, **kwargs):
+        return b"ID3" + b"\x00" * 200
+
+    monkeypatch.setattr(generator, "generate_synthetic_mp3", _mock_generate_synthetic_mp3)
+    if hasattr(railway_mod, "generator"):
+        monkeypatch.setattr(railway_mod.generator, "generate_synthetic_mp3", _mock_generate_synthetic_mp3)
 
     u = railway_mod.db.upsert_google_user("sub_gen", "operator@corp.com", "Operator", "", "admin")
     uid = u["id"]
