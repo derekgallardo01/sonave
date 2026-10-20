@@ -148,6 +148,39 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
   </div>
   <div class="note" id="roomNote">All participant voices authentic and verified.</div>
  </div>
+
+ <!-- Plan Quota & Upgrade Strip -->
+ <div id="planBar" style="display:none; margin:8px 12px 6px; padding:6px 10px; background:rgba(255,255,255,0.03); border:1px solid var(--line); border-radius:8px; align-items:center; justify-content:space-between; font-size:11px;">
+  <div style="display:flex; align-items:center; gap:6px; min-width:0;">
+   <span id="planBadge" style="font-size:8.5px; font-weight:800; font-family:var(--mono); padding:1.5px 5.5px; border-radius:4px; background:rgba(46,229,132,0.12); color:var(--green); border:1px solid rgba(46,229,132,0.3); flex-shrink:0;">FREE TIER</span>
+   <span id="planRemaining" style="color:var(--ink2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">120m left</span>
+  </div>
+  <button id="btnUpgrade" onclick="startUpgradeCheckout()" style="background:var(--green); color:#080b0e; border:none; border-radius:5px; font-weight:700; font-size:10px; padding:3px 9px; cursor:pointer; display:inline-flex; align-items:center; gap:3px; flex-shrink:0;">
+   <span>Upgrade</span>
+   <span style="font-size:9px;">↗</span>
+  </button>
+ </div>
+
+ <!-- Quota Exhausted Paywall Card -->
+ <div id="paywallCard" style="display:none; margin:8px 12px 10px; padding:14px; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.35); border-radius:10px; text-align:center;">
+  <div style="font-size:22px; margin-bottom:4px;">🛡️</div>
+  <div style="font-size:12.5px; font-weight:800; color:var(--ink); margin-bottom:4px;">Monthly Free Quota Exhausted</div>
+  <div style="font-size:11px; color:var(--ink2); line-height:1.45; margin-bottom:12px;">
+   You've used all <strong><span id="pwFreeMinutes">120</span> free minutes</strong> of voice defense for this month. Upgrade to continue real-time verification for all participants.
+  </div>
+  <button onclick="startUpgradeCheckout()" class="btn cta" style="width:100%; padding:9px 12px; font-size:11.5px; margin-bottom:6px;">
+   Add Card &amp; Continue Protection ($8/hr)
+  </button>
+  <div style="font-size:10px; color:var(--muted); margin-bottom:6px;">
+   Only pay for active call minutes. Cancel anytime.
+  </div>
+  <div id="paywallReviewOption" style="margin-top:8px; padding-top:8px; border-top:1px dashed rgba(255,255,255,0.1); font-size:10.5px; color:var(--ink2);">
+   <span>Need more free hours?</span>
+   <a href="https://workspace.google.com/marketplace/app/sonave/940532414120" target="_blank" rel="noopener" onclick="onReviewClicked()" style="color:var(--green); font-weight:700; text-decoration:none; margin-left:4px;">
+    Rate on Marketplace (+4 Free Hours) ↗
+   </a>
+  </div>
+ </div>
  <div id="protect" style="display:none;padding:12px 14px 16px;border-bottom:1px solid var(--line)">
   <div class="ph" id="protectHero">
    <div class="radar">
@@ -607,7 +640,21 @@ async function poll(){
   var d=await r.json();
   if(d._v){if(window._vSeen&&window._vSeen!==d._v){location.reload();return}window._vSeen=d._v}
   show('live');
-  if(!ME){try{ME=await (await fetch('/api/me',{headers:authHeaders()})).json();if(ME&&(ME.review_bonus_awarded||(ME.bonus_minutes&&ME.bonus_minutes>0))){try{localStorage.setItem('sonave_reviewed','1');}catch(e){}var _rc=document.getElementById('reviewCard');if(_rc)_rc.style.display='none';}}catch(e){ME={}}}
+  await refreshEntitlement();
+  var isExhausted = ME && ME.plan === 'free' && ME.remaining_free != null && ME.remaining_free <= 0;
+  if(isExhausted){
+   var pw = document.getElementById('paywallCard');
+   if(pw) pw.style.display = 'block';
+   var spks = document.getElementById('speakers');
+   if(spks) spks.style.display = 'none';
+   var pBtn = document.getElementById('protectBtn');
+   if(pBtn) pBtn.style.display = 'none';
+   var pWait = document.getElementById('admitWait');
+   if(pWait) pWait.style.display = 'none';
+   var pSpec = document.getElementById('miniSpecWrap');
+   if(pSpec) pSpec.style.display = 'none';
+   return;
+  }
   var ks=Object.keys(d).filter(function(k){return k[0]!=='_'});
   var hasAudio=ks.length>0;
   var isProtected=_connected;
@@ -895,6 +942,114 @@ function maybeShowReviewPrompt(){
  }catch(x){}
 }
 
+var _lastMeFetch = 0;
+async function refreshEntitlement(force){
+ var now = Date.now();
+ if(!force && ME && (now - _lastMeFetch) < 25000) {
+  updatePlanUI();
+  return;
+ }
+ _lastMeFetch = now;
+ try{
+  var r = await fetch('/api/me', {headers: authHeaders()});
+  if(r.ok){
+   ME = await r.json();
+   window.ME = ME;
+   if(ME && (ME.review_bonus_awarded || (ME.bonus_minutes && ME.bonus_minutes > 0))){
+    try{ localStorage.setItem('sonave_reviewed','1'); }catch(e){}
+    var _rc = document.getElementById('reviewCard');
+    if(_rc) _rc.style.display = 'none';
+    var _pwRo = document.getElementById('paywallReviewOption');
+    if(_pwRo) _pwRo.style.display = 'none';
+   }
+   updatePlanUI();
+  }
+ }catch(e){}
+}
+
+function updatePlanUI(){
+ if(!ME) return;
+ var planBar = document.getElementById('planBar');
+ var paywallCard = document.getElementById('paywallCard');
+ if(!planBar) return;
+
+ planBar.style.display = 'flex';
+ var plan = ME.plan || 'free';
+ var rem = ME.remaining_free != null ? Math.round(ME.remaining_free) : null;
+ var used = ME.minutes_used != null ? Math.round(ME.minutes_used) : 0;
+ var freeM = ME.free_minutes != null ? Math.round(ME.free_minutes) : 120;
+ var isExhausted = plan === 'free' && rem !== null && rem <= 0;
+
+ var badge = document.getElementById('planBadge');
+ var remText = document.getElementById('planRemaining');
+ var upBtn = document.getElementById('btnUpgrade');
+ var pwM = document.getElementById('pwFreeMinutes');
+ if(pwM) pwM.textContent = freeM;
+
+ if(plan === 'admin'){
+  if(badge){ badge.textContent = 'ADMIN'; badge.style.color = '#a78bfa'; badge.style.borderColor = 'rgba(167,139,250,0.3)'; badge.style.background = 'rgba(167,139,250,0.1)'; }
+  if(remText) remText.textContent = 'Unlimited Protection';
+  if(upBtn) upBtn.style.display = 'none';
+  if(paywallCard) paywallCard.style.display = 'none';
+ } else if(plan === 'metered' || ME.has_card){
+  if(badge){ badge.textContent = 'PRO'; badge.style.color = 'var(--green)'; badge.style.borderColor = 'rgba(46,229,132,0.3)'; badge.style.background = 'rgba(46,229,132,0.1)'; }
+  if(remText) remText.textContent = 'Active Protection ($8/hr)';
+  if(upBtn) upBtn.style.display = 'none';
+  if(paywallCard) paywallCard.style.display = 'none';
+ } else {
+  // Free plan
+  if(isExhausted){
+   if(badge){ badge.textContent = 'QUOTA EXHAUSTED'; badge.style.color = '#ef4444'; badge.style.borderColor = 'rgba(239,68,68,0.4)'; badge.style.background = 'rgba(239,68,68,0.15)'; }
+   if(remText) remText.textContent = '0 min left this month';
+   if(upBtn){ upBtn.style.display = 'inline-flex'; upBtn.innerHTML = 'Upgrade <span style="font-size:9px">↗</span>'; upBtn.style.background = '#ef4444'; upBtn.style.color = '#ffffff'; }
+   if(paywallCard) paywallCard.style.display = 'block';
+  } else {
+   var bonusLabel = (ME.bonus_minutes && ME.bonus_minutes > 0) ? ' (+Bonus)' : '';
+   if(badge){ badge.textContent = 'FREE TIER' + bonusLabel; badge.style.color = 'var(--green)'; badge.style.borderColor = 'rgba(46,229,132,0.3)'; badge.style.background = 'rgba(46,229,132,0.1)'; }
+   if(remText) remText.textContent = rem + ' min left this month';
+   if(upBtn){ upBtn.style.display = 'inline-flex'; upBtn.innerHTML = 'Upgrade <span style="font-size:9px">↗</span>'; upBtn.style.background = 'var(--green)'; upBtn.style.color = '#080b0e'; }
+   if(paywallCard) paywallCard.style.display = 'none';
+  }
+ }
+}
+
+async function startUpgradeCheckout(){
+ var w = null;
+ try{ w = window.open('about:blank', '_blank'); }catch(x){}
+ try{
+  var r = await fetch('/api/billing/checkout', {
+   method: 'POST',
+   headers: authHeaders({'Content-Type': 'application/json'})
+  });
+  var d = await r.json();
+  if(d && d.ok && d.url){
+   if(w && !w.closed){
+    w.location.href = d.url;
+   } else {
+    window.open(d.url, '_blank');
+   }
+   try{
+    fetch('/api/telemetry/event', {
+     method: 'POST',
+     headers: authHeaders({'Content-Type': 'application/json'}),
+     body: JSON.stringify({
+      kind: 'addon_upgrade_clicked',
+      detail: typeof getMeetClientMeta === 'function' ? getMeetClientMeta({source: 'meet_drawer'}) : {source: 'meet_drawer'}
+     })
+    }).catch(function(){});
+   }catch(e){}
+  } else {
+   if(w && !w.closed) w.close();
+   alert((d && d.detail) || 'Could not create checkout session. Please visit usesonave.com/console to upgrade.');
+  }
+ }catch(err){
+  if(w && !w.closed) w.close();
+  alert('Checkout error: ' + (err.message || err));
+ }
+}
+
+window.addEventListener('focus', function(){ refreshEntitlement(true); });
+
 function dismissReviewCard(){
  try{
   localStorage.setItem('sonave_review_dismissed', '1');
@@ -920,6 +1075,7 @@ function onReviewClicked(){
   if(card){
    card.style.display = 'block';
    card.innerHTML = '<div style="font-size:11px; color:var(--green); font-weight:700; text-align:center; padding:6px 0;">✓ Thank you! 4 bonus free hours unlocked on your account.</div>';
+    setTimeout(function(){ refreshEntitlement(true); }, 500);
    setTimeout(function(){ card.style.display = 'none'; }, 4000);
   }
  }catch(x){}

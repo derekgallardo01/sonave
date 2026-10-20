@@ -1460,6 +1460,8 @@ function admSummary(k,d){
  if(typeof d==='string'){try{d=JSON.parse(d)}catch(e){d={}}}else if(!d||typeof d!=='object'){d={}}
  if(k=='session_milestone')return '⏱️ Active Call: '+(d.minutes||(d.elapsed_sec?Math.round(d.elapsed_sec/60):'?'))+' min in space \''+(d.space||d.meet_space||'Call')+'\'';
  if(k=='review_prompt_clicked')return '⭐ Clicked Marketplace Review (+4 hrs bonus)';
+ if(k=='addon_upgrade_clicked')return '💳 Clicked Upgrade to Pro in Google Meet drawer'+(d.source?(' ('+d.source+')'):'');
+ if(k=='subscription_checkout')return '🎉 Customer Added Card (Metered Subscription Activated)';
  if(k=='web_cta_click')return '🎯 Website Action: \''+(d.cta||'Button')+'\''+(d.text?(' (\''+d.text+'\')'):'')+(d.page?(' on '+d.page):'');
  if(k=='support_inquiry')return '📩 Support: '+(d.name||'User')+' ['+(d.topic||'General')+']'+(d.message?(': '+d.message):'');
  if(k=='diagnostic_run')return '🔬 Diagnostic: \''+(d.test_name||d.voice_id||d.test||'Alarm Probe')+'\'';

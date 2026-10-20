@@ -139,7 +139,8 @@ _NOTIFY_KINDS = {"incident_open", "bot_created", "meeting_started",
                  "meet_media_connect", "meet_media_disconnect", "simulation_run",
                  "incident_ack", "cloner_opened", "mic_soundcheck",
                  "web_cta_click", "review_prompt_clicked", "support_inquiry",
-                 "addon_opened", "session_milestone", "diagnostic_run", "meet_connected"}
+                 "addon_opened", "session_milestone", "diagnostic_run", "meet_connected",
+                 "addon_upgrade_clicked", "subscription_checkout"}
 
 
 def _now_et() -> str:
@@ -219,6 +220,10 @@ def _format_activity(user_id: str, kind: str, detail: dict) -> str:
         return f"🎯 Website Action: '{cta}' ('{txt}') on {ref} · {ts}"
     if kind == "review_prompt_clicked":
         return f"⭐ Marketplace Review Clicked (+4 Free Hours Unlocked): {email} · {ts}"
+    if kind == "addon_upgrade_clicked":
+        sp = detail.get("space") or detail.get("meet_space") or "Google Meet"
+        src = detail.get("source") or "meet_drawer"
+        return f"💳 Upgrade Initiated in Meet Drawer ({src}): {email} · space '{sp}' · {ts}"
     if kind == "mic_soundcheck":
         spk = detail.get("speaker") or "Host"
         return f"🎙️ Mic Soundcheck Verified: '{spk}' (98.9% Real baseline) — {email} · {ts}"
@@ -291,6 +296,8 @@ def _track(user_id: str, kind: str, **detail) -> None:
             if not dur and "MEET_SESSION_START" in globals():
                 start_t = MEET_SESSION_START.pop(user_id, None)
                 dur = (time.time() - start_t) if start_t else 0.0
+            if "_meter_meet_flush" in globals():
+                _meter_meet_flush(user_id, detail.get("space", ""))
             if "_maybe_send_post_meeting_review_email" in globals():
                 _maybe_send_post_meeting_review_email(user_id, call_duration_sec=dur)
     except Exception:
@@ -949,6 +956,8 @@ def api_telemetry_event(req: ClientEventReq, request: Request):
         if req.kind in ("meet_connected", "session_milestone"):
             if uid != "anonymous" and uid not in MEET_SESSION_START:
                 MEET_SESSION_START[uid] = time.time()
+            if req.kind == "session_milestone" and "_meter_meet_tick" in globals():
+                _meter_meet_tick(uid, req.detail.get("space", ""))
 
         if req.kind == "review_prompt_clicked":
             if uid != "anonymous":
@@ -1602,6 +1611,7 @@ async def ws_mic_stream(ws: WebSocket):
             if len(tail) > _SCORE_WIN_BYTES:
                 del tail[:-_SCORE_WIN_BYTES]
             seen += len(data)
+            _meter_meet_tick(uid, space_id)
 
             # Compute audio RMS & peak level
             if len(data) >= 640:
@@ -1676,7 +1686,63 @@ async def ws_mic_stream(ws: WebSocket):
                 ACTIVE_MEET_SPACES.pop(uid, None)
                 start_t = MEET_SESSION_START.pop(uid, None)
                 dur = (time.time() - start_t) if start_t else 0.0
+                _meter_meet_flush(uid, space_id)
                 _maybe_send_post_meeting_review_email(uid, call_duration_sec=dur)
+
+
+MEET_METER_LAST_TS: dict[str, float] = {}
+
+
+def _meter_user_session(user_id: str, sec: float, session_id: str = "meet") -> None:
+    """Record monitored meeting seconds for a user and report to billing."""
+    if sec <= 0 or not user_id or user_id in ("anonymous", "machine"):
+        return
+    try:
+        u = db.get_user(user_id)
+        role = u.get("role", "member") if u else "member"
+
+        def _on_thresh(uid: str, pct: int, used: float, free_m: float):
+            _track(uid, "usage_threshold", percent=pct, used_min=round(used, 1), free_min=round(free_m, 1))
+            usr = db.get_user(uid)
+            if usr and usr.get("email"):
+                _send_quota_warning_email(usr["email"], usr.get("name", ""), pct, used, free_m)
+                _track(uid, "email_sent", type=f"quota_{pct}", to=usr["email"])
+
+        billing.meter_usage(user_id, role, sec / 60.0,
+                            idempotency_key=f"meet:{user_id}:{session_id}:{int(time.time() // 60)}",
+                            on_threshold=_on_thresh)
+    except Exception as e:  # noqa: BLE001 — accounting must never break capture
+        logger.warning("user meeting meter failed: %s", repr(e)[:80])
+
+
+def _meter_meet_tick(user_id: str, space_id: str = "") -> None:
+    """Invoked when meeting audio is actively being received/processed.
+    Meters in 60-second chunks with strict per-user deduplication."""
+    if not user_id or user_id in ("anonymous", "machine"):
+        return
+    now = time.time()
+    with _STATE_LOCK:
+        last_t = MEET_METER_LAST_TS.get(user_id)
+        if last_t is None:
+            MEET_METER_LAST_TS[user_id] = now
+            return
+        elapsed = now - last_t
+        if elapsed < 60.0:
+            return
+        MEET_METER_LAST_TS[user_id] = now
+    _meter_user_session(user_id, elapsed, space_id or "meet")
+
+
+def _meter_meet_flush(user_id: str, space_id: str = "") -> None:
+    """Invoked when a meeting session ends or disconnects."""
+    if not user_id or user_id in ("anonymous", "machine"):
+        return
+    with _STATE_LOCK:
+        last_t = MEET_METER_LAST_TS.pop(user_id, None)
+    if last_t is not None:
+        elapsed = time.time() - last_t
+        if elapsed >= 5.0:
+            _meter_user_session(user_id, elapsed, space_id or "meet")
 
 
 def _meter_tick(bot_id: str, user_id: str, sec: float):
@@ -2760,6 +2826,7 @@ def _make_meet_media_callback(user_id: str, space_id: str):
     def on_frame(speaker_id: str, pcm_chunk: bytes, ts: float):
         spk = _SPK_RE.sub("_", speaker_id or "speaker").strip("_") or "speaker"
         LAST_FRAME[user_id] = ts
+        _meter_meet_tick(user_id, space_id)
         
         # Audio level calculation
         if len(pcm_chunk) >= 640:
@@ -2827,6 +2894,10 @@ def api_meet_session_connect(req: MeetConnectReq, p: auth.Principal = Depends(re
     space = _clean_space_id(req.space_id)
     if not space:
         raise HTTPException(400, "Invalid space_id or Google Meet URL")
+
+    denied = billing.can_monitor_meeting(p.user_id, p.role)
+    if denied:
+        return {"ok": False, "code": "quota_exceeded", "detail": denied.get("detail", ""), "exhausted": True}
 
     token = req.access_token or ""
     if not token and p.kind == "user":
@@ -2904,6 +2975,7 @@ def api_meet_session_disconnect(req: MeetDisconnectReq, p: auth.Principal = Depe
     meet_media_ingest.close_session(space)
     start_t = MEET_SESSION_START.pop(p.user_id, None)
     dur = (time.time() - start_t) if start_t else 0.0
+    _meter_meet_flush(p.user_id, space)
     with _STATE_LOCK:
         ACTIVE_STREAMS[p.user_id] = 0
         LAST_CLOSE[p.user_id] = time.time()
@@ -3594,10 +3666,29 @@ def api_billing_checkout(request: Request, p: auth.Principal = Depends(require_p
     if not billing.configured():
         return {"ok": False, "detail": "billing not configured"}
     try:
-        return {"ok": True, "url": billing.create_checkout(p.user_id, _base_url(request))}
+        url = billing.create_checkout(p.user_id, _base_url(request))
+        _track(p.user_id, "addon_upgrade_clicked", email=p.email, source="checkout_api")
+        return {"ok": True, "url": url}
     except Exception as e:  # noqa: BLE001
         logger.warning("checkout failed: %s", repr(e)[:120])
         return {"ok": False, "detail": "could not start checkout"}
+
+
+@app.get("/billing/upgrade")
+def billing_upgrade_redirect(request: Request):
+    """Direct one-click upgrade route for Meet add-on drawer links and target='_blank'."""
+    p = auth.get_principal(request)
+    if not p or not p.user_id:
+        return RedirectResponse(url="/console?redirect=upgrade", status_code=303)
+    if not billing.configured():
+        return RedirectResponse(url="/console?billing=unconfigured", status_code=303)
+    try:
+        url = billing.create_checkout(p.user_id, _base_url(request))
+        _track(p.user_id, "addon_upgrade_clicked", email=p.email, source="direct_link")
+        return RedirectResponse(url=url, status_code=303)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("upgrade redirect checkout failed: %s", repr(e)[:120])
+        return RedirectResponse(url="/console?billing=error", status_code=303)
 
 
 @app.post("/api/billing/portal")

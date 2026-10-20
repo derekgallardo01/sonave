@@ -155,6 +155,11 @@ def can_launch_bot(user_id: str, role: str = "member") -> dict | None:
     return None
 
 
+def can_monitor_meeting(user_id: str, role: str = "member") -> dict | None:
+    """Check if user has quota or active paid plan to monitor a Google Meet call."""
+    return can_launch_bot(user_id, role)
+
+
 # --- usage -> Stripe meter events ---------------------------------------------
 def report_meter_event(user_id: str, billable_minutes: float, idempotency_key: str) -> None:
     """Push billable minutes (beyond the free tier) as a Stripe Billing Meter event.
