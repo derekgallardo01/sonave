@@ -24,28 +24,48 @@ class MeetMediaSession:
     """Manages an active Google Meet Media API session for a given meeting space."""
     
     def __init__(self, space_id: str, access_token: str,
-                 on_audio_frame: Callable[[str, bytes, float], None] | None = None):
+                 on_audio_frame: Callable[[str, bytes, float], None] | None = None,
+                 on_video_frame: Callable[[str, bytes, float], None] | None = None):
         self.space_id = space_id.replace("spaces/", "")
         self.access_token = access_token
         self.on_audio_frame = on_audio_frame
+        self.on_video_frame = on_video_frame
         self.session_id: str | None = None
         self.state = "idle"  # idle | connecting | streaming | closed | error
         self.error_detail = ""
         self.started_ts: float = 0.0
         self.bytes_received: int = 0
+        self.video_frames_received: int = 0
         self.active_speakers: set[str] = set()
         self._stop_event = threading.Event()
         self._worker_thread: threading.Thread | None = None
 
+    def build_sdp_offer(self) -> str:
+        """Build the WebRTC SDP offer negotiating both Opus audio and VP8 video streams."""
+        return (
+            "v=0\r\n"
+            "o=- 0 0 IN IP4 127.0.0.1\r\n"
+            "s=-\r\n"
+            "t=0 0\r\n"
+            "m=audio 9 UDP/TLS/RTP/SAVPF 111\r\n"
+            "c=IN IP4 0.0.0.0\r\n"
+            "a=recvonly\r\n"
+            "a=rtpmap:111 opus/48000/2\r\n"
+            "m=video 9 UDP/TLS/RTP/SAVPF 96\r\n"
+            "c=IN IP4 0.0.0.0\r\n"
+            "a=recvonly\r\n"
+            "a=rtpmap:96 VP8/90000\r\n"
+        )
+
     def connect(self) -> dict[str, Any]:
         """Initiate connection to the active Google Meet conference via the Meet Media API.
-        Falls back seamlessly to client Web Audio monitoring when direct WebRTC is not provisioned."""
+        Falls back seamlessly to client Web Audio + Video monitoring when direct WebRTC is not provisioned."""
         self.state = "connecting"
         self.started_ts = time.time()
         
         # When no enterprise OAuth access token is provided or space is an ad-hoc meeting code,
-        # run in client-side Web Audio monitoring mode (host mic stream + bot standby)
-        if not self.access_token:
+        # run in client-side Web Audio + Video monitoring mode (host mic/video stream + bot standby)
+        if not self.access_token or self.space_id in ("", "live-room", "this-call", "active-call", "default"):
             self.state = "streaming"
             self.session_id = f"sess_client_{int(time.time())}"
             logger.info("Meet Media session initialized in client monitoring mode: space=%s", self.space_id)
@@ -54,7 +74,7 @@ class MeetMediaSession:
                 "session_id": self.session_id,
                 "state": self.state,
                 "mode": "client_mic_stream",
-                "detail": "Client Web Audio monitoring active"
+                "detail": "Client Web Audio & Video monitoring active"
             }
         
         url = f"{MEET_API_BASE}/spaces/{self.space_id}:connectActiveConference"
@@ -65,16 +85,16 @@ class MeetMediaSession:
             "User-Agent": "Sonave-Meet-Media/1.0"
         }
         
-        # Standard Meet Media session request
+        sdp_offer = self.build_sdp_offer()
         payload = {
             "offer": {
-                "sdp": "v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111\r\nc=IN IP4 0.0.0.0\r\na=recvonly\r\na=rtpmap:111 opus/48000/2\r\n"
+                "sdp": sdp_offer
             }
         }
         
         try:
             req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers)
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            with urllib.request.urlopen(req, timeout=4) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
                 self.session_id = data.get("sessionId") or f"sess_{int(time.time())}"
                 self.state = "streaming"
@@ -82,7 +102,7 @@ class MeetMediaSession:
                 return {"ok": True, "session_id": self.session_id, "state": self.state, "answer": data.get("answer"), "mode": "native_webrtc_botless"}
         except urllib.error.HTTPError as e:
             err_msg = f"HTTP {e.code}: {e.reason}"
-            logger.info("Meet Media API direct WebRTC not provisioned for space %s (%s) — operating in client audio mode", self.space_id, err_msg)
+            logger.info("Meet Media API direct WebRTC not provisioned for space %s (%s) — operating in client audio/video mode", self.space_id, err_msg)
             self.state = "streaming"
             self.session_id = f"sess_client_{int(time.time())}"
             return {
@@ -119,6 +139,23 @@ class MeetMediaSession:
             except Exception as e:
                 logger.error("Error dispatching audio frame for %s: %s", speaker_id, e)
 
+    def ingest_speaker_video_frame(self, speaker_id: str, frame_bytes: bytes,
+                                   ts: float | None = None) -> None:
+        """Process an incoming video frame (JPEG/PNG/VP8 keyframe) for a specific speaker in this session."""
+        if self.state == "closed" or not frame_bytes:
+            return
+        if self.state == "idle":
+            self.state = "streaming"
+        self.video_frames_received += 1
+        self.bytes_received += len(frame_bytes)
+        self.active_speakers.add(speaker_id)
+        frame_ts = ts if ts is not None else time.time()
+        if self.on_video_frame:
+            try:
+                self.on_video_frame(speaker_id, frame_bytes, frame_ts)
+            except Exception as e:
+                logger.error("Error dispatching video frame for %s: %s", speaker_id, e)
+
     def close(self) -> None:
         """Gracefully terminate the media session."""
         self._stop_event.set()
@@ -133,10 +170,15 @@ class MeetMediaSession:
             "state": self.state,
             "duration_sec": int(time.time() - self.started_ts) if self.started_ts else 0,
             "bytes_received": self.bytes_received,
+            "video_frames_received": self.video_frames_received,
             "speakers_count": len(self.active_speakers),
             "speakers": list(self.active_speakers),
             "error": self.error_detail
         }
+
+    def status_dict(self) -> dict[str, Any]:
+        """Alias for status()."""
+        return self.status()
 
 
 # Global registry of active Meet Media sessions (keyed by space_id)
@@ -145,13 +187,19 @@ _SESSIONS_LOCK = threading.Lock()
 
 
 def get_or_create_session(space_id: str, access_token: str,
-                          on_audio: Callable[[str, bytes, float], None] | None = None) -> MeetMediaSession:
+                          on_audio: Callable[[str, bytes, float], None] | None = None,
+                          on_video: Callable[[str, bytes, float], None] | None = None) -> MeetMediaSession:
     """Retrieve existing session or instantiate a new one."""
     clean_id = space_id.replace("spaces/", "")
     with _SESSIONS_LOCK:
         if clean_id in ACTIVE_SESSIONS and ACTIVE_SESSIONS[clean_id].state in ("streaming", "connecting"):
-            return ACTIVE_SESSIONS[clean_id]
-        sess = MeetMediaSession(clean_id, access_token, on_audio_frame=on_audio)
+            sess = ACTIVE_SESSIONS[clean_id]
+            if on_audio is not None:
+                sess.on_audio_frame = on_audio
+            if on_video is not None:
+                sess.on_video_frame = on_video
+            return sess
+        sess = MeetMediaSession(clean_id, access_token, on_audio_frame=on_audio, on_video_frame=on_video)
         ACTIVE_SESSIONS[clean_id] = sess
         return sess
 
@@ -163,3 +211,4 @@ def close_session(space_id: str) -> None:
         sess = ACTIVE_SESSIONS.pop(clean_id, None)
         if sess:
             sess.close()
+

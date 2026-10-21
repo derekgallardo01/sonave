@@ -517,24 +517,40 @@ a:hover{color:var(--green-hover)}
      <div class="card-pad">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
        <span class="card-lbl">PIPELINE DIAGNOSTICS</span>
-       <span class="update-note">Engine Verification</span>
+       <span class="update-note">Multimodal Engine</span>
       </div>
-      <div class="hint" style="margin-bottom:12px;">Real-time acoustic engine status and continuous sliding-window neural verification.</div>
+      <div class="hint" style="margin-bottom:12px;">Real-time acoustic &amp; visual deepfake engine status with continuous sliding-window neural verification.</div>
       <div style="display:flex; flex-direction:column; gap:8px;">
        <div style="background:var(--panel2); border:1px solid var(--line2); border-radius:8px; padding:10px 12px;">
-        <div style="font-size:10px; font-family:var(--mono); color:var(--muted)">NEURAL SCORER</div>
+        <div style="font-size:10px; font-family:var(--mono); color:var(--muted)">VOICE NEURAL SCORER</div>
         <div style="font-size:12px; font-weight:700; color:var(--green); margin-top:2px">XLSR-53 v2.4 (Active)</div>
        </div>
        <div style="background:var(--panel2); border:1px solid var(--line2); border-radius:8px; padding:10px 12px;">
-        <div style="font-size:10px; font-family:var(--mono); color:var(--muted)">ACOUSTIC INGESTION</div>
-        <div style="font-size:12px; font-weight:700; color:var(--green); margin-top:2px">Botless WebRTC Stream (38ms)</div>
+        <div style="font-size:10px; font-family:var(--mono); color:var(--muted)">VIDEO DEEPFAKE DETECTOR</div>
+        <div style="font-size:12px; font-weight:700; color:var(--green); margin-top:2px">Spatial-DCT + Landmark Jitter + AV Sync (Active)</div>
        </div>
        <div style="background:var(--panel2); border:1px solid var(--line2); border-radius:8px; padding:10px 12px;">
-        <div style="font-size:10px; font-family:var(--mono); color:var(--muted)">ANALYSIS WINDOW</div>
-        <div style="font-size:12px; font-weight:700; color:var(--green); margin-top:2px">Continuous 4.0s Sliding Window</div>
+        <div style="font-size:10px; font-family:var(--mono); color:var(--muted)">MULTIMODAL INGESTION</div>
+        <div style="font-size:12px; font-weight:700; color:var(--green); margin-top:2px">Botless WebRTC Audio + Video Stream (38ms)</div>
        </div>
       </div>
-      <div class="hint" style="margin-top:10px">Verifies XLSR-53 neural feature extraction, cross-attention scoring, and exportable incident telemetry.</div>
+      <div style="margin-top:14px; padding-top:12px; border-top:1px solid var(--line);">
+       <div class="card-lbl" style="margin-bottom:8px;">VIDEO DEEPFAKE &amp; FACE-SWAP SIMULATOR</div>
+       <div style="display:flex; flex-direction:column; gap:8px;">
+        <select class="sel" id="videoSimEngineSel">
+         <option value="deepfacelive">DeepFaceLive / DeepFaceLab (ONNX Live Face-Swap)</option>
+         <option value="heygen_liveavatar">HeyGen / Streaming Interactive Avatar</option>
+         <option value="facefusion_simswap">FaceFusion / InsightFace inswapper_128</option>
+         <option value="wav2lip_retalking">Wav2Lip / Video-ReTalking Lip-Sync</option>
+         <option value="hallo_liveportrait">LivePortrait / Hallo Diffusion Puppetry</option>
+        </select>
+        <div style="display:flex; gap:8px;">
+         <button class="btn-primary" id="btnInjectVideoSim" onclick="injectConsoleVideoSim()" style="flex:1">Inject Face-Swap Attack</button>
+         <button class="btn-soft" onclick="clearConsoleSim()">Reset</button>
+        </div>
+       </div>
+       <div class="hint" style="margin-top:8px">Injects synthetic spatial-frequency blending seams, landmark jitter, and AV lip-sync desynchronization into the live monitor.</div>
+      </div>
      </div>
     </div>
 
@@ -1998,7 +2014,11 @@ setInterval(tickClock,1000);tickClock();
 function fmtIdle(s){return s<60?s+'s':Math.floor(s/60)+'m'}
 function spkQuiet(s){return s.state==='quiet'||s.state==='muted'||(s.quiet||0)>=1.2||(s.level||0)<0.012}
 function spkTalking(s){return !spkQuiet(s)&&(s.state==='speaking'||(s.level||0)>=0.012)}
-function spkSub(s){return spkQuiet(s)?'muted · verified authentic':(spkTalking(s)?'speaking · verified authentic':(s.sub||'verified voice · active monitoring'))}
+function spkSub(s){
+ if(s.video_verdict==='fake')return '⚠ synthetic face-swap / avatar detected';
+ if(s.verdict==='fake')return '⚠ synthetic voice clone detected';
+ return spkQuiet(s)?'muted · verified authentic':(spkTalking(s)?'speaking · verified authentic':(s.sub||'verified voice · active monitoring'));
+}
 function eqHTML(s){
  return spkTalking(s)
   ? '<span class="eq on"><i></i><i></i><i></i></span>'
@@ -2012,8 +2032,21 @@ function sparkHTML(s){
  }).join('');
 }
 function metaHTML(s){
+ var pct=Math.round((s.p||0)*100);
+ var vidTag = '';
+ if(s.video_verdict === 'fake'){
+  var vEng = (s.video_attribution && s.video_attribution.engine_name) ? s.video_attribution.engine_name : 'Face-Swap';
+  vidTag = '<span class="match" style="background:rgba(255,77,94,0.16); border-color:var(--red); color:var(--red);">📹 ' + esc(vEng) + ' (' + Math.round((s.video_p||0.9)*100) + '%)</span>';
+ } else if(s.video_verdict === 'real'){
+  vidTag = '<span class="match" style="background:rgba(46,229,132,0.1); border-color:rgba(46,229,132,0.35); color:var(--green);">📹 Video OK</span>';
+ }
+ var syncTag = '';
+ if(s.av_sync && s.av_sync.is_desynced){
+  syncTag = '<span class="match" style="background:rgba(255,178,36,0.14); border-color:var(--amber); color:var(--amber);">👄 Lip-Sync Lag ' + esc(s.av_sync.lag_ms||180) + 'ms</span>';
+ }
+ var attrTag = (pct >= 70 && !vidTag) ? '<span class="match" style="background:rgba(255,77,94,0.15); border-color:var(--red); color:var(--red);">⚡ Neural Clone Model</span>' : '';
  return '<span>'+esc(s.speech)+'% speech</span><span>'+esc(s.dur)+'</span><span>'+esc(s.clips)+' clips</span>'+
-  (s.match?'<span class="match">match '+esc(s.match)+'%</span>':'');
+  (s.match?'<span class="match">match '+esc(s.match)+'%</span>':'')+vidTag+syncTag+attrTag;
 }
 function cardHTML(s){
  var pct=Math.round(s.p*100),c=vcolor(s.p);
@@ -2022,16 +2055,15 @@ function cardHTML(s){
   var a=String(s.name).replace(/_/g,' ').toLowerCase(), b=me.name.toLowerCase();
   if(a===b||a.split(' ')[0]===b.split(' ')[0])you=' <span style="color:var(--muted);font-weight:500">· you</span>';
  }
- var attrTag = (pct >= 70) ? '<span class="match" style="background:rgba(255,77,94,0.15); border-color:var(--red); color:var(--red);">⚡ Neural Clone Model</span>' : '';
  return '<div class="spk-card'+(s.verdict=='fake'?' fake':'')+(spkQuiet(s)?' quiet':'')+'" data-spk="'+esc(s.name)+'">'+
   '<div class="spk-top"><div class="spk-who">'+
    '<div class="avatar">'+esc(s.name.charAt(0).toUpperCase())+'</div>'+
    '<div style="min-width:0"><div class="spk-name">'+esc(s.name)+you+eqHTML(s)+'</div><div class="spk-sub">'+esc(spkSub(s))+'</div></div>'+
   '</div><span class="badge '+bcls(s.verdict)+'">'+esc(s.verdict.toUpperCase())+'</span></div>'+
-  '<div class="risk-row"><span class="risk-lbl">DEEPFAKE RISK</span><span class="risk-pct" style="color:'+c+'">'+pct+'%</span></div>'+
+  '<div class="risk-row"><span class="risk-lbl">MULTIMODAL DEEPFAKE RISK</span><span class="risk-pct" style="color:'+c+'">'+pct+'%</span></div>'+
   '<div class="risk-track"><div class="risk-fill" style="width:'+pct+'%;background:'+c+'"></div></div>'+
   '<div class="spark">'+sparkHTML(s)+'</div>'+
-  '<div class="spk-meta">'+metaHTML(s)+attrTag+'</div>'+
+  '<div class="spk-meta">'+metaHTML(s)+'</div>'+
  '</div>';
 }
 function patchCard(el,s){
@@ -2072,7 +2104,7 @@ function renderSpeakers(items){
  items.forEach(function(s){_targets[s.name]=s.p});
  if(!items.length){grid.style.display='none';idle.style.display='flex';grid.innerHTML='';grid._keys='';return}
  idle.style.display='none';grid.style.display='grid';
- var keys=items.map(function(s){return s.name}).join('');
+ var keys=items.map(function(s){return s.name}).join(' ');
  if(grid._keys===keys){items.forEach(function(s,i){patchCard(grid.children[i],s)});return}
  grid.innerHTML=items.map(cardHTML).join('');
  grid._keys=keys;
@@ -2137,10 +2169,11 @@ async function quality(){
   if(!h._t||nowT-h._t>=1400){h.push(p);if(h.length>22)h.shift();h._t=nowT}
   var match=(s.speaker_check&&s.speaker_check.enrolled)?Math.round(s.speaker_check.similarity*100):(s.match_conf?Math.round(s.match_conf*100):0);
   items.push({
-   name:k,sub:s.enrolled?'voiceprint enrolled':'audio '+(s.verdict||'—'),
+   name:k,sub:s.video_verdict==='fake'?'video face-swap detected':(s.enrolled?'voiceprint enrolled':'audio '+(s.verdict||'—')),
    verdict:s.auth_verdict||'pending',p:p,bars:h.slice(),
    speech:s.speech_pct||0,dur:hms(s.total_sec||0),clips:s.clips||0,match:match,
-   state:s.state,quiet:s.quiet_sec,level:s.level||0
+   state:s.state,quiet:s.quiet_sec,level:s.level||0,
+   video_verdict:s.video_verdict,video_p:s.video_p,video_attribution:s.video_attribution,av_sync:s.av_sync
   });
  });
  lats.sort(function(a,b){return a-b});
@@ -2148,6 +2181,46 @@ async function quality(){
  renderSpeakers(items);
  renderTiles({verdict:maxV.toUpperCase(),color:bcolor(maxV),risk:Math.round(maxP*100),live:ks.length,enrolled:enrolledLive,windows:windows.toLocaleString(),latency:medLat});
  setStatus(active,scorerOff?'no scorer configured':'live · 0.5s');
+}
+
+async function injectConsoleVideoSim(){
+ var sel = document.getElementById('videoSimEngineSel');
+ var eng = sel ? sel.value : 'deepfacelive';
+ var btn = document.getElementById('btnInjectVideoSim');
+ if(btn){ btn.disabled = true; btn.textContent = 'Injecting...'; }
+ try {
+  var r = await fetch('/api/generator/inject-video-test', {
+   method: 'POST',
+   headers: {'Content-Type': 'application/json'},
+   body: JSON.stringify({
+    speaker_name: 'CFO (Face-Swap Clone)',
+    engine_id: eng,
+    is_real: false,
+    lag_ms: 195
+   })
+  });
+  var d = await r.json();
+  if(d && d.ok){
+   toast('✓ Video deepfake attack injected (' + Math.round((d.video_p||0.95)*100) + '% Fake Caught)', 'ok');
+   quality();
+   incidents();
+  } else {
+   toast('✕ Simulation failed', 'err');
+  }
+ } catch(e){
+  toast('✕ Simulation error: ' + e, 'err');
+ } finally {
+  if(btn){ btn.disabled = false; btn.textContent = 'Inject Face-Swap Attack'; }
+ }
+}
+
+async function clearConsoleSim(){
+ try {
+  await fetch('/api/generator/clear-test', {method: 'POST'});
+  toast('✓ Simulated threats cleared', 'ok');
+  quality();
+  incidents();
+ } catch(e){}
 }
 
 /* ---- real data: incidents (banner gated by demo; history always real) ---- */

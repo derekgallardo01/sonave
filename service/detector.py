@@ -26,6 +26,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT))
 import model_sls  # noqa: E402
+import model_video  # noqa: E402
 
 
 def _load_dotenv():
@@ -58,6 +59,10 @@ def load():
         import torch
         _DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
         _MODEL = model_sls.SLSDetector.load(MODEL_DIR, _DEVICE)
+        try:
+            model_video.get_video_detector().vit_backbone.load()
+        except Exception:
+            pass
     return _MODEL, _DEVICE
 
 
@@ -145,3 +150,68 @@ def score_clip(audio: bytes, win_s: float = 4.0, hop_s: float = 2.0,
     return {"p_fake": round(mean, 4), "p_max": round(float(np.max(ps)), 4),
             "verdict": verdict(mean), "n_windows": len(wins),
             "model_version": MODEL_VERSION}
+
+
+def score_video_frame(frame_bytes: bytes, speaker_id: str = "default",
+                      audio_rms: float | None = None,
+                      client_metrics: dict | None = None) -> dict:
+    """Score a single participant video frame for spatial/frequency face-swap artifacts,
+    temporal micro-jitter, and audio-visual lip-sync coherence."""
+    return model_video.score_video_bytes(
+        frame_bytes,
+        speaker_id=speaker_id or "default",
+        audio_rms=audio_rms,
+        client_metrics=client_metrics,
+    )
+
+
+def score_multimodal(audio_bytes: bytes | None = None,
+                     frame_bytes: bytes | None = None,
+                     speaker_id: str = "default",
+                     audio_rms: float | None = None,
+                     client_metrics: dict | None = None) -> dict:
+    """Score audio and/or video frame(s) and fuse into a unified multimodal risk verdict."""
+    audio_res = None
+    video_res = None
+    computed_rms = audio_rms
+
+    if audio_bytes:
+        audio_res = score_bytes(audio_bytes)
+        if computed_rms is None:
+            try:
+                import soundfile as sf
+                wav, _ = sf.read(io.BytesIO(audio_bytes))
+                if getattr(wav, "ndim", 1) > 1:
+                    wav = wav.mean(axis=1)
+                computed_rms = float(np.sqrt(np.mean(np.asarray(wav, dtype=np.float32) ** 2)))
+            except Exception:
+                pass
+
+    if frame_bytes:
+        video_res = score_video_frame(
+            frame_bytes,
+            speaker_id=speaker_id or "default",
+            audio_rms=computed_rms,
+            client_metrics=client_metrics,
+        )
+
+    p_audio = audio_res.get("p_fake") if audio_res else None
+    p_video = video_res.get("p_video_fake") if video_res else None
+    av_sync = video_res.get("av_sync_score") if video_res else None
+
+    fused = model_video.fuse_multimodal_verdict(p_audio, p_video, av_sync)
+    out = {
+        "p_fake": fused["p_fake"],
+        "verdict": fused["verdict"],
+        "modality_trigger": fused["modality_trigger"],
+        "audio_p": fused["audio_p"],
+        "video_p": fused["video_p"],
+        "p_audio_fake": fused["p_audio_fake"],
+        "p_video_fake": fused["p_video_fake"],
+        "av_sync_score": fused["av_sync_score"],
+        "audio": audio_res,
+        "video": video_res,
+        "model_version": f"{MODEL_VERSION}+{model_video.MODEL_VIDEO_VERSION}",
+    }
+    return out
+

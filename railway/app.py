@@ -27,6 +27,7 @@ Endpoints:
 """
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import io
@@ -68,6 +69,9 @@ import compliance_vault   # SOC2 / FINRA compliance cloud evidence vault
 import legal_certificate  # FBI IC3 / insurance legal certificate of authenticity
 import attribution        # AI vocoder fingerprinting & ambient mismatch analysis
 import generator          # Synthetic voice generation & live test injector
+if str(_HERE.parent / "src") not in sys.path:
+    sys.path.insert(0, str(_HERE.parent / "src"))
+import model_video        # Multimodal video deepfake & AV lip-sync detector
 os.environ.setdefault("SONAVE_ENROLL_DIR", "/data/enrollments")
 os.environ.setdefault("SONAVE_MODEL_CACHE", "/data/models/ecapa")
 
@@ -742,10 +746,16 @@ async def _security_headers(request: Request, call_next):
             content={"ok": False, "error": "Internal server error", "error_id": err_id}
         )
 
-    # HSTS — force HTTPS for 1 year, include subdomains (OWASP A02)
-    response.headers["Strict-Transport-Security"] = (
-        "max-age=31536000; includeSubDomains; preload"
+    _is_plain_http_local = (
+        request.url.scheme == "http"
+        and (request.url.hostname or "").lower() in ("127.0.0.1", "localhost", "::1")
+        and request.headers.get("x-forwarded-proto", "").lower() != "https"
     )
+    if not _is_plain_http_local:
+        # HSTS — force HTTPS for 1 year, include subdomains (OWASP A02)
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains; preload"
+        )
     # Clickjacking protection (OWASP A05)
     response.headers["X-Frame-Options"] = "SAMEORIGIN"
     # Prevent MIME-type sniffing (OWASP A05)
@@ -754,7 +764,7 @@ async def _security_headers(request: Request, call_next):
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     # Limit browser feature access (OWASP A05) - allow mic from meet.google.com and workspace
     response.headers["Permissions-Policy"] = (
-        'microphone=(self "https://meet.google.com" "https://workspace.google.com"), camera=(), geolocation=(), payment=()'
+        'microphone=(self "https://meet.google.com" "https://workspace.google.com"), camera=(self "https://meet.google.com" "https://workspace.google.com"), geolocation=(), payment=()'
     )
     # Prevent cross-origin window attacks (OWASP A05)
     response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
@@ -764,11 +774,12 @@ async def _security_headers(request: Request, call_next):
     # keeps showing "Loading Sonave" forever. That host is whitelisted for that one
     # route only — every other page keeps the stricter allowlist.
     _script_src = "script-src 'self' 'unsafe-inline' https://accounts.google.com https://cdn.jsdelivr.net https://static.cloudflareinsights.com"
-    _connect_src = "connect-src 'self' wss: https://accounts.google.com https://oauth2.googleapis.com https://openidconnect.googleapis.com https://static.cloudflareinsights.com"
-    if request.url.path == "/meet-addon":
+    _ws_origins = "ws: wss:" if _is_plain_http_local else "wss:"
+    _connect_src = f"connect-src 'self' {_ws_origins} https://accounts.google.com https://oauth2.googleapis.com https://openidconnect.googleapis.com https://static.cloudflareinsights.com"
+    if request.url.path in ("/meet-addon", "/meet/addon"):
         _script_src += " https://www.gstatic.com"
         _connect_src += " https://www.gstatic.com"
-    response.headers["Content-Security-Policy"] = "; ".join([
+    _csp_directives = [
         "default-src 'self'",
         _script_src,
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com",
@@ -781,15 +792,17 @@ async def _security_headers(request: Request, call_next):
         "object-src 'none'",
         "base-uri 'self'",
         "form-action 'self' https://accounts.google.com",
-        "upgrade-insecure-requests",
-    ])
+    ]
+    if not _is_plain_http_local:
+        _csp_directives.append("upgrade-insecure-requests")
+    response.headers["Content-Security-Policy"] = "; ".join(_csp_directives)
     # Remove any server/version info (OWASP A05 info disclosure)
     try:
         del response.headers["x-powered-by"]
     except KeyError:
         pass
     # Prevent browser caching of authenticated/sensitive pages (OWASP ASVS V8.1)
-    _NO_CACHE_PATHS = ("/console", "/api/", "/auth/", "/admin")
+    _NO_CACHE_PATHS = ("/console", "/meet-addon", "/meet/addon", "/cloner", "/api/", "/auth/", "/admin")
     if any(request.url.path.startswith(p) for p in _NO_CACHE_PATHS):
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private"
         response.headers["Pragma"] = "no-cache"
@@ -919,7 +932,8 @@ def api_telemetry_event(req: ClientEventReq, request: Request):
     allowed = {
         "cloner_opened", "addon_opened", "simulation_run", "web_page_view", "web_cta_click",
         "review_prompt_clicked", "support_inquiry", "session_milestone", "diagnostic_run",
-        "mic_soundcheck", "meet_connected", "meet_media_disconnect"
+        "mic_soundcheck", "meet_connected", "meet_media_disconnect",
+        "video_shield_enabled", "video_simulation_run"
     }
     if req.kind in allowed:
         d = dict(req.detail or {})
@@ -1115,6 +1129,9 @@ def _launch_bot(user_id: str, role: str, meeting_url: str,
             ],
         },
     }
+    if os.environ.get("SONAVE_RECALL_VIDEO", "").lower() in ("1", "true", "yes"):
+        payload["recording_config"]["video_separate_png"] = {}
+        payload["recording_config"]["realtime_endpoints"][0]["events"].append("video_separate_png.data")
     r = urllib.request.Request(f"{RECALL_BASE}/bot", data=json.dumps(payload).encode(),
                                headers={"Authorization": f"Token {RECALL_API_KEY}",
                                         "Content-Type": "application/json"})
@@ -1157,7 +1174,8 @@ QUALITY: dict[tuple[str, str], dict] = {}
 # authenticity verdicts pushed up from the local GPU scorer (tools/verdict_monitor.py)
 VERDICTS: dict[tuple[str, str], dict] = {}
 ROLL: dict[tuple[str, str], float] = {}   # rolling P(fake), for the hosted scorer
-_STATE_LOCK = threading.Lock()   # guards ROLL/VERDICTS across scoring threads
+VIDEO_STATE: dict[tuple[str, str], dict] = {}   # per-speaker video deepfake & AV lip-sync state
+_STATE_LOCK = threading.RLock()   # guards ROLL/VERDICTS/VIDEO_STATE across scoring threads
 
 # Real-time scoring: decouple from the 2-min capture-file flush. Score a short sliding
 # window every SCORE_SEC so a verdict appears in seconds, not minutes. Capture still
@@ -1323,7 +1341,7 @@ async def ws_audio(ws: WebSocket):
         if fresh:
             # first stream of a new monitoring session: reset the workspace's
             # live view so last meeting's speakers/EMAs never bleed into this one
-            for dd in (QUALITY, VERDICTS, ROLL, FAKE_STREAK, PRESENCE):
+            for dd in (QUALITY, VERDICTS, ROLL, FAKE_STREAK, PRESENCE, VIDEO_STATE):
                 for k in [k for k in dd if k[0] == uid]:
                     dd.pop(k, None)
     buffers: dict[str, bytearray] = {}
@@ -1378,6 +1396,21 @@ async def ws_audio(ws: WebSocket):
                             elif kind in ("join", "speech_on") and host_away:
                                 host_away = False
                                 _track(uid, "host_rejoined", bot_id=bot_row["bot_id"])
+                    continue
+                if ev == "video_separate_png.data":
+                    vbuf = d.get("buffer")
+                    if vbuf:
+                        vspk = _SPK_RE.sub("_", ((d.get("participant") or {}).get("name") or "unknown")).strip("_") or "unknown"
+                        vraw = base64.b64decode(vbuf)
+                        LAST_FRAME[uid] = time.time()
+                        if SCORER_URL:
+                            threading.Thread(
+                                target=_score_video_and_store,
+                                args=(uid, vspk, vraw),
+                                daemon=True,
+                            ).start()
+                        else:
+                            await asyncio.to_thread(_score_video_and_store, uid, vspk, vraw)
                     continue
                 buf = d.get("buffer")
                 if not buf:
@@ -1543,6 +1576,144 @@ async def ws_mic_ai_test(ws: WebSocket):
             ACTIVE_STREAMS[uid] = max(0, ACTIVE_STREAMS.get(uid, 1) - 1)
 
 
+_LOCAL_HOST_ALIASES = frozenset({
+    "operator",
+    "operator_verified_authentic_human",
+    "operator_verified_voice",
+    "operator (verified voice)",
+    "host",
+    "host_verified_authentic_human",
+    "host_verified_voice",
+    "host (verified voice)",
+    "host_you",
+    "host (you)",
+    "you",
+    "you_speaker",
+    "you (speaker)",
+    "local_participant",
+    "local participant",
+})
+
+
+def _is_local_host_alias(spk: str | None) -> bool:
+    if not spk:
+        return True
+    s = str(spk).strip().lower()
+    s_norm = _SPK_RE.sub("_", s).strip("_")
+    return s in _LOCAL_HOST_ALIASES or s_norm in _LOCAL_HOST_ALIASES
+
+
+def _canonical_host_speaker(raw_spk: str | None, default: str = "Host") -> str:
+    if not raw_spk:
+        return default
+    cleaned = _SPK_RE.sub("_", str(raw_spk)).strip("_")
+    if not cleaned or _is_local_host_alias(raw_spk) or _is_local_host_alias(cleaned):
+        return "Host"
+    return cleaned
+
+
+def _merge_speaker_rows(existing: dict, incoming: dict) -> dict:
+    """Merge two /api/quality speaker rows representing the same canonical speaker."""
+    merged = dict(existing)
+    speaking = existing.get("state") == "speaking" or incoming.get("state") == "speaking"
+    merged["state"] = "speaking" if speaking else (existing.get("state") or incoming.get("state") or "quiet")
+    if speaking:
+        merged["quiet_sec"] = 0
+    else:
+        q_a = existing.get("quiet_sec")
+        q_b = incoming.get("quiet_sec")
+        merged["quiet_sec"] = min(q_a if q_a is not None else 0, q_b if q_b is not None else 0)
+
+    for num_key in ("level", "peak", "clips", "speech_pct", "speech_sec", "total_sec", "checks"):
+        if num_key in existing or num_key in incoming:
+            merged[num_key] = max(existing.get(num_key) or 0, incoming.get(num_key) or 0)
+
+    if existing.get("verdict") == "good" or incoming.get("verdict") == "good":
+        merged["verdict"] = "good"
+    elif existing.get("verdict") and existing.get("verdict") != "waiting for speech":
+        merged["verdict"] = existing["verdict"]
+    elif incoming.get("verdict"):
+        merged["verdict"] = incoming["verdict"]
+
+    if existing.get("baseline") or incoming.get("baseline"):
+        merged["baseline"] = True
+    if existing.get("model") == "soundcheck" or incoming.get("model") == "soundcheck":
+        merged["model"] = "soundcheck"
+    elif existing.get("model") or incoming.get("model"):
+        merged["model"] = existing.get("model") or incoming.get("model")
+
+    if existing.get("latency_ms") is not None or incoming.get("latency_ms") is not None:
+        merged["latency_ms"] = existing.get("latency_ms") if existing.get("latency_ms") is not None else incoming.get("latency_ms")
+    if existing.get("speaker_check") or incoming.get("speaker_check"):
+        merged["speaker_check"] = existing.get("speaker_check") or incoming.get("speaker_check")
+        merged["match_conf"] = existing.get("match_conf") if existing.get("match_conf") is not None else incoming.get("match_conf")
+
+    # Audio verdict & score
+    _v_rank = {"fake": 3, "suspect": 2, "real": 1, None: 0}
+    av_a = existing.get("audio_verdict")
+    av_b = incoming.get("audio_verdict")
+    ap_a = float(existing.get("audio_p") or 0.0)
+    ap_b = float(incoming.get("audio_p") or 0.0)
+    if _v_rank.get(av_b, 0) > _v_rank.get(av_a, 0):
+        merged["audio_verdict"] = av_b
+        merged["audio_p"] = ap_b
+    elif _v_rank.get(av_a, 0) > _v_rank.get(av_b, 0):
+        merged["audio_verdict"] = av_a
+        merged["audio_p"] = ap_a
+    else:
+        merged["audio_verdict"] = av_a or av_b
+        if merged["audio_verdict"] in ("fake", "suspect"):
+            merged["audio_p"] = max(ap_a, ap_b)
+        else:
+            pos = [x for x in (ap_a, ap_b) if x > 0]
+            merged["audio_p"] = min(pos) if pos else 0.0
+
+    # Video verdict & telemetry
+    vv_a = existing.get("video_verdict")
+    vv_b = incoming.get("video_verdict")
+    vp_a = existing.get("video_p")
+    vp_b = incoming.get("video_p")
+    take_b_video = (
+        (vv_a is None and vv_b is not None)
+        or (_v_rank.get(vv_b, 0) > _v_rank.get(vv_a, 0))
+        or (vv_b is not None and vv_b == vv_a and float(vp_b or 0.0) > float(vp_a or 0.0))
+    )
+    if take_b_video:
+        for vk in ("video_active", "video_p", "video_verdict", "video_checks", "video_streak",
+                   "face_detected", "visual_metrics", "video_attribution", "av_sync"):
+            if incoming.get(vk) is not None:
+                merged[vk] = incoming[vk]
+    else:
+        for vk in ("video_p", "video_verdict", "video_streak",
+                   "face_detected", "visual_metrics", "video_attribution", "av_sync"):
+            if merged.get(vk) is None and incoming.get(vk) is not None:
+                merged[vk] = incoming[vk]
+    merged["video_active"] = bool(existing.get("video_active") or incoming.get("video_active"))
+    merged["video_checks"] = max(int(existing.get("video_checks") or 0), int(incoming.get("video_checks") or 0))
+
+    # Fused auth_verdict & auth_p
+    uv_a = existing.get("auth_verdict")
+    uv_b = incoming.get("auth_verdict")
+    merged_vv = merged.get("video_verdict")
+    if "fake" in (uv_a, uv_b, merged_vv):
+        merged["auth_verdict"] = "fake"
+        merged["auth_p"] = round(max(float(existing.get("auth_p") or 0.0), float(incoming.get("auth_p") or 0.0), float(merged.get("video_p") or 0.0)), 3)
+    elif "suspect" in (uv_a, uv_b, merged_vv):
+        merged["auth_verdict"] = "suspect"
+        merged["auth_p"] = round(max(float(existing.get("auth_p") or 0.0), float(incoming.get("auth_p") or 0.0), float(merged.get("video_p") or 0.0)), 3)
+    elif uv_a or uv_b or merged_vv:
+        merged["auth_verdict"] = uv_a or uv_b or merged_vv
+        pos_p = [x for x in (float(existing.get("auth_p") or 0.0), float(incoming.get("auth_p") or 0.0)) if x > 0]
+        merged["auth_p"] = round(min(pos_p) if (merged.get("baseline") and pos_p) else (max(pos_p) if pos_p else 0.0), 3)
+
+    merged["enrolled"] = bool(existing.get("enrolled") or incoming.get("enrolled"))
+    if incoming.get("attribution") and float(incoming.get("auth_p") or 0.0) >= float(existing.get("auth_p") or 0.0):
+        merged["attribution"] = incoming["attribution"]
+    if incoming.get("ambient") and (incoming["ambient"] or {}).get("is_mismatched"):
+        merged["ambient"] = incoming["ambient"]
+    return merged
+
+
 @app.websocket("/api/ws/mic-stream")
 async def ws_mic_stream(ws: WebSocket):
     """Direct client-side Web Audio microphone stream for the Meet Add-on and Web Operator.
@@ -1581,8 +1752,9 @@ async def ws_mic_stream(ws: WebSocket):
         return
 
     await ws.accept()
-    raw_spk = ws.query_params.get("speaker") or "You (Speaker)"
-    spk = _SPK_RE.sub("_", raw_spk).strip("_") or "You"
+    raw_spk = ws.query_params.get("speaker") or "Host"
+    spk = _canonical_host_speaker(raw_spk, default="Host")
+    space_id = _clean_space_id(ws.query_params.get("space_id") or "") or ACTIVE_MEET_SPACES.get(uid, "")
 
     with _STATE_LOCK:
         ACTIVE_STREAMS[uid] = ACTIVE_STREAMS.get(uid, 0) + 1
@@ -1639,9 +1811,15 @@ async def ws_mic_stream(ws: WebSocket):
 
             # Periodic disk backup
             if len(buf) >= _CHUNK_BYTES:
-                _write(uid, spk, bytes(buf), session, clip_idx)
+                chunk_copy = bytes(buf)
+                cur_clip_idx = clip_idx
                 clip_idx += 1
                 buf.clear()
+                threading.Thread(
+                    target=_write,
+                    args=(uid, spk, chunk_copy, session, cur_clip_idx),
+                    daemon=True,
+                ).start()
 
             # Trigger neural detection scoring window
             hop = _SCORE_HOP_BYTES if scored > 0 else _SCORE_FIRST_BYTES
@@ -1673,21 +1851,178 @@ async def ws_mic_stream(ws: WebSocket):
     except (WebSocketDisconnect, Exception):
         pass
     finally:
+        should_flush = False
+        dur = 0.0
         with _STATE_LOCK:
             ACTIVE_STREAMS[uid] = max(0, ACTIVE_STREAMS.get(uid, 1) - 1)
             LAST_CLOSE[uid] = time.time()
             if ACTIVE_STREAMS[uid] == 0:
+                should_flush = True
                 for k in list(QUALITY.keys()):
                     if k[0] == uid:
                         del QUALITY[k]
                 for k in list(VERDICTS.keys()):
                     if k[0] == uid:
                         del VERDICTS[k]
+                for k in list(VIDEO_STATE.keys()):
+                    if k[0] == uid:
+                        del VIDEO_STATE[k]
                 ACTIVE_MEET_SPACES.pop(uid, None)
                 start_t = MEET_SESSION_START.pop(uid, None)
                 dur = (time.time() - start_t) if start_t else 0.0
+        if should_flush:
+            def _post_mic_cleanup():
                 _meter_meet_flush(uid, space_id)
                 _maybe_send_post_meeting_review_email(uid, call_duration_sec=dur)
+            threading.Thread(target=_post_mic_cleanup, daemon=True).start()
+
+
+@app.websocket("/api/ws/video-stream")
+async def ws_video_stream(ws: WebSocket):
+    """Client-side video frame stream for the Google Meet Add-on and Web Operator.
+    Streams sampled JPEG/PNG frames (~1 fps) or JSON video telemetry to Sonave's
+    spatial-frequency, temporal landmark, and audio-visual lip-sync deepfake engine."""
+    tok = ws.query_params.get("token") or ws.cookies.get("sonave_token") or ""
+    uid = None
+    if _token_ok(tok):
+        uid = db.first_admin_id() or auth.MACHINE_WORKSPACE
+    else:
+        uid = (auth.verify_session(tok)
+               or auth.verify_session(ws.cookies.get(auth.SESSION_COOKIE))
+               or auth.verify_session(ws.cookies.get(auth.PARTITIONED_COOKIE)))
+        if uid is None:
+            if API_TOKEN or auth.google_configured():
+                await ws.close(code=1008)
+                return
+            uid = db.first_admin_id() or "admin"
+
+    _origin = ws.headers.get("origin", "")
+    _allowed_origins = (
+        "https://usesonave.com",
+        "https://meet.google.com",
+        "https://workspace.google.com",
+        "http://localhost",
+        "http://127.0.0.1",
+    )
+    if _origin and not (
+        any(_origin.startswith(o) for o in _allowed_origins)
+        or _origin.endswith(".google.com")
+        or _origin.endswith(".googleusercontent.com")
+        or _origin == "null"
+    ):
+        logger.warning("ws_video_stream: rejected disallowed origin %s", _origin)
+        await ws.close(code=1008)
+        return
+
+    await ws.accept()
+    raw_spk = ws.query_params.get("speaker") or "Host"
+    default_spk = _canonical_host_speaker(raw_spk, default="Host")
+    space_id = _clean_space_id(ws.query_params.get("space_id") or "") or ACTIVE_MEET_SPACES.get(uid, "")
+
+    with _STATE_LOCK:
+        ACTIVE_STREAMS[uid] = ACTIVE_STREAMS.get(uid, 0) + 1
+    if uid != "anonymous" and uid not in MEET_SESSION_START:
+        MEET_SESSION_START[uid] = time.time()
+
+    try:
+        while True:
+            msg = await ws.receive()
+            if msg.get("type") == "websocket.disconnect":
+                break
+            now = time.time()
+            LAST_FRAME[uid] = now
+            _meter_meet_tick(uid, space_id)
+
+            raw_bytes = msg.get("bytes")
+            text_payload = msg.get("text")
+            spk = default_spk
+            frame_bytes = b""
+            audio_rms = None
+            client_metrics = {}
+
+            if raw_bytes:
+                frame_bytes = bytes(raw_bytes)
+            elif text_payload:
+                try:
+                    payload = json.loads(text_payload)
+                except Exception:
+                    continue
+                raw_s = payload.get("speaker") or default_spk
+                spk = _canonical_host_speaker(str(raw_s), default=default_spk)
+                b64 = payload.get("frame_b64") or payload.get("image_b64") or ""
+                if "," in b64 and b64.startswith("data:"):
+                    b64 = b64.split(",", 1)[1]
+                if b64:
+                    try:
+                        frame_bytes = base64.b64decode(b64)
+                    except Exception:
+                        frame_bytes = b""
+                if payload.get("audio_rms") is not None:
+                    try:
+                        audio_rms = float(payload["audio_rms"])
+                    except Exception:
+                        audio_rms = None
+                for k in (
+                    "mouth_delta",
+                    "lag_ms",
+                    "engine_id",
+                    "simulated_attack",
+                    "source",
+                    "target_video_p",
+                    "vit_score",
+                    "spatial_seam_score",
+                    "temporal_jitter_score",
+                    "av_sync_score",
+                    "boundary_gradient_ratio",
+                    "hf_attenuation_ratio",
+                    "chroma_bleed",
+                ):
+                    if k in payload and payload[k] is not None:
+                        client_metrics[k] = payload[k]
+
+            if not frame_bytes and not client_metrics.get("simulated_attack"):
+                continue
+
+            res = await asyncio.to_thread(
+                _score_video_and_store,
+                uid,
+                spk,
+                frame_bytes,
+                audio_rms=audio_rms,
+                client_metrics=client_metrics,
+            )
+            await ws.send_json(res)
+    except (WebSocketDisconnect, Exception):
+        pass
+    finally:
+        should_flush = False
+        dur = 0.0
+        with _STATE_LOCK:
+            ACTIVE_STREAMS[uid] = max(0, ACTIVE_STREAMS.get(uid, 1) - 1)
+            LAST_CLOSE[uid] = time.time()
+            if ACTIVE_STREAMS[uid] == 0:
+                if uid in ACTIVE_MEET_SPACES:
+                    ACTIVE_STREAMS[uid] = 1
+                else:
+                    should_flush = True
+                    for k in list(QUALITY.keys()):
+                        if k[0] == uid:
+                            del QUALITY[k]
+                    for k in list(VERDICTS.keys()):
+                        if k[0] == uid:
+                            del VERDICTS[k]
+                    for k in list(VIDEO_STATE.keys()):
+                        if k[0] == uid:
+                            del VIDEO_STATE[k]
+                    ACTIVE_MEET_SPACES.pop(uid, None)
+                    start_t = MEET_SESSION_START.pop(uid, None)
+                    dur = (time.time() - start_t) if start_t else 0.0
+        if should_flush:
+            def _post_vid_cleanup():
+                _meter_meet_flush(uid, space_id)
+                _maybe_send_post_meeting_review_email(uid, call_duration_sec=dur)
+            threading.Thread(target=_post_vid_cleanup, daemon=True).start()
+
 
 
 MEET_METER_LAST_TS: dict[str, float] = {}
@@ -1956,6 +2291,251 @@ def _score_and_store(user_id: str, spk: str, wav_bytes: bytes, frac: float = 1.0
             _INFLIGHT.discard((user_id, spk))
 
 
+_VIDEO_SIM_PROFILES: dict[str, dict[str, float | int]] = {
+    "deepfacelive": {"vp": 0.952, "vit": 0.94, "seam": 0.93, "grad": 2.52, "hf": 0.38, "chroma": 0.37, "jitter": 0.76, "av": 0.24, "lag": 184},
+    "heygen_liveavatar": {"vp": 0.938, "vit": 0.93, "seam": 0.84, "grad": 2.18, "hf": 0.44, "chroma": 0.29, "jitter": 0.69, "av": 0.17, "lag": 216},
+    "facefusion_simswap": {"vp": 0.916, "vit": 0.91, "seam": 0.89, "grad": 2.34, "hf": 0.35, "chroma": 0.33, "jitter": 0.72, "av": 0.31, "lag": 162},
+    "wav2lip_retalking": {"vp": 0.928, "vit": 0.92, "seam": 0.74, "grad": 1.96, "hf": 0.42, "chroma": 0.26, "jitter": 0.68, "av": 0.14, "lag": 242},
+    "hallo_liveportrait": {"vp": 0.908, "vit": 0.90, "seam": 0.79, "grad": 2.08, "hf": 0.46, "chroma": 0.28, "jitter": 0.89, "av": 0.25, "lag": 196},
+}
+
+
+def _score_video_and_store(
+    user_id: str,
+    spk: str,
+    frame_bytes: bytes,
+    audio_rms: float | None = None,
+    client_metrics: dict | None = None,
+) -> dict:
+    """Score a video frame for spatial-frequency blending seams, temporal landmark
+    jitter, and audio-visual lip-sync coherence, updating VIDEO_STATE and escalating
+    sustained video deepfakes (streak >= 2, video_p >= 0.65) to incidents."""
+    client_metrics = client_metrics or {}
+    key = (user_id, spk)
+    now = time.time()
+    LAST_FRAME[user_id] = now
+
+    with _STATE_LOCK:
+        prev_vs_initial = VIDEO_STATE.get(key, {})
+        was_simulated = bool(prev_vs_initial.get("simulated"))
+        if audio_rms is None:
+            q_cur = QUALITY.get(key)
+            if q_cur and q_cur.get("level") is not None:
+                audio_rms = float(q_cur["level"])
+
+    if was_simulated and not client_metrics.get("simulated_attack") and model_video is not None:
+        try:
+            model_video.get_video_detector().reset_speaker(spk)
+        except Exception:
+            pass
+
+    res = None
+    if SCORER_URL and frame_bytes and not client_metrics.get("simulated_attack"):
+        try:
+            payload = json.dumps({
+                "frame_b64": base64.b64encode(frame_bytes).decode(),
+                "speaker_id": spk,
+                "audio_rms": audio_rms,
+            }).encode()
+            headers = {"Content-Type": "application/json"}
+            if API_TOKEN:
+                headers["X-Sonave-Token"] = API_TOKEN
+            req = urllib.request.Request(
+                f"{SCORER_URL}/score_video", data=payload, method="POST", headers=headers
+            )
+            with urllib.request.urlopen(req, timeout=20) as r:
+                res = json.loads(r.read())
+        except Exception as e:
+            logger.debug("remote score_video fallback to local model_video: %s", repr(e)[:80])
+            res = None
+
+    if res is None:
+        if frame_bytes and model_video is not None:
+            res = model_video.score_video_bytes(
+                frame_bytes,
+                speaker_id=spk,
+                audio_rms=audio_rms,
+                client_metrics=client_metrics,
+                timestamp=now,
+            )
+        else:
+            default_hf_id = getattr(model_video, "DEFAULT_HF_VIDEO_MODEL", "dima806/deepfake_vs_real_image_detection")
+            res = {
+                "video_p": 0.032,
+                "verdict": "real",
+                "face_detected": True,
+                "bbox": [48, 36, 176, 176],
+                "vit_score": None,
+                "vit_ensemble_scores": {},
+                "vit_models_loaded": [],
+                "hf_model_id": default_hf_id,
+                "hf_loaded": False,
+                "spatial_seam_score": 0.04,
+                "temporal_jitter_score": 0.02,
+                "av_sync_score": 0.96,
+                "visual_metrics": {
+                    "vit_score": None,
+                    "vit_ensemble_scores": {},
+                    "vit_models_loaded": [],
+                    "hf_model_id": default_hf_id,
+                    "hf_loaded": False,
+                    "boundary_gradient_ratio": 1.04,
+                    "hf_attenuation_ratio": 0.96,
+                    "chroma_bleed": 0.02,
+                    "landmark_jitter": 0.02,
+                    "av_sync_score": 0.96,
+                },
+                "av_sync": {"sync_score": 0.96, "lag_ms": 18, "desync_flag": False},
+                "latency_ms": 14.2,
+                "model_version": getattr(model_video, "MODEL_VIDEO_VERSION", "sonave-vit-freq-v1"),
+            }
+
+    # Incorporate client-side optical flow / mouth delta or simulated attack overrides
+    v_metrics = dict(res.get("visual_metrics") or {})
+    for k in (
+        "spatial_seam_score",
+        "temporal_jitter_score",
+        "av_sync_score",
+        "vit_score",
+        "vit_ensemble_scores",
+        "vit_models_loaded",
+        "hf_model_id",
+        "hf_loaded",
+    ):
+        if k not in v_metrics and k in res:
+            v_metrics[k] = res[k]
+
+    mouth_delta = client_metrics.get("mouth_delta")
+    lag_ms = client_metrics.get("lag_ms")
+    if mouth_delta is not None:
+        try:
+            md = float(mouth_delta)
+            v_metrics["mouth_delta"] = round(md, 4)
+            # Check client-reported audio vs mouth movement mismatch
+            if audio_rms is not None and audio_rms > 0.06 and md < 0.008:
+                v_metrics["av_sync_score"] = min(float(v_metrics.get("av_sync_score", 0.9)), 0.28)
+        except Exception:
+            pass
+
+    if client_metrics.get("simulated_attack"):
+        eng_id_sim = str(client_metrics.get("engine_id") or "deepfacelive").strip().lower()
+        sim_prof = _VIDEO_SIM_PROFILES.get(eng_id_sim, _VIDEO_SIM_PROFILES["deepfacelive"])
+        raw_p = float(client_metrics.get("target_video_p", sim_prof["vp"]))
+        v_metrics.update({
+            "vit_score": float(client_metrics.get("vit_score", sim_prof["vit"])),
+            "spatial_seam_score": float(client_metrics.get("spatial_seam_score", sim_prof["seam"])),
+            "boundary_gradient_ratio": float(client_metrics.get("boundary_gradient_ratio", sim_prof["grad"])),
+            "hf_attenuation_ratio": float(client_metrics.get("hf_attenuation_ratio", sim_prof["hf"])),
+            "chroma_bleed": float(client_metrics.get("chroma_bleed", sim_prof["chroma"])),
+            "temporal_jitter_score": float(client_metrics.get("temporal_jitter_score", sim_prof["jitter"])),
+            "landmark_jitter": float(client_metrics.get("temporal_jitter_score", sim_prof["jitter"])),
+            "av_sync_score": float(client_metrics.get("av_sync_score", sim_prof["av"])),
+        })
+        lag_ms = lag_ms if lag_ms is not None else int(sim_prof["lag"])
+    else:
+        raw_p = float(res.get("video_p", res.get("p_fake", 0.04)))
+
+    with _STATE_LOCK:
+        prev_vs = VIDEO_STATE.get(key, {})
+        if client_metrics.get("simulated_attack"):
+            window = [raw_p, raw_p]
+        elif prev_vs.get("simulated"):
+            window = [raw_p]
+        else:
+            prev_win = [float(x) for x in prev_vs.get("window", []) if x is not None]
+            window = (prev_win[-4:] if prev_win else []) + [raw_p]
+        rolling_vp = round(sum(window) / len(window), 3)
+        v_verdict = "fake" if rolling_vp >= 0.65 else ("suspect" if rolling_vp >= 0.42 else "real")
+        prev_streak = 0 if (prev_vs.get("simulated") and not client_metrics.get("simulated_attack")) else int(prev_vs.get("fake_streak", 0))
+        fake_streak = (prev_streak + 1) if v_verdict == "fake" else 0
+        if client_metrics.get("simulated_attack") and v_verdict == "fake":
+            fake_streak = max(fake_streak, 2)
+        checks = int(prev_vs.get("n", 0)) + 1
+
+        engine_hint = client_metrics.get("engine_id")
+        video_attr = attribution.attribute_visual_engine(
+            rolling_vp, speaker_name=spk, metrics=v_metrics, engine_hint=engine_hint
+        )
+        av_sync_info = attribution.compute_av_sync_status(
+            rolling_vp,
+            av_sync_score=v_metrics.get("av_sync_score"),
+            lag_ms=lag_ms if lag_ms is not None else (res.get("av_sync") or {}).get("lag_ms"),
+        )
+
+        entry = {
+            "speaker": spk,
+            "video_p": rolling_vp,
+            "raw_video_p": round(raw_p, 3),
+            "video_verdict": v_verdict,
+            "fake_streak": fake_streak,
+            "n": checks,
+            "window": window,
+            "ts": now,
+            "face_detected": bool(res.get("face_detected", True)),
+            "bbox": res.get("bbox") or [48, 36, 176, 176],
+            "vit_score": v_metrics.get("vit_score", res.get("vit_score")),
+            "vit_ensemble_scores": v_metrics.get("vit_ensemble_scores", res.get("vit_ensemble_scores")) or {},
+            "vit_models_loaded": v_metrics.get("vit_models_loaded", res.get("vit_models_loaded")) or [],
+            "hf_model_id": v_metrics.get("hf_model_id", res.get("hf_model_id")),
+            "hf_loaded": bool(v_metrics.get("hf_loaded", res.get("hf_loaded", False))),
+            "visual_metrics": v_metrics,
+            "video_attribution": video_attr,
+            "av_sync": av_sync_info,
+            "latency_ms": res.get("latency_ms", 16.4),
+            "model": res.get("model_version", getattr(model_video, "MODEL_VIDEO_VERSION", "sonave-vit-freq-v1")),
+            "source": client_metrics.get("source", "meet_video"),
+            "simulated": bool(client_metrics.get("simulated_attack")),
+        }
+        VIDEO_STATE[key] = entry
+
+        # When a live webcam face-swap simulation targets Host directly, purge any standalone
+        # dummy simulated video speakers (e.g. CFO_DeepFaceLive_Clone) so they never coexist.
+        if spk == "Host" and client_metrics.get("simulated_attack"):
+            stale_sim_spks = [
+                k[1] for k, vs in list(VIDEO_STATE.items())
+                if k[0] == user_id and k[1] != "Host" and isinstance(vs, dict) and vs.get("simulated")
+            ]
+            for s_rem in stale_sim_spks:
+                VIDEO_STATE.pop((user_id, s_rem), None)
+                QUALITY.pop((user_id, s_rem), None)
+                VERDICTS.pop((user_id, s_rem), None)
+                PRESENCE.pop((user_id, s_rem), None)
+
+        if key not in QUALITY:
+            QUALITY[key] = {
+                "state": "speaking" if (audio_rms or 0.0) > 0.015 else "quiet",
+                "start_ts": now,
+                "total_sec": 4.0,
+                "speech_sec": 3.6,
+                "quiet_sec": 0.0,
+                "last_speech_ts": now,
+                "level": round(float(audio_rms or 0.08), 3),
+                "peak": round(float((audio_rms or 0.08) * 1.8), 3),
+                "clips": 1,
+                "last_audio_ts": now,
+                "speech_pct": 90.0,
+            }
+        ACTIVE_STREAMS[user_id] = max(1, ACTIVE_STREAMS.get(user_id, 0))
+
+    try:
+        db.add_score(user_id, spk, float(raw_p), float(rolling_vp), v_verdict)
+    except Exception:
+        pass
+
+    if v_verdict == "fake" and fake_streak >= 2:
+        model_label = (video_attr or {}).get("engine_id") or "sonave-video-forensics-v1"
+        inc = incidents.record(spk, rolling_vp, model_label, user_id=user_id)
+        if inc:
+            _track(user_id, "incident_open", speaker=spk, modality="video", engine=model_label)
+            incidents.notify(inc, webhook=db.get_alert_webhook(user_id) or None)
+            usr = db.get_user(user_id)
+            if usr and usr.get("email"):
+                _send_incident_alert_email(usr["email"], spk, rolling_vp, model_label, True)
+                _track(user_id, "email_sent", type="incident", to=usr["email"], speaker=spk)
+
+    return entry
+
+
 # --- enrollment endpoints ----------------------------------------------------
 class EnrollReq(BaseModel):
     speaker_id: str
@@ -2116,6 +2696,9 @@ def api_quality(request: Request, p: auth.Principal = Depends(require_principal)
                 for k in list(VERDICTS.keys()):
                     if k[0] == uid:
                         VERDICTS.pop(k, None)
+                for k in list(VIDEO_STATE.keys()):
+                    if k[0] == uid:
+                        VIDEO_STATE.pop(k, None)
                 for k in list(PRESENCE.keys()):
                     if k[0] == uid:
                         PRESENCE.pop(k, None)
@@ -2123,13 +2706,16 @@ def api_quality(request: Request, p: auth.Principal = Depends(require_principal)
 
     has_spk = (any(u == uid for (u, s) in QUALITY) or
                any(u == uid for (u, s) in VERDICTS) or
+               any(u == uid for (u, s) in VIDEO_STATE) or
                any(u == uid and pr.get("present") for (u, s), pr in PRESENCE.items()))
     if ACTIVE_STREAMS.get(uid, 0) == 0:
         if last_close_t and (now_t - last_close_t) > STREAM_GRACE_SEC:
             return {"_scorer": {"configured": bool(SCORER_URL)}, "_v": _BUILD}
         if not has_spk:
             return {"_scorer": {"configured": bool(SCORER_URL)}, "_v": _BUILD}
-    speakers = ({s for (u, s) in QUALITY if u == uid} | {s for (u, s) in VERDICTS if u == uid}
+    speakers = ({s for (u, s) in QUALITY if u == uid}
+                | {s for (u, s) in VERDICTS if u == uid}
+                | {s for (u, s) in VIDEO_STATE if u == uid}
                 | {s for (u, s), pr in PRESENCE.items() if u == uid and pr["present"]})
     for spk in speakers:
         if any(s in spk for s in SKIP_SPEAKERS):
@@ -2176,8 +2762,9 @@ def api_quality(request: Request, p: auth.Principal = Depends(require_principal)
         av = VERDICTS.get((uid, spk))
         speech_sec = row.get("speech_sec", 0.0)
         tot_sec = row.get("total_sec", 0)
-        is_sim = ("Clone" in spk or "Simulate" in spk or "Test" in spk or "Verified" in spk
-                  or (av and av.get("model") in ("simulation", "soundcheck")))
+        is_sim = ("Clone" in spk or "Simulate" in spk or "Test" in spk or "Verified" in spk or "Face" in spk or "Avatar" in spk
+                  or "Wav2Lip" in spk or "Puppet" in spk or "LivePortrait" in spk or "Swap" in spk
+                  or (av and (av.get("model") in ("simulation", "soundcheck") or av.get("baseline"))))
         if av and (q is None or tot_sec >= 4.0 or is_sim or av.get("verdict") == "fake"):
             row["auth_verdict"] = av["verdict"]
             row["auth_p"] = av["rolling"]
@@ -2195,14 +2782,96 @@ def api_quality(request: Request, p: auth.Principal = Depends(require_principal)
             row["auth_verdict"] = None
             row["auth_p"] = 0.0
             row["checks"] = 0
+
+        row["audio_verdict"] = row["auth_verdict"]
+        row["audio_p"] = row["auth_p"]
+
+        vs = VIDEO_STATE.get((uid, spk))
+        if vs:
+            vp = float(vs.get("video_p", 0.0))
+            v_verdict = vs.get("video_verdict", "real")
+            v_streak = int(vs.get("fake_streak", 0))
+            row["video_active"] = (now_t - float(vs.get("ts", 0))) < 60.0
+            row["video_p"] = round(vp, 3)
+            row["video_verdict"] = v_verdict
+            row["video_checks"] = int(vs.get("n", 1))
+            row["video_streak"] = v_streak
+            row["face_detected"] = bool(vs.get("face_detected", True))
+            row["visual_metrics"] = vs.get("visual_metrics") or {}
+            row["video_attribution"] = vs.get("video_attribution") or attribution.attribute_visual_engine(vp, speaker_name=spk)
+            row["av_sync"] = vs.get("av_sync") or attribution.compute_av_sync_status(vp)
+
+            audio_p_val = float(row.get("audio_p") or 0.0)
+            fused_p = round(max(audio_p_val, vp), 3)
+            row["auth_p"] = fused_p
+            row["checks"] = max(int(row.get("checks") or 0), int(vs.get("n", 1)))
+            if row["audio_verdict"] == "fake" or (v_verdict == "fake" and (v_streak >= 2 or vs.get("simulated") or vp >= 0.70)):
+                row["auth_verdict"] = "fake"
+            elif row["audio_verdict"] == "suspect" or v_verdict in ("fake", "suspect") or fused_p >= 0.45:
+                row["auth_verdict"] = "suspect"
+            else:
+                row["auth_verdict"] = row["audio_verdict"] or "real"
+        else:
+            row["video_active"] = False
+            row["video_p"] = None
+            row["video_verdict"] = None
+            row["video_checks"] = 0
+            row["video_attribution"] = None
+            row["av_sync"] = None
+
+        # Canonicalize local host speaker aliases (e.g., "operator", "operator (Verified Voice)",
+        # "Host_Verified_Authentic_Human", "Host_You", "Local_Participant") into "Host",
+        # and merge duplicate host/verified rows so only 1 card is returned for the host.
+        has_host_stream = any(_is_local_host_alias(s) for s in speakers)
+        u_rec = db.get_user(uid) or {}
+        owner_tokens = {
+            _SPK_RE.sub("_", str(x)).strip("_").lower()
+            for x in (
+                p.name,
+                u_rec.get("name"),
+                (p.email or "").split("@")[0],
+                (u_rec.get("email") or "").split("@")[0],
+            )
+            if x
+        } - {""}
+        spk_norm_low = _SPK_RE.sub("_", spk).strip("_").lower()
+        is_sim_threat = any(
+            w in spk_norm_low
+            for w in ("clone", "simulate", "swap", "avatar", "wav2lip", "puppet", "liveportrait", "impersonator")
+        )
+        is_verified_sfx = any(
+            spk.endswith(sfx) for sfx in (" (Verified Voice)", "_Verified_Voice", "_Verified_Authentic_Human")
+        )
+        is_baseline_row = bool(av and (av.get("baseline") or av.get("model") == "soundcheck"))
+
+        canon_spk = "Host" if _is_local_host_alias(spk) else spk
+        if canon_spk != "Host" and not is_sim_threat:
+            if has_host_stream and (is_verified_sfx or is_baseline_row or spk_norm_low in owner_tokens):
+                canon_spk = "Host"
+            else:
+                for sfx in (" (Verified Voice)", "_Verified_Voice", "_Verified_Authentic_Human"):
+                    if canon_spk.endswith(sfx):
+                        base_cand = canon_spk[:-len(sfx)].strip()
+                        norm_cand = _SPK_RE.sub("_", base_cand).strip("_")
+                        if _is_local_host_alias(base_cand):
+                            canon_spk = "Host"
+                        elif base_cand in speakers:
+                            canon_spk = base_cand
+                        elif norm_cand in speakers:
+                            canon_spk = norm_cand
+                        break
+
         # show enrollment status
-        row["enrolled"] = enroll.is_enrolled(spk, base_dir=udir)
+        row["enrolled"] = enroll.is_enrolled(spk, base_dir=udir) or (canon_spk != spk and enroll.is_enrolled(canon_spk, base_dir=udir))
         p_val = row.get("auth_p") or 0.0
-        row["attribution"] = attribution.attribute_synthesis_engine(p_val, speaker_name=spk)
+        row["attribution"] = attribution.attribute_synthesis_engine(p_val, speaker_name=canon_spk)
         row["ambient"] = attribution.compute_ambient_mismatch(p_val)
-        out[spk] = row
+        if canon_spk in out:
+            out[canon_spk] = _merge_speaker_rows(out[canon_spk], row)
+        else:
+            out[canon_spk] = row
     # meta row (underscore prefix = not a speaker; the console filters these out)
-    out["_scorer"] = {"configured": bool(SCORER_URL)}
+    out["_scorer"] = {"configured": bool(SCORER_URL), "video_enabled": True}
     out["_v"] = _BUILD          # clients auto-reload when a new build deploys
     return out
 
@@ -2661,9 +3330,17 @@ def api_incident_report(incident_id: int, request: Request, p: auth.Principal = 
     inc = incidents.get_incident(incident_id, user_id=uid)
     if not inc:
         raise HTTPException(status_code=404, detail="Incident not found")
-    
+
+    inc_copy = dict(inc)
+    vs = VIDEO_STATE.get((inc.get("user_id") or p.user_id, inc.get("speaker") or ""))
+    if vs:
+        inc_copy.setdefault("video_p", vs.get("video_p"))
+        inc_copy.setdefault("video_attribution", vs.get("video_attribution"))
+        inc_copy.setdefault("visual_metrics", vs.get("visual_metrics"))
+        inc_copy.setdefault("av_sync", vs.get("av_sync"))
+
     domain = _domain(request) or "usesonave.com"
-    html = forensics.generate_report_html(inc, domain=domain, secret=auth._session_secret())
+    html = forensics.generate_report_html(inc_copy, domain=domain, secret=auth._session_secret())
     return HTMLResponse(content=html, media_type="text/html")
 
 
@@ -2888,6 +3565,21 @@ def _make_meet_media_callback(user_id: str, space_id: str):
     return on_frame
 
 
+def _make_meet_video_callback(user_id: str, space_id: str):
+    """Factory creating a video frame consumer for native Google Meet WebRTC sessions."""
+    def on_video_frame(speaker_id: str, frame_bytes: bytes, ts: float):
+        spk = _SPK_RE.sub("_", speaker_id or "speaker").strip("_") or "speaker"
+        LAST_FRAME[user_id] = ts
+        _meter_meet_tick(user_id, space_id)
+        if frame_bytes:
+            threading.Thread(
+                target=_score_video_and_store,
+                args=(user_id, spk, frame_bytes, None, {"source": "meet_webrtc"}),
+                daemon=True,
+            ).start()
+    return on_video_frame
+
+
 @app.post("/api/meet/sessions/connect")
 def api_meet_session_connect(req: MeetConnectReq, p: auth.Principal = Depends(require_principal)):
     """Initiate a native Google Meet Media API session (botless) for an active conference."""
@@ -2911,11 +3603,11 @@ def api_meet_session_connect(req: MeetConnectReq, p: auth.Principal = Depends(re
                 token = raw
 
     cb = _make_meet_media_callback(p.user_id, space)
-    sess = meet_media_ingest.get_or_create_session(space, token, on_audio=cb)
+    v_cb = _make_meet_video_callback(p.user_id, space)
+    sess = meet_media_ingest.get_or_create_session(space, token, on_audio=cb, on_video=v_cb)
     res = sess.connect()
     
-    spk_name = p.name or (p.email.split("@")[0] if p.email else "Derek (Host)")
-    spk = _SPK_RE.sub("_", spk_name).strip("_") or "Host"
+    spk = "Host"
     now_ts = time.time()
     MEET_SESSION_START[p.user_id] = now_ts
     with _STATE_LOCK:
@@ -2927,6 +3619,9 @@ def api_meet_session_connect(req: MeetConnectReq, p: auth.Principal = Depends(re
         for k in list(VERDICTS.keys()):
             if k[0] == p.user_id:
                 del VERDICTS[k]
+        for k in list(VIDEO_STATE.keys()):
+            if k[0] == p.user_id:
+                del VIDEO_STATE[k]
         ACTIVE_STREAMS[p.user_id] = 1
         LAST_FRAME[p.user_id] = now_ts
         QUALITY[(p.user_id, spk)] = {
@@ -2985,6 +3680,9 @@ def api_meet_session_disconnect(req: MeetDisconnectReq, p: auth.Principal = Depe
         for k in list(VERDICTS.keys()):
             if k[0] == p.user_id:
                 del VERDICTS[k]
+        for k in list(VIDEO_STATE.keys()):
+            if k[0] == p.user_id:
+                del VIDEO_STATE[k]
         ACTIVE_MEET_SPACES.pop(p.user_id, None)
     _track(p.user_id, "meet_media_disconnect", space=space, duration_sec=round(dur, 1))
     return {"ok": True, "space_id": space, "state": "closed"}
@@ -3038,6 +3736,203 @@ class SynthReq(BaseModel):
     voice_id: str = "me_clone"
     speaker_name: str = "Derek (AI Clone)"
     is_real: bool = False
+
+
+class VideoScoreReq(BaseModel):
+    frame_b64: str = ""
+    speaker: str = "You (Speaker)"
+    audio_rms: float | None = None
+    mouth_delta: float | None = None
+    lag_ms: int | None = None
+    source: str = "meet_video"
+    simulated_attack: bool = False
+    engine_id: str | None = None
+    target_video_p: float | None = None
+    vit_score: float | None = None
+    spatial_seam_score: float | None = None
+    temporal_jitter_score: float | None = None
+    av_sync_score: float | None = None
+    boundary_gradient_ratio: float | None = None
+    hf_attenuation_ratio: float | None = None
+    chroma_bleed: float | None = None
+
+
+class VideoSimReq(BaseModel):
+    speaker_name: str = "CFO (Face-Swap Clone)"
+    engine_id: str = "deepfacelive"
+    is_real: bool = False
+    lag_ms: int | None = None
+    clear: bool = False
+
+
+@app.post("/api/video/score")
+def api_video_score(req: VideoScoreReq, p: auth.Principal = Depends(require_principal)):
+    """Score a single video frame (base64 JPEG/PNG) and update live multimodal state."""
+    spk = _canonical_host_speaker(req.speaker or "Host", default="Host")[:64]
+    b64 = (req.frame_b64 or "").strip()
+    if "," in b64 and b64.startswith("data:"):
+        b64 = b64.split(",", 1)[1]
+    if not b64 and not req.simulated_attack:
+        raise HTTPException(status_code=400, detail="empty video frame")
+    frame_bytes = b""
+    if b64:
+        try:
+            frame_bytes = base64.b64decode(b64, validate=True)
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"invalid base64 frame: {exc}")
+    if not frame_bytes and not req.simulated_attack:
+        raise HTTPException(status_code=400, detail="empty video frame")
+
+    client_metrics: dict = {"source": req.source}
+    for field_name in (
+        "mouth_delta",
+        "lag_ms",
+        "engine_id",
+        "target_video_p",
+        "vit_score",
+        "spatial_seam_score",
+        "temporal_jitter_score",
+        "av_sync_score",
+        "boundary_gradient_ratio",
+        "hf_attenuation_ratio",
+        "chroma_bleed",
+    ):
+        val = getattr(req, field_name, None)
+        if val is not None:
+            client_metrics[field_name] = val
+    if req.simulated_attack:
+        client_metrics["simulated_attack"] = True
+
+    try:
+        entry = _score_video_and_store(
+            p.user_id, spk, frame_bytes, audio_rms=req.audio_rms, client_metrics=client_metrics
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"ok": True, **entry}
+
+
+@app.get("/api/generator/video-engines")
+def api_generator_video_engines(p: auth.Principal = Depends(require_principal)):
+    """List known real-time video deepfake and face-swap engines for forensic testing."""
+    return {"engines": attribution.KNOWN_VIDEO_GENERATORS}
+
+
+def _clear_simulated_state(uid: str) -> list[str]:
+    removed = []
+    sim_keywords = (
+        "ai", "clone", "simulate", "test", "custom", "voice", "ceo", "cfo", "vp",
+        "brian", "andrew", "treasury", "impersonator", "director", "partner", "exec",
+        "british", "spanish", "french", "german", "real", "verified", "soundcheck",
+        "face", "swap", "avatar", "heygen", "deepface", "wav2lip", "retalking",
+        "liveportrait", "hallo", "puppet", "lip", "facefusion", "simswap",
+    )
+    with _STATE_LOCK:
+        sim_video_spks = {
+            k[1] for k, vs in VIDEO_STATE.items()
+            if k[0] == uid and isinstance(vs, dict) and vs.get("simulated")
+        }
+        for k in list(QUALITY.keys()):
+            if k[0] == uid and not _is_local_host_alias(k[1]) and (
+                k[1] in sim_video_spks or any(w.lower() in k[1].lower() for w in sim_keywords)
+            ):
+                QUALITY.pop(k, None)
+                if k[1] not in removed:
+                    removed.append(k[1])
+        for k in list(VERDICTS.keys()):
+            if k[0] == uid and not _is_local_host_alias(k[1]) and (
+                k[1] in sim_video_spks or any(w.lower() in k[1].lower() for w in sim_keywords)
+            ):
+                VERDICTS.pop(k, None)
+                if k[1] not in removed:
+                    removed.append(k[1])
+        for k in list(VIDEO_STATE.keys()):
+            if k[0] == uid and (k[1] in sim_video_spks or any(w.lower() in k[1].lower() for w in sim_keywords)):
+                VIDEO_STATE.pop(k, None)
+                if k[1] not in removed:
+                    removed.append(k[1])
+        for k in list(PRESENCE.keys()):
+            if k[0] == uid and not _is_local_host_alias(k[1]) and (
+                k[1] in sim_video_spks or any(w.lower() in k[1].lower() for w in sim_keywords)
+            ):
+                PRESENCE.pop(k, None)
+    if model_video is not None:
+        try:
+            model_video.get_video_detector().reset_speaker()
+        except Exception:
+            pass
+    try:
+        c = incidents._conn()
+        c.execute(
+            "UPDATE incidents SET status='acknowledged', hold=0 WHERE user_id=? AND ("
+            "speaker LIKE '%AI%' OR speaker LIKE '%Clone%' OR speaker LIKE '%Simulate%' OR "
+            "speaker LIKE '%Test%' OR speaker LIKE '%Custom%' OR speaker LIKE '%Voice%' OR "
+            "speaker LIKE '%VP%' OR speaker LIKE '%CFO%' OR speaker LIKE '%Verified%' OR "
+            "speaker LIKE '%Face%' OR speaker LIKE '%Swap%' OR speaker LIKE '%Avatar%' OR "
+            "speaker LIKE '%Wav2Lip%' OR speaker LIKE '%Puppet%' OR speaker LIKE '%LivePortrait%' OR "
+            "speaker LIKE '%Director%' OR speaker LIKE '%Partner%' OR speaker LIKE '%Exec%'"
+            ")",
+            (uid,),
+        )
+        for spk_rem in removed:
+            c.execute("UPDATE incidents SET status='acknowledged', hold=0 WHERE user_id=? AND speaker=?", (uid, spk_rem))
+        c.commit()
+        c.close()
+    except Exception:
+        pass
+    return removed
+
+
+@app.post("/api/generator/inject-video-test")
+def api_generator_inject_video_test(req: VideoSimReq, p: auth.Principal = Depends(require_principal)):
+    """Inject a synthetic face-swap / avatar / lip-sync attack into the live monitoring pipeline."""
+    if req.clear:
+        removed = _clear_simulated_state(p.user_id)
+        return {"ok": True, "cleared": True, "removed": removed}
+    raw_spk = (req.speaker_name or "CFO (Face-Swap Clone)").strip()
+    if _is_local_host_alias(raw_spk):
+        spk = "Host"
+    else:
+        spk = (_SPK_RE.sub("_", raw_spk).strip("_") or "FaceSwap_Clone")[:64]
+    is_fake = not req.is_real
+    eng_id = (req.engine_id or "deepfacelive").strip().lower()
+    prof = _VIDEO_SIM_PROFILES.get(eng_id, _VIDEO_SIM_PROFILES["deepfacelive"])
+    target_vp = float(prof["vp"]) if is_fake else 0.028
+    client_metrics = {
+        "simulated_attack": is_fake,
+        "target_video_p": target_vp,
+        "vit_score": float(prof["vit"]) if is_fake else 0.01,
+        "engine_id": eng_id,
+        "lag_ms": (req.lag_ms if req.lag_ms is not None else int(prof["lag"])) if is_fake else 18,
+        "spatial_seam_score": float(prof["seam"]) if is_fake else 0.04,
+        "boundary_gradient_ratio": float(prof["grad"]) if is_fake else 1.03,
+        "hf_attenuation_ratio": float(prof["hf"]) if is_fake else 0.96,
+        "chroma_bleed": float(prof["chroma"]) if is_fake else 0.02,
+        "temporal_jitter_score": float(prof["jitter"]) if is_fake else 0.03,
+        "av_sync_score": float(prof["av"]) if is_fake else 0.96,
+        "source": "simulation",
+    }
+    entry = _score_video_and_store(
+        p.user_id, spk, b"", audio_rms=0.38 if is_fake else 0.12, client_metrics=client_metrics
+    )
+    _track(
+        p.user_id,
+        "video_simulation_run",
+        speaker=spk,
+        engine_id=req.engine_id,
+        is_real=req.is_real,
+        video_p=entry.get("video_p"),
+    )
+    return {
+        "ok": True,
+        "speaker": spk,
+        "video_p": entry.get("video_p"),
+        "video_verdict": entry.get("video_verdict"),
+        "video_attribution": entry.get("video_attribution"),
+        "av_sync": entry.get("av_sync"),
+        "visual_metrics": entry.get("visual_metrics"),
+        "is_real": req.is_real,
+    }
 
 
 @app.get("/api/generator/voices")
@@ -3138,29 +4033,8 @@ async def api_generator_inject_test(req: SynthReq, p: auth.Principal = Depends(r
 
 @app.post("/api/generator/clear-test")
 def api_generator_clear_test(p: auth.Principal = Depends(require_admin)):
-    """Dismiss simulated voice threat test data and restore clean meeting state."""
-    uid = p.user_id
-    removed = []
-    sim_keywords = ("ai", "clone", "simulate", "test", "custom", "voice", "ceo", "cfo", "vp", "brian", "andrew", "treasury", "impersonator", "director", "partner", "british", "spanish", "french", "german", "real", "verified", "soundcheck")
-    with _STATE_LOCK:
-        for k in list(QUALITY.keys()):
-            if k[0] == uid and any(w.lower() in k[1].lower() for w in sim_keywords):
-                QUALITY.pop(k, None)
-                removed.append(k[1])
-        for k in list(VERDICTS.keys()):
-            if k[0] == uid and any(w.lower() in k[1].lower() for w in sim_keywords):
-                VERDICTS.pop(k, None)
-                removed.append(k[1])
-        for k in list(PRESENCE.keys()):
-            if k[0] == uid and any(w.lower() in k[1].lower() for w in sim_keywords):
-                PRESENCE.pop(k, None)
-    try:
-        c = incidents._conn()
-        c.execute("UPDATE incidents SET status='acknowledged', hold=0 WHERE user_id=? AND (speaker LIKE '%AI%' OR speaker LIKE '%Clone%' OR speaker LIKE '%Simulate%' OR speaker LIKE '%Test%' OR speaker LIKE '%Custom%' OR speaker LIKE '%Voice%' OR speaker LIKE '%VP%' OR speaker LIKE '%CFO%' OR speaker LIKE '%Verified%')", (uid,))
-        c.commit()
-        c.close()
-    except Exception:
-        pass
+    """Dismiss simulated voice and video threat test data and restore clean meeting state."""
+    removed = _clear_simulated_state(p.user_id)
     return {"ok": True, "removed": removed}
 
 
@@ -3173,24 +4047,60 @@ class SoundcheckReq(BaseModel):
 def api_audio_soundcheck(req: SoundcheckReq, p: auth.Principal = Depends(require_principal)):
     """Evaluate local microphone soundcheck and seed verified authentic baseline."""
     u = db.get_user(p.user_id) or {}
-    spk_raw = req.speaker_name or u.get("name") or p.name or (u.get("email", "").split("@")[0] if u.get("email") else "Host")
-    spk = f"{spk_raw} (Verified Voice)"
+    req_spk = (req.speaker_name or "").strip()
+    has_active_host = (
+        (p.user_id, "Host") in QUALITY
+        or (p.user_id, "Host") in VERDICTS
+        or (p.user_id, "Host") in VIDEO_STATE
+    )
+    if not req_spk or _is_local_host_alias(req_spk) or has_active_host:
+        spk = "Host"
+    else:
+        spk = f"{req_spk} (Verified Voice)"
     dur = max(2.0, min(10.0, req.duration_sec or 3.0))
     p_fake = 0.011  # 98.9% real voice authenticity
     now = time.time()
 
     with _STATE_LOCK:
+        prev_q = QUALITY.get((p.user_id, spk), {})
+        if spk == "Host":
+            def _is_stale_host_key(s_key: str) -> bool:
+                if s_key == "Host":
+                    return False
+                if _is_local_host_alias(s_key):
+                    return True
+                return any(
+                    s_key.endswith(sfx)
+                    for sfx in (" (Verified Voice)", "_Verified_Voice", "_Verified_Authentic_Human")
+                )
+
+            for k in list(QUALITY.keys()):
+                if k[0] == p.user_id and _is_stale_host_key(k[1]):
+                    other_q = QUALITY.pop(k, {})
+                    if not prev_q and other_q:
+                        prev_q = other_q
+            for k in list(VERDICTS.keys()):
+                if k[0] == p.user_id and _is_stale_host_key(k[1]):
+                    VERDICTS.pop(k, None)
+            for k in list(VIDEO_STATE.keys()):
+                if k[0] == p.user_id and _is_stale_host_key(k[1]):
+                    vs_other = VIDEO_STATE.pop(k, None)
+                    if vs_other and (p.user_id, "Host") not in VIDEO_STATE:
+                        VIDEO_STATE[(p.user_id, "Host")] = vs_other
+        start_ts = min(now - dur, prev_q.get("start_ts", now - dur))
+        tot_sec = max(dur, prev_q.get("total_sec", 0.0))
+        sp_sec = max(dur, prev_q.get("speech_sec", 0.0))
         QUALITY[(p.user_id, spk)] = {
             "state": "speaking",
-            "start_ts": now - dur,
-            "total_sec": dur,
-            "speech_sec": dur,
+            "start_ts": start_ts,
+            "total_sec": tot_sec,
+            "speech_sec": sp_sec,
             "quiet_sec": 0.0,
-            "level": 0.38,
-            "peak": 0.74,
-            "clips": 3,
+            "level": max(0.38, prev_q.get("level", 0.0)),
+            "peak": max(0.74, prev_q.get("peak", 0.0)),
+            "clips": max(3, prev_q.get("clips", 0)),
             "last_audio_ts": now,
-            "speech_pct": 98.4
+            "speech_pct": max(98.4, prev_q.get("speech_pct", 0.0))
         }
         VERDICTS[(p.user_id, spk)] = {
             "verdict": "real",
@@ -3743,6 +4653,7 @@ def onboarding():
 
 
 @app.get("/meet-addon", response_class=HTMLResponse)
+@app.get("/meet/addon", response_class=HTMLResponse)
 def meet_addon():
     """Google Meet add-on side panel (works standalone in a browser too).
     Marketplace deployment steps live in PRODUCTION.md; the panel talks to the

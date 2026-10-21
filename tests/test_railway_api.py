@@ -176,3 +176,63 @@ def test_audio_soundcheck_endpoint(railway_mod):
     fmt = railway_mod._format_activity(user["id"], "mic_soundcheck", {"speaker": res["speaker"], "email": "test@sonave.com"})
     assert "Mic Soundcheck Verified" in fmt and ("98.9%" in fmt or "97.9%" in fmt)
 
+
+def test_local_host_speaker_keys_canonicalized_and_deduplicated(railway_mod):
+    c = client(railway_mod)
+    railway_mod.QUALITY.clear()
+    railway_mod.VERDICTS.clear()
+    railway_mod.VIDEO_STATE.clear()
+
+    # Connect a Meet session as default operator and run soundcheck
+    c.post("/api/meet/sessions/connect", json={"space_id": "https://meet.google.com/live-room"})
+    c.post("/api/audio/soundcheck", json={"speaker_name": "operator", "duration_sec": 3.0})
+
+    # Seed duplicate local host alias keys across QUALITY, VERDICTS, and VIDEO_STATE
+    uid = "admin"
+    for alias in ("operator", "operator_Verified_Authentic_Human", "Host_Verified_Authentic_Human", "Host_You", "Local_Participant"):
+        railway_mod.QUALITY[(uid, alias)] = {
+            "state": "speaking",
+            "total_sec": 42.0,
+            "speech_sec": 38.0,
+            "quiet_sec": 0.0,
+            "level": 0.25,
+            "peak": 0.65,
+            "clips": 2,
+            "speech_pct": 90.0,
+        }
+    railway_mod.VIDEO_STATE[(uid, "operator_Verified_Authentic_Human")] = {
+        "speaker": "operator_Verified_Authentic_Human",
+        "video_p": 0.031,
+        "video_verdict": "real",
+        "fake_streak": 0,
+        "n": 4,
+        "ts": 9999999999.0,
+        "face_detected": True,
+        "visual_metrics": {"spatial_seam_score": 0.04},
+        "av_sync": {"sync_score": 0.96, "lag_ms": 18, "is_desynced": False},
+    }
+
+    q = c.get("/api/quality?space_id=live-room").json()
+    spk_keys = [k for k in q.keys() if not k.startswith("_")]
+    assert spk_keys == ["Host"]
+    host_row = q["Host"]
+    assert host_row["baseline"] is True
+    assert host_row["auth_verdict"] == "real"
+    assert host_row["video_verdict"] == "real"
+    assert host_row["video_p"] == 0.031
+    assert host_row["speech_sec"] >= 38.0
+    assert host_row["av_sync"]["lag_ms"] == 18
+
+    # Also verify authenticated user session where ws_mic_stream (Host), session connect,
+    # and soundcheck (with user's profile name) all collapse into a single "Host" card
+    u_host = railway_mod.db.upsert_google_user("sub_host_dedup", "derek@usesonave.com", "Derek", "", "admin")
+    sess_host = railway_mod.auth.sign_session(u_host["id"])
+    headers = {"Authorization": f"Bearer {sess_host}"}
+    c.post("/api/meet/sessions/connect", json={"space_id": "https://meet.google.com/live-room"}, headers=headers)
+    c.post("/api/audio/soundcheck", json={"speaker_name": "Derek", "duration_sec": 3.0}, headers=headers)
+    q_user = c.get("/api/quality?space_id=live-room", headers=headers).json()
+    user_spk_keys = [k for k in q_user.keys() if not k.startswith("_")]
+    assert user_spk_keys == ["Host"]
+    assert q_user["Host"]["baseline"] is True
+    assert q_user["Host"]["auth_verdict"] == "real"
+

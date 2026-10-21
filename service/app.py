@@ -235,3 +235,96 @@ def score_json(request: Request, body: ScoreJSON):
     res["latency_ms"] = int((time.perf_counter() - t0) * 1000)
     res["request_id"] = request.state.rid
     return res
+
+
+class ScoreVideoJSON(BaseModel):
+    frame_b64: str
+    speaker_id: str | None = None
+    audio_rms: float | None = None
+    client_metrics: dict | None = None
+    ts: float | None = None
+
+
+class ScoreMultimodalJSON(BaseModel):
+    audio_b64: str | None = None
+    frame_b64: str | None = None
+    speaker_id: str | None = None
+    audio_rms: float | None = None
+    voiceprint_b64: str | None = None
+    client_metrics: dict | None = None
+    ts: float | None = None
+
+
+def _strip_data_uri(b64_str: str) -> str:
+    s = (b64_str or "").strip()
+    if "," in s and s.startswith("data:"):
+        s = s.split(",", 1)[1]
+    return s
+
+
+@app.post("/score_video", dependencies=[Depends(require_auth), Depends(check_size)])
+def score_video(request: Request, body: ScoreVideoJSON):
+    client = request.client.host if request.client else "unknown"
+    if not _rate_limit_ok(client):
+        raise HTTPException(status_code=429, detail="rate limit exceeded")
+    t0 = time.perf_counter()
+    try:
+        raw_frame = base64.b64decode(_strip_data_uri(body.frame_b64), validate=True)
+    except Exception:
+        raise HTTPException(status_code=400, detail="invalid base64 frame")
+    if not raw_frame:
+        raise HTTPException(status_code=400, detail="empty video frame")
+    try:
+        res = detector.score_video_frame(
+            raw_frame,
+            speaker_id=body.speaker_id or "default",
+            audio_rms=body.audio_rms,
+            client_metrics=body.client_metrics,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    res["speaker_id"] = body.speaker_id
+    res["ts"] = body.ts
+    res["latency_ms"] = int((time.perf_counter() - t0) * 1000)
+    res["request_id"] = request.state.rid
+    return res
+
+
+@app.post("/score_multimodal", dependencies=[Depends(require_auth), Depends(check_size)])
+def score_multimodal(request: Request, body: ScoreMultimodalJSON):
+    client = request.client.host if request.client else "unknown"
+    if not _rate_limit_ok(client):
+        raise HTTPException(status_code=429, detail="rate limit exceeded")
+    t0 = time.perf_counter()
+    audio_bytes = None
+    frame_bytes = None
+    if body.audio_b64:
+        try:
+            audio_bytes = base64.b64decode(_strip_data_uri(body.audio_b64), validate=True)
+        except Exception:
+            raise HTTPException(status_code=400, detail="invalid base64 audio")
+    if body.frame_b64:
+        try:
+            frame_bytes = base64.b64decode(_strip_data_uri(body.frame_b64), validate=True)
+        except Exception:
+            raise HTTPException(status_code=400, detail="invalid base64 frame")
+    if not audio_bytes and not frame_bytes:
+        raise HTTPException(status_code=400, detail="audio_b64 or frame_b64 required")
+    try:
+        res = detector.score_multimodal(
+            audio_bytes=audio_bytes,
+            frame_bytes=frame_bytes,
+            speaker_id=body.speaker_id or "default",
+            audio_rms=body.audio_rms,
+            client_metrics=body.client_metrics,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    if audio_bytes and body.voiceprint_b64 and body.speaker_id:
+        res = _maybe_fuse(res, audio_bytes, body.speaker_id, body.voiceprint_b64)
+    res["speaker_id"] = body.speaker_id
+    res["ts"] = body.ts
+    res["latency_ms"] = int((time.perf_counter() - t0) * 1000)
+    res["request_id"] = request.state.rid
+    return res
+

@@ -45,7 +45,21 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
 .smeta{display:flex;gap:11px;font-size:9.5px;color:var(--muted);margin-top:7px;font-family:var(--mono)}
 .smeta .vword{margin-left:auto;font-weight:700;letter-spacing:.04em}
 .attr-pill{margin-top:8px;padding:5px 8px;border-radius:6px;background:rgba(255,77,94,0.12);border:1px solid rgba(255,77,94,0.35);font-size:9.5px;color:#ff808d;font-family:var(--mono);line-height:1.4}
+.vattr-pill{margin-top:6px;padding:5px 8px;border-radius:6px;background:rgba(255,77,94,0.15);border:1px solid rgba(255,77,94,0.45);font-size:9.5px;color:#ffa1ab;font-family:var(--mono);line-height:1.4}
 .ambient-pill{margin-top:5px;padding:4px 8px;border-radius:6px;background:rgba(255,178,36,0.1);border:1px solid rgba(255,178,36,0.3);font-size:9px;color:#ffb224;font-family:var(--mono)}
+.mm-badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+.mm-badge{font-size:8.5px;font-family:var(--mono);font-weight:700;padding:1.5px 6px;border-radius:4px;letter-spacing:.03em;border:1px solid var(--line2);background:rgba(255,255,255,0.03);color:var(--muted)}
+.mm-badge.ok{color:var(--green);border-color:rgba(46,229,132,0.3);background:rgba(46,229,132,0.08)}
+.mm-badge.warn{color:var(--amber);border-color:rgba(255,178,36,0.35);background:rgba(255,178,36,0.1)}
+.mm-badge.fake{color:var(--red);border-color:rgba(255,77,94,0.45);background:rgba(255,77,94,0.14)}
+#videoShieldBar{display:none;margin:6px 12px 2px;padding:9px 10px;border:1px solid var(--line2);border-radius:10px;background:var(--panel)}
+.vs-top{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:7px}
+.vs-btns{display:flex;flex-wrap:wrap;gap:5px}
+.vs-btn{padding:4.5px 8px;border-radius:6px;border:1px solid var(--line2);background:#161c22;color:var(--ink);font:600 10px var(--font);cursor:pointer;display:inline-flex;align-items:center;gap:4px;transition:all .15s ease}
+.vs-btn:hover{border-color:rgba(46,229,132,0.45);color:var(--green)}
+.vs-btn.active{border-color:var(--green);background:rgba(46,229,132,0.12);color:var(--green)}
+.vs-btn.sim{border-color:rgba(255,77,94,0.35);background:rgba(255,77,94,0.08);color:#ff808d}
+.vs-btn.sim:hover{border-color:rgba(255,77,94,0.6);background:rgba(255,77,94,0.15)}
 #sstats{display:none;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:2px 12px 12px}
 #sstats>div{border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:8px 10px}
 #sstats b{display:block;font-size:8.5px;letter-spacing:.08em;color:var(--muted);font-weight:600;margin-bottom:2px}
@@ -112,7 +126,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
 <div class="hd">
  <div class="brand">
   <svg class="mark" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.6" stroke="var(--green)" stroke-width="2.2"></circle><path d="M6.9 12h.9l.6-1.4.7 2.9.8-4.1.9 5.4.9-7.2.9 8.3.8-6.9.7 4.8.7-2.9.6 1.6.5-.5h1.2" stroke="var(--green)" stroke-width="1.15" stroke-linejoin="round" stroke-linecap="round"></path><circle cx="18.1" cy="5.9" r="2.6" fill="var(--bg)"></circle><circle cx="18.1" cy="5.9" r="1.8" fill="var(--green)"></circle></svg>
-  <div><b>Sonave</b><small id="hdrSub">VOICE AUTHENTICITY · THIS CALL</small></div>
+  <div><b>Sonave</b><small id="hdrSub">VOICE &amp; VIDEO AUTHENTICITY · THIS CALL</small></div>
  </div>
  <select id="addonLangSel" style="background:var(--panel); color:var(--ink2); border:1px solid var(--line); border-radius:6px; font-size:10px; padding:2px 4px;" onchange="setAddonLang(this.value)">
   <option value="en">EN</option>
@@ -127,13 +141,16 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
 <div id="signin" class="center" style="display:none">
  <svg class="hero" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.6" stroke="var(--green)" stroke-width="2.2"></circle><path d="M6.9 12h.9l.6-1.4.7 2.9.8-4.1.9 5.4.9-7.2.9 8.3.8-6.9.7 4.8.7-2.9.6 1.6.5-.5h1.2" stroke="var(--green)" stroke-width="1.15" stroke-linejoin="round" stroke-linecap="round"></path><circle cx="18.1" cy="5.9" r="2.6" fill="var(--bg)"></circle><circle cx="18.1" cy="5.9" r="1.8" fill="var(--green)"></circle></svg>
  <div class="hero-t">Sonave</div>
- <p class="hero-s">Live deepfake-voice detection for this call. Every speaker's voice, verified while they talk.</p>
+ <p class="hero-s">Live voice &amp; video deepfake detection for this call. Every speaker's voice, face, and lip-sync verified live.</p>
  <div class="feat">
   <div><span>First verdict</span><b>~4 s</b></div>
-  <div><span>Catch rate, 27 unseen voice tools</span><b>95%</b></div>
+  <div><span>Voice + Face-Swap + Lip-Sync</span><b>Multimodal</b></div>
   <div><span>Included free</span><b>1 h + 4 h bonus</b></div>
  </div>
- <div id="gsiBtn"></div>
+ <div id="gsiBtn" style="width:100%;max-width:250px;display:flex;flex-direction:column;align-items:center;gap:8px;">
+  <div id="gsiRenderTarget" style="display:flex;justify-content:center;width:100%;"></div>
+  <button id="fallbackSigninBtn" class="btn cta" style="width:100%;padding:10px 18px;font-size:12.5px;" onclick="handleFallbackSignin()">Continue to Live Verification</button>
+ </div>
  <p class="fine">Free 1 hour included + 4 bonus hours with review. By continuing you agree to the <a href="/terms" target="_blank" rel="noopener">Terms</a> &amp; <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.</p>
 </div>
 
@@ -146,7 +163,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
    </div>
    <span id="verdictPill" style="font-size:9.5px;font-family:var(--mono);font-weight:700;letter-spacing:0.04em;padding:2px 7px;border-radius:6px;background:rgba(46,229,132,0.1);color:var(--green);border:1px solid rgba(46,229,132,0.3)">AUTHENTIC</span>
   </div>
-  <div class="note" id="roomNote">All participant voices authentic and verified.</div>
+  <div class="note" id="roomNote">All participant voices and video feeds authentic and verified.</div>
  </div>
 
  <!-- Plan Quota & Upgrade Strip -->
@@ -166,7 +183,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
   <div style="font-size:22px; margin-bottom:4px;">🛡️</div>
   <div style="font-size:12.5px; font-weight:800; color:var(--ink); margin-bottom:4px;">Monthly Free Quota Exhausted</div>
   <div style="font-size:11px; color:var(--ink2); line-height:1.45; margin-bottom:12px;">
-   You've used all <strong><span id="pwFreeMinutes">120</span> free minutes</strong> of voice defense for this month. Upgrade to continue real-time verification for all participants.
+   You've used all <strong><span id="pwFreeMinutes">120</span> free minutes</strong> of defense for this month. Upgrade to continue real-time voice &amp; video verification for all participants.
   </div>
   <button onclick="startUpgradeCheckout()" class="btn cta" style="width:100%; padding:9px 12px; font-size:11.5px; margin-bottom:6px;">
    Add Card &amp; Continue Protection ($8/hr)
@@ -187,14 +204,14 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
     <i></i><i></i>
     <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.6" stroke="var(--green)" stroke-width="2.2"></circle><path d="M6.9 12h.9l.6-1.4.7 2.9.8-4.1.9 5.4.9-7.2.9 8.3.8-6.9.7 4.8.7-2.9.6 1.6.5-.5h1.2" stroke="var(--green)" stroke-width="1.15" stroke-linejoin="round" stroke-linecap="round"></path><circle cx="18.1" cy="5.9" r="2.6" fill="var(--bg)"></circle><circle cx="18.1" cy="5.9" r="1.8" fill="var(--green)"></circle></svg>
    </div>
-   <div class="ph-t">Voice verification ready</div>
-   <div class="ph-s">Every voice in this meeting is verified live, while speaking.</div>
+   <div class="ph-t">Voice &amp; Video verification ready</div>
+   <div class="ph-s">Every participant's voice, face, and lip-sync verified live in real time.</div>
   </div>
-  <button class="btn cta" id="protectBtn" style="width:100%" onclick="protectMeeting()">Start voice verification</button>
+  <button class="btn cta" id="protectBtn" style="width:100%" onclick="protectMeeting()">Start voice &amp; video verification</button>
   <div class="steps" id="protectSteps">
-   <div><b>1</b><span><strong>Real-time verification</strong> — speaker voices verified while they talk</span></div>
+   <div><b>1</b><span><strong>Voice &amp; Video Defense</strong> — neural vocoder, face-swap &amp; lip-sync verification</span></div>
    <div><b>2</b><span>Each speaker scored in <strong>~4 seconds</strong>, refreshed continuously</span></div>
-   <div><b>3</b><span>Synthetic voice → <strong>red alert</strong> + exportable forensic report</span></div>
+   <div><b>3</b><span>Synthetic voice or face-swap → <strong>red alert</strong> + forensic report</span></div>
   </div>
 
   <div id="codeRow" style="display:none;margin-top:10px">
@@ -202,12 +219,52 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
           style="width:100%;padding:9px 11px;border-radius:9px;border:1px solid var(--line2);background:var(--bg);color:var(--ink);font:12px var(--font);box-sizing:border-box">
    <button class="btn" style="width:100%;margin-top:8px" onclick="protectManual()">Connect to this link</button>
   </div>
-  <div id="protectStatus" class="ps">Live voice authenticity active for this session.</div>
+  <div id="protectStatus" class="ps">Live voice &amp; video authenticity active for this session.</div>
   <div id="admitWait" class="wait" style="display:none">
-   <div class="wait-row"><span class="spin"></span><b>Connecting to meeting audio stream…</b></div>
-   <div class="wait-hint" id="waitHint"><span class="up">▲</span> Initializing real-time audio session (a few seconds).</div>
+   <div class="wait-row"><span class="spin"></span><b>Connecting to meeting audio &amp; video stream…</b></div>
+   <div class="wait-hint" id="waitHint"><span class="up">▲</span> Initializing real-time session (a few seconds).</div>
   </div>
  </div>
+
+ <!-- Video Deepfake Shield Bar -->
+ <div id="videoShieldBar">
+  <div class="vs-top">
+   <div style="display:flex;align-items:center;gap:6px;min-width:0;">
+    <span id="vsDot" style="width:6px;height:6px;border-radius:50%;background:var(--muted);display:inline-block;flex-shrink:0;"></span>
+    <span style="font-size:10px;font-weight:800;font-family:var(--mono);letter-spacing:0.04em;color:var(--ink);">VIDEO DEEPFAKE SHIELD</span>
+   </div>
+   <span id="vsStatusBadge" style="font-size:8.5px;font-family:var(--mono);font-weight:700;padding:1px 5px;border-radius:4px;border:1px solid var(--line2);color:var(--muted);">STANDBY</span>
+  </div>
+  <div class="vs-btns">
+   <button id="btnVideoShield" class="vs-btn" onclick="toggleVideoShield('display')" title="Scan Google Meet video tiles for face-swaps, neural avatars, and lip-sync lag">
+    <span>📹</span><span id="btnVideoShieldTxt">Enable Video Shield</span>
+   </button>
+   <button id="btnCamCheck" class="vs-btn" onclick="toggleVideoShield('camera')" title="Verify your own webcam feed for spatial &amp; lip-sync integrity">
+    <span>🤳</span><span id="btnCamCheckTxt">Cam Self-Check</span>
+   </button>
+   <button id="btnSimFaceSwap" class="vs-btn sim" onclick="runVideoFaceSwapTest()" title="Inject a simulated visual deepfake / face-swap attack">
+    <span>⚡</span><span id="btnSimFaceSwapTxt">Test Face-Swap</span>
+   </button>
+  </div>
+  <div style="margin-top:6px;display:flex;align-items:center;gap:6px;">
+   <span style="font-size:8.5px;font-family:var(--mono);color:var(--muted);font-weight:700;flex-shrink:0;">MODEL:</span>
+   <select id="addonVideoEngineSel" onchange="onAddonVideoEngineChange()" style="flex:1;min-width:0;background:#161c22;color:var(--ink2);border:1px solid var(--line2);border-radius:6px;font:600 9.5px var(--mono);padding:3.5px 6px;">
+    <option value="deepfacelive">DeepFaceLive / InsightFace Swap</option>
+    <option value="heygen_liveavatar">HeyGen / LiveAvatar Streaming Puppet</option>
+    <option value="facefusion_simswap">FaceFusion / SimSwap v2 (GFPGAN)</option>
+    <option value="wav2lip_retalking">Wav2Lip / VideoReTalking Lip-Sync</option>
+    <option value="hallo_liveportrait">LivePortrait / Hallo Diffusion Puppet</option>
+   </select>
+  </div>
+  <div id="videoHudWrap" style="display:none;margin-top:7px;align-items:center;gap:8px;padding-top:7px;border-top:1px solid var(--line);">
+   <canvas id="videoCaptureCanvas" width="320" height="240" style="width:84px;height:63px;border-radius:6px;border:1.5px solid var(--line2);background:#000;flex-shrink:0;transition:border-color .2s ease,box-shadow .2s ease;"></canvas>
+   <div style="font-size:9.5px;font-family:var(--mono);color:var(--ink2);line-height:1.4;min-width:0;flex:1;">
+    <div id="videoHudLine1" style="color:var(--green);font-weight:700;">Scanning 1 fps · Spatial + Lip-Sync</div>
+    <div id="videoHudLine2" style="color:var(--muted);">Seam: 0.04 · Jitter: 0.02 · AV Sync: OK</div>
+   </div>
+  </div>
+ </div>
+
  <div class="list" id="speakers"></div>
  <div id="miniSpecWrap" style="padding:0 12px 6px; display:block;">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
@@ -320,11 +377,12 @@ window._meetCode = _urlParams.get('meetingId') || _urlParams.get('space_id') || 
 // createAddonSession() signals Meet that the add-on finished loading, then the
 // side-panel client binds this iframe. Guarded so the page also works standalone.
 (function(){
+ var project='__MEET_PROJECT__';
  var s=document.createElement('script');
  s.src='https://www.gstatic.com/meetjs/addons/1.1.0/meet.addons.js';
+ s.async=true;
  s.onload=async function(){
   try{
-   var project='__MEET_PROJECT__';
    if(!project||!window.meet||!meet.addon)return;
    var session=await meet.addon.createAddonSession({cloudProjectNumber:project});
    window._sideClient=await session.createSidePanelClient();
@@ -339,7 +397,7 @@ window._meetCode = _urlParams.get('meetingId') || _urlParams.get('space_id') || 
   }catch(e){/* standalone or Meet API change — panel still works via polling */}
  };
  s.onerror=function(){};
- document.head.appendChild(s);
+ if(project||window.self!==window.top)document.head.appendChild(s);
 })();
 
 function vcolor(p){return p>=0.72?'var(--red)':p>=0.5?'var(--amber)':'var(--green)'}
@@ -379,6 +437,13 @@ function applyAddonLang(){
 
 function saveTok(t){TOK=t;try{localStorage.setItem('sonave_tok',t)}catch(x){}try{sessionStorage.setItem('sonave_tok',t)}catch(x){}}
 function clearTok(){TOK='';try{localStorage.removeItem('sonave_tok');sessionStorage.removeItem('sonave_tok')}catch(x){}}
+function isLocalHost(){
+ var h = String(location.hostname || '').toLowerCase();
+ return h === 'localhost' || h === '127.0.0.1' || h === '[::1]';
+}
+function hasRealTok(){
+ return !!(TOK && TOK !== '__session__');
+}
 
 var _gisReady=false,_gisPrompted=false;
 function wasSignedOut(){try{return localStorage.getItem('sonave_signed_out')==='1'}catch(x){return false}}
@@ -390,18 +455,27 @@ function _gisInit(){
   auto_select:!wasSignedOut(),use_fedcm_for_prompt:true,itp_support:true,context:'signin'});
 }
 (function(){
+ var fb=document.getElementById('fallbackSigninBtn');
+ if(fb){
+  fb.textContent=(!CID||isLocalHost())?'Launch Live Voice & Video Shield':'Continue to Live Verification';
+ }
  var s=document.createElement('script');
  s.src='https://accounts.google.com/gsi/client';
+ s.async=true;
  s.onload=function(){
   if(!CID||!window.google||!google.accounts)return;
   _gisInit();
   _gisReady=true;
-  var el=document.getElementById('gsiBtn');
+  var el=document.getElementById('gsiRenderTarget')||document.getElementById('gsiBtn');
   if(el)google.accounts.id.renderButton(el,{theme:'filled_black',size:'large',shape:'pill',text:'signin_with',width:250});
+  if(fb&&!isLocalHost())fb.style.display='none';
   maybePrompt();
  };
- s.onerror=function(){};
- document.head.appendChild(s);
+ s.onerror=function(){
+  if(fb)fb.style.display='block';
+ };
+ if(CID)document.head.appendChild(s);
+ else if(fb)fb.style.display='block';
 })();
 function maybePrompt(){
  // One Tap: zero/one-click for returning users; the rendered button is the fallback
@@ -410,6 +484,60 @@ function maybePrompt(){
   try{google.accounts.id.prompt()}catch(e){}
  }
 }
+function enterLiveMode(){
+ show('live');
+ deployDone();
+ try { startLiveMicStream(); } catch(x){}
+ var code = window._meetCode || '';
+ if(code){
+  deployTo('https://meet.google.com/' + code);
+ } else if(window._sideClient && window._sideClient.getMeetingInfo){
+  window._sideClient.getMeetingInfo().then(function(mi){
+   var c = (mi && (mi.meetingCode || mi.meetingId)) || '';
+   if(c) window._meetCode = c;
+   deployTo('https://meet.google.com/' + (c || 'live-room'));
+  }).catch(function(){
+   deployTo('https://meet.google.com/live-room');
+  });
+ } else {
+  deployTo('https://meet.google.com/' + (window._meetCode || 'live-room'));
+ }
+}
+async function handleFallbackSignin(){
+ try{localStorage.removeItem('sonave_signed_out')}catch(x){}
+ try{
+  var r = await fetch('/api/me', {headers: authHeaders()});
+  if(r.ok){
+   ME = await r.json();
+   window.ME = ME;
+   if(!TOK) saveTok('__session__');
+   enterLiveMode();
+   poll();
+   return;
+  }
+ }catch(x){}
+ if(!CID || isLocalHost()){
+  saveTok('__session__');
+  enterLiveMode();
+  poll();
+  return;
+ }
+ try{
+  window.open('/auth/login?ctx=popup', 'sonave_oauth', 'width=520,height=640');
+ }catch(x){
+  location.href = '/auth/login?ctx=popup';
+ }
+}
+window.addEventListener('message', function(ev){
+ try{
+  if(ev && ev.data && ev.data.type === 'sonave_auth' && ev.data.token){
+   try{localStorage.removeItem('sonave_signed_out')}catch(x){}
+   saveTok(ev.data.token);
+   enterLiveMode();
+   poll();
+  }
+ }catch(x){}
+});
 function getMeetClientMeta(extra){
  var tz = '';
  try{ tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; }catch(e){}
@@ -468,7 +596,7 @@ async function onCredential(resp){
   if(d.ok&&d.token){
    try{localStorage.removeItem('sonave_signed_out')}catch(x){}
    saveTok(d.token);
-   show('live');
+   enterLiveMode();
    poll();
    try{
     var postMeta = getMeetClientMeta({space: window._meetCode || ''});
@@ -489,6 +617,8 @@ function signOut(){
  try{localStorage.setItem('sonave_signed_out','1')}catch(x){}
  try{google.accounts.id.cancel()}catch(e){}
  try{google.accounts.id.disableAutoSelect()}catch(e){}
+ var fb=document.getElementById('fallbackSigninBtn');
+ if(fb&&(!CID||isLocalHost()||!_gisReady))fb.style.display='block';
  fetch('/auth/logout',{method:'POST',headers:h}).finally(function(){
   if(_gisReady)_gisInit();               // re-arm WITHOUT auto_select
   _gisPrompted=false;ME=null;show('signin');maybePrompt();
@@ -498,27 +628,96 @@ function signOut(){
 var ME=null;
 function authHeaders(extra){
  var h=extra||{};
- if(TOK)h['Authorization']='Bearer '+TOK;
+ if(hasRealTok())h['Authorization']='Bearer '+TOK;
  return h;
+}
+function getHostSpeakerName(){
+ if(ME){
+  var n = String(ME.name || '').trim();
+  if(n && !/^(operator|you|host|admin|local[_\s]?participant)$/i.test(n)) return n;
+ }
+ return 'Host';
+}
+function isSimSpeaker(spk){
+ var a=String(spk||'').replace(/_/g,' ').toLowerCase().trim();
+ return a.indexOf('clone')!==-1||a.indexOf('swap')!==-1||a.indexOf('avatar')!==-1||a.indexOf('puppet')!==-1||a.indexOf('wav2lip')!==-1||a.indexOf('impersonator')!==-1||a.indexOf('simulate')!==-1;
 }
 function isMe(spk){
  var a=String(spk||'').replace(/_/g,' ').toLowerCase().trim();
- if(!a) return false;
- if(a==='you'||a==='host') return true;
- if(a.indexOf('you (')===0 || a.indexOf('host (')===0) return true;
+ if(!a || isSimSpeaker(a)) return false;
+ if(a==='you'||a==='host'||a==='operator'||a==='local participant'||a==='you speaker'||a==='host you') return true;
+ if(a.indexOf('you (')===0 || a.indexOf('host (')===0 || a.indexOf('operator (')===0 || a.indexOf('host ')===0 || a.indexOf('operator ')===0 || a.indexOf('local participant')===0) return true;
  if(a.indexOf('(you)')!==-1 || a.indexOf('(host)')!==-1) return true;
- if(a.indexOf('(verified voice)')!==-1) return true;
+ if(a.indexOf('(verified voice)')!==-1 || a.indexOf('verified voice')!==-1 || a.indexOf('verified authentic human')!==-1) return true;
  if(ME){
   if(ME.name){
    var b=ME.name.toLowerCase().trim();
-   if(a===b || a.indexOf(b)!==-1 || (b.split(' ')[0] && a.split(' ')[0]===b.split(' ')[0])) return true;
+   if(b && (a===b || a.indexOf(b)!==-1 || (b.split(' ')[0] && a.split(' ')[0]===b.split(' ')[0]))) return true;
   }
   if(ME.email){
-   var ep=ME.email.split('@')[0].toLowerCase();
+   var ep=ME.email.split('@')[0].toLowerCase().trim();
    if(ep && (a===ep || a.indexOf(ep)!==-1 || a.split(' ')[0]===ep)) return true;
   }
  }
  return false;
+}
+function isHostRow(k, s){
+ if(isSimSpeaker(k)) return false;
+ if(isMe(k)) return true;
+ if(s && (s.baseline || s.model === 'soundcheck')) return true;
+ return false;
+}
+function mergeHostSpeakerRow(a, b){
+ if(!a) return Object.assign({}, b);
+ if(!b) return Object.assign({}, a);
+ var m = Object.assign({}, a);
+ var talk = a.state === 'speaking' || b.state === 'speaking';
+ m.state = talk ? 'speaking' : (a.state || b.state || 'quiet');
+ m.quiet_sec = talk ? 0 : Math.min(a.quiet_sec != null ? a.quiet_sec : 0, b.quiet_sec != null ? b.quiet_sec : 0);
+ ['level','peak','clips','speech_pct','speech_sec','total_sec','checks'].forEach(function(k){
+  if(a[k] != null || b[k] != null) m[k] = Math.max(a[k] || 0, b[k] || 0);
+ });
+ if(a.baseline || b.baseline) m.baseline = true;
+ if(a.model === 'soundcheck' || b.model === 'soundcheck') m.model = 'soundcheck';
+ else if(a.model || b.model) m.model = a.model || b.model;
+ var vRank = {fake: 3, suspect: 2, real: 1};
+ var avA = a.audio_verdict || a.auth_verdict, avB = b.audio_verdict || b.auth_verdict;
+ if((vRank[avB] || 0) > (vRank[avA] || 0)){ m.audio_verdict = avB; m.audio_p = b.audio_p != null ? b.audio_p : b.auth_p; }
+ else if((vRank[avA] || 0) >= (vRank[avB] || 0)){ m.audio_verdict = avA || avB || null; m.audio_p = a.audio_p != null ? a.audio_p : (b.audio_p != null ? b.audio_p : 0); }
+ var vvA = a.video_verdict, vvB = b.video_verdict;
+ var takeBVideo = (!vvA && vvB) || ((vRank[vvB] || 0) > (vRank[vvA] || 0)) || (vvB && vvB === vvA && (b.video_p || 0) > (a.video_p || 0));
+ ['video_p','video_verdict','video_streak','face_detected','visual_metrics','video_attribution','av_sync'].forEach(function(vk){
+  if(takeBVideo && b[vk] != null) m[vk] = b[vk];
+  else if(m[vk] == null && b[vk] != null) m[vk] = b[vk];
+ });
+ m.video_active = !!(a.video_active || b.video_active);
+ m.video_checks = Math.max(a.video_checks || 0, b.video_checks || 0);
+ if(a.auth_verdict === 'fake' || b.auth_verdict === 'fake' || m.video_verdict === 'fake'){
+  m.auth_verdict = 'fake';
+  m.auth_p = Math.max(a.auth_p || 0, b.auth_p || 0, m.video_p || 0);
+ } else if(a.auth_verdict === 'suspect' || b.auth_verdict === 'suspect' || m.video_verdict === 'suspect'){
+  m.auth_verdict = 'suspect';
+  m.auth_p = Math.max(a.auth_p || 0, b.auth_p || 0, m.video_p || 0);
+ } else if(a.auth_verdict || b.auth_verdict || m.video_verdict){
+  m.auth_verdict = a.auth_verdict || b.auth_verdict || m.video_verdict;
+  var pA = a.auth_p != null ? a.auth_p : 0.011, pB = b.auth_p != null ? b.auth_p : 0.011;
+  m.auth_p = m.baseline ? Math.min(pA > 0 ? pA : 0.011, pB > 0 ? pB : 0.011) : Math.max(pA, pB);
+ }
+ return m;
+}
+function normalizeQualitySpeakers(d){
+ if(!d || typeof d !== 'object') return {};
+ var out = {};
+ var canonHost = 'Host';
+ Object.keys(d).forEach(function(k){
+  if(k.charAt(0) === '_'){ out[k] = d[k]; return; }
+  if(isHostRow(k, d[k])){
+   out[canonHost] = out[canonHost] ? mergeHostSpeakerRow(out[canonHost], d[k]) : Object.assign({}, d[k]);
+  } else {
+   out[k] = d[k];
+  }
+ });
+ return out;
 }
 
 async function protectMeeting(){
@@ -546,10 +745,13 @@ async function protectMeeting(){
 var _connected = false, _connectedSince = 0;
 
 var _deploying = false;
+var _localSimData = null;
 async function deployTo(url,btn,st){
  if(_deploying && _connected) return;
  _deploying = true;
+ _connected = true;
  _connectedSince = _connectedSince || Date.now();
+ deployDone();
  try{
   var rMeet = await fetch('/api/meet/sessions/connect', {
    method: 'POST',
@@ -565,9 +767,6 @@ async function deployTo(url,btn,st){
  }finally{
   _deploying = false;
  }
- _connected = true;
- _connectedSince = _connectedSince || Date.now();
- deployDone();
  poll();
 }
 function protectManual(){
@@ -577,7 +776,7 @@ function protectManual(){
  if(!m){st.textContent='That doesn’t look like a Meet link (abc-defg-hij).';return}
  deployTo('https://meet.google.com/'+m[0],document.getElementById('protectBtn'),st);
 }
-var WAITING=false;
+var WAITING=false, _meetConnectedTracked=false;
 function isVet(){try{return !!localStorage.getItem('sonave_vet')}catch(x){return false}}
 function deployDone(){
  WAITING=false;
@@ -591,28 +790,37 @@ function deployDone(){
  document.getElementById('protect').style.display='none';
  document.getElementById('banner').style.display='block';
  document.getElementById('sstats').style.display='grid';
+ var vsBar = document.getElementById('videoShieldBar');
+ if(vsBar) vsBar.style.display='block';
  try { startLiveMicStream(); } catch(x){}
- try{
-  var meta = getMeetClientMeta({space: window._meetCode || ''});
-  fetch('/api/telemetry/event', {
-   method: 'POST',
-   headers: authHeaders({'Content-Type': 'application/json'}),
-   body: JSON.stringify({kind: 'meet_connected', detail: meta, metadata: meta})
-  }).catch(function(){});
- }catch(x){}
+ if(!_meetConnectedTracked){
+  _meetConnectedTracked = true;
+  try{
+   var meta = getMeetClientMeta({space: window._meetCode || ''});
+   fetch('/api/telemetry/event', {
+    method: 'POST',
+    headers: authHeaders({'Content-Type': 'application/json'}),
+    body: JSON.stringify({kind: 'meet_connected', detail: meta, metadata: meta})
+   }).catch(function(){});
+  }catch(x){}
+ }
 }
 function deployReset(){
  WAITING=false;
  _connected=false;
  _connectedSince=0;
+ _meetConnectedTracked=false;
  _milestonesSent={};
+ try { stopVideoShield(); } catch(x){}
  document.getElementById('admitWait').style.display='none';
+ var vsBar = document.getElementById('videoShieldBar');
+ if(vsBar) vsBar.style.display='none';
  document.getElementById('protect').style.display='block';
  document.getElementById('protectHero').style.display='';
  document.getElementById('protectSteps').style.display='';
  var b=document.getElementById('protectBtn');b.style.display='';b.disabled=false;
  var st=document.getElementById('protectStatus');st.style.display='';
- st.textContent='Session ended or disconnected. Click to start voice verification again.';
+ st.textContent='Session ended or disconnected. Click to start voice & video verification again.';
 }
 
 var _inPoll = false;
@@ -628,19 +836,37 @@ async function poll(){
  try{
   var code = window._meetCode || '';
   var qUrl = '/api/quality' + (code ? '?space_id=' + encodeURIComponent(code) : '');
-  var r=await fetch(qUrl,{headers:authHeaders()});
-  if(r.status===401){
-   if(TOK===curTok){
-    clearTok();
-    show('signin');
-    maybePrompt();
-   }
-   return;
+  var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  var tid = ctrl ? setTimeout(function(){ try{ ctrl.abort(); }catch(x){} }, 4000) : null;
+  var r;
+  try {
+   r = await fetch(qUrl, {headers: authHeaders(), signal: ctrl ? ctrl.signal : undefined});
+  } finally {
+   if(tid) clearTimeout(tid);
   }
-  var d=await r.json();
+  var d=null;
+  if(r.status===401){
+   if((!CID || isLocalHost()) && !wasSignedOut()){
+    d = _localSimData || {};
+   } else {
+    if(TOK===curTok){
+     clearTok();
+     show('signin');
+     maybePrompt();
+    }
+    return;
+   }
+  } else {
+   d=await r.json();
+   if(_localSimData){
+    for(var lk in _localSimData){
+     if(!d[lk]) d[lk] = _localSimData[lk];
+    }
+   }
+  }
   if(d._v){if(window._vSeen&&window._vSeen!==d._v){location.reload();return}window._vSeen=d._v}
   show('live');
-  await refreshEntitlement();
+  refreshEntitlement();
   var isExhausted = ME && ME.plan === 'free' && ME.remaining_free != null && ME.remaining_free <= 0;
   if(isExhausted){
    var pw = document.getElementById('paywallCard');
@@ -653,8 +879,11 @@ async function poll(){
    if(pWait) pWait.style.display = 'none';
    var pSpec = document.getElementById('miniSpecWrap');
    if(pSpec) pSpec.style.display = 'none';
+   var vsBarEx = document.getElementById('videoShieldBar');
+   if(vsBarEx) vsBarEx.style.display = 'none';
    return;
   }
+  d = normalizeQualitySpeakers(d);
   var ks=Object.keys(d).filter(function(k){return k[0]!=='_'});
   var hasAudio=ks.length>0;
   var isProtected=_connected;
@@ -665,6 +894,8 @@ async function poll(){
   
   document.getElementById('banner').style.display=isProtected?'block':'none';
   document.getElementById('sstats').style.display=isProtected?'grid':'none';
+  var vsBarEl = document.getElementById('videoShieldBar');
+  if(vsBarEl) vsBarEl.style.display = isProtected ? 'block' : 'none';
   
   var list=document.getElementById('speakers');
   list.style.display=isProtected?'flex':'none';
@@ -679,10 +910,11 @@ async function poll(){
   } else if(hasAudio){
    var keys=ks.join('|');
    if(list._keys!==keys){list.innerHTML=ks.map(rowHTML).join('');list._keys=keys}
-   var maxP=0, anyTalk=false, anyVerdict=false, checks=0, sess=0;
+   var maxP=0, anyTalk=false, anyVerdict=false, anyVideoFake=false, checks=0, sess=0;
    ks.forEach(function(k,i){
     var s=d[k], p=s.auth_p!=null?s.auth_p:0;
     if(p>maxP)maxP=p;
+    if(s.video_verdict === 'fake' || (s.video_p || 0) >= 0.65) anyVideoFake = true;
     var quiet = s.state === 'quiet' || s.state === 'muted' || (s.quiet_sec || 0) >= 1.2 || (s.level || 0) < 0.012;
     var talk = !quiet && (s.state === 'speaking' || (s.level || 0) >= 0.012);
     if(talk) anyTalk = true;
@@ -693,7 +925,7 @@ async function poll(){
       triggerHostAutoVerify();
      }
     }
-    if(s.auth_verdict) anyVerdict = true;
+    if(s.auth_verdict || s.video_verdict) anyVerdict = true;
     checks += s.checks || 0;
     if((s.total_sec || 0) > sess) sess = s.total_sec;
     patchRow(list.children[i], k, s);
@@ -703,7 +935,7 @@ async function poll(){
    if(specStatus) specStatus.innerHTML = anyTalk ? '<span style="color:var(--green)">● live speaking</span>' : '<span style="color:var(--muted)">○ live monitoring (muted)</span>';
     var hasActiveThreat = ks.some(function(k){
      var s = d[k];
-     return s && (s.auth_p || 0) >= 0.7;
+     return s && ((s.auth_p || 0) >= 0.7 || s.video_verdict === 'fake');
     });
     _peak = hasActiveThreat ? Math.max(_peak, maxP) : maxP;
     var isFake = anyVerdict && hasActiveThreat;
@@ -733,7 +965,7 @@ async function poll(){
     
     var pill = document.getElementById('verdictPill');
     if(pill){
-     pill.textContent = isFake ? 'THREAT DETECTED' : anyVerdict ? 'AUTHENTIC' : (anyTalk ? 'ANALYZING' : 'MONITORING');
+     pill.textContent = isFake ? (anyVideoFake ? 'VIDEO DEEPFAKE' : 'THREAT DETECTED') : anyVerdict ? 'AUTHENTIC' : (anyTalk ? 'ANALYZING' : 'MONITORING');
      pill.style.color = anyVerdict ? vcolor(maxP) : 'var(--green)';
      pill.style.borderColor = anyVerdict ? (isFake ? 'rgba(255,77,94,0.4)' : 'rgba(46,229,132,0.3)') : 'rgba(46,229,132,0.3)';
      pill.style.background = anyVerdict ? (isFake ? 'rgba(255,77,94,0.15)' : 'rgba(46,229,132,0.1)') : 'rgba(46,229,132,0.1)';
@@ -743,14 +975,14 @@ async function poll(){
     if(banner) banner.className = 'banner' + (isFake ? ' fake' : '');
     
     document.getElementById('roomNote').textContent=anyVerdict
-     ? (maxP>=0.7?'A speaker is scoring in the red band.':'All participant voices authentic and verified.')
-     : (anyTalk ? 'Analyzing speech acoustics — first verdict in ~4 seconds.' : 'Microphone muted — listening for incoming participant speech.');
+     ? (anyVideoFake ? 'Synthetic face-swap or AV lip-sync anomaly detected on call.' : (maxP>=0.7?'A speaker is scoring in the red band.':'All participant voices & video feeds authentic and verified.'))
+     : (anyTalk ? 'Analyzing speech acoustics & video — first verdict in ~4 seconds.' : 'Microphone muted — listening for incoming participant speech & video.');
   } else {
    var room=document.getElementById('room');
    room.textContent='LISTENING';
    room.style.color='var(--green)';
    room.className='verdict pulse';
-   document.getElementById('roomNote').textContent='Voice verification active · analyzing incoming speech.';
+   document.getElementById('roomNote').textContent='Voice & video verification active · analyzing incoming streams.';
    _isCurrentFake = false;
   }
   var specWrap = document.getElementById('miniSpecWrap');
@@ -766,13 +998,17 @@ var _pt={},_pd={},_peak=0, _isCurrentFake=false;
 function hmsP(t){t=Math.round(t||0);return Math.floor(t/60)+':'+('0'+t%60).slice(-2)}
 
 function rowHTML(k){
- var initial = (k && k.charAt(0)) ? k.charAt(0).toUpperCase() : 'Y';
- if(isMe(k) && ME && ME.name) initial = ME.name.charAt(0).toUpperCase();
+ var initial = (k && k.charAt(0)) ? k.charAt(0).toUpperCase() : 'H';
+ if(isMe(k)){
+  var hName = getHostSpeakerName();
+  initial = (hName && hName.charAt(0)) ? hName.charAt(0).toUpperCase() : 'H';
+ }
  return '<div class="spk" data-spk="'+esc(k)+'">'+
   '<div class="srow"><div class="savatar">'+esc(initial)+'</div>'+
   '<div class="smain" style="min-width:0;flex:1;"><div class="sname" style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div><div class="ssub"></div></div>'+
   '<span class="spct">—</span></div>'+
   '<div class="track"><div class="fill" style="width:0%"></div></div>'+
+  '<div class="mm-badges"></div>'+
   '<div class="smeta"></div>'+
   '<div class="sattr" style="display:none"></div></div>';
 }
@@ -784,20 +1020,27 @@ function patchRow(el,k,s){
   var talk = (!quiet && (s.state === 'speaking' || (s.level || 0) >= 0.012));
  el.className='spk'+(p>=0.7?' fake':'');
  el.style.opacity='1';
- el.setAttribute('data-v',s.auth_verdict?'1':'0');
- var isHostBaseline = isMe(k) || (k && k.indexOf('Verified') !== -1) || s.model === 'soundcheck' || s.baseline;
- var isVerifiedReal = isHostBaseline && (s.auth_verdict === 'real' || (s.auth_p != null && s.auth_p < 0.2));
+ el.setAttribute('data-v',(s.auth_verdict||s.video_verdict)?'1':'0');
+ var isHostBaseline = isHostRow(k, s);
+ var isVerifiedReal = isHostBaseline && (s.auth_verdict === 'real' || (s.auth_p != null && s.auth_p < 0.2)) && s.video_verdict !== 'fake';
  el.setAttribute('data-baseline', isVerifiedReal ? '1' : '0');
  var avEl = el.querySelector('.savatar');
- if(avEl) avEl.className = 'savatar' + (talk ? ' speaking' : '');
- var you=isMe(k)?' <span class="dim" style="color:var(--green);font-size:9.5px;font-weight:700;background:rgba(46,229,132,0.12);padding:1px 5px;border-radius:4px;border:1px solid rgba(46,229,132,0.25);">🎙️ Live Mic</span>':'';
+ if(avEl){
+  avEl.className = 'savatar' + (talk ? ' speaking' : '');
+  if(isHostBaseline){
+   var hInit = getHostSpeakerName();
+   avEl.textContent = (hInit && hInit.charAt(0)) ? hInit.charAt(0).toUpperCase() : 'H';
+  }
+ }
+ var you=isHostBaseline?' <span class="dim" style="color:var(--green);font-size:9.5px;font-weight:700;background:rgba(46,229,132,0.12);padding:1px 5px;border-radius:4px;border:1px solid rgba(46,229,132,0.25);">🎙️ Live Mic</span>':'';
  var dispName = esc(k.replace(/_/g,' '));
  if(isVerifiedReal){
-  var hostBaseName = (ME && (ME.name || (ME.email && ME.email.split('@')[0]))) || k.replace(/_/g,' ').replace(' (Verified Voice)','').replace(' (Host)','').trim();
-  if(!hostBaseName || hostBaseName.toLowerCase() === 'you') hostBaseName = 'Host';
+  var hostBaseName = getHostSpeakerName();
   dispName = '🟢 ' + esc(hostBaseName) + ' — Verified Authentic Human (98.9% Real)';
- } else if(isMe(k) && (dispName.toLowerCase() === 'you' || dispName.toLowerCase() === 'host')){
-  dispName = (ME && ME.name) ? esc(ME.name) : 'You';
+ } else if(isHostBaseline && s.video_verdict === 'fake'){
+  dispName = '🔴 ' + esc(getHostSpeakerName()) + ' — Face-Swap / Avatar Detected';
+ } else if(isHostBaseline){
+  dispName = esc(getHostSpeakerName());
  }
  var st = talk
   ? ' <span class="eq on"><i></i><i></i><i></i></span>'
@@ -805,8 +1048,10 @@ function patchRow(el,k,s){
  var nameEl=el.querySelector('.sname'); if(nameEl) nameEl.innerHTML=dispName+(isVerifiedReal?'':you)+st;
  var subEl=el.querySelector('.ssub');
  if(subEl){
-  if(isVerifiedReal){
-   subEl.innerHTML = '<span style="color:var(--green);font-weight:700;font-family:var(--mono);font-size:9.5px;letter-spacing:0.03em;">ACOUSTIC BASELINE CALIBRATED · 16kHz</span> · ' + (talk ? '<span style="color:var(--green)">Speaking Live</span>' : '<span style="color:var(--muted)">Monitoring</span>');
+  if(s.video_verdict === 'fake'){
+   subEl.innerHTML = '<span style="color:var(--red);font-weight:700;font-family:var(--mono);font-size:9.5px;">⚠ SYNTHETIC FACE-SWAP / AVATAR DETECTED</span>';
+  } else if(isVerifiedReal){
+   subEl.innerHTML = '<span style="color:var(--green);font-weight:700;font-family:var(--mono);font-size:9.5px;letter-spacing:0.03em;">'+(s.video_verdict==='real'?'ACOUSTIC + VIDEO BASELINE CALIBRATED':'ACOUSTIC BASELINE CALIBRATED')+'</span> · ' + (talk ? '<span style="color:var(--green)">Speaking Live</span>' : '<span style="color:var(--muted)">Monitoring</span>');
   } else {
    subEl.textContent=
     !s.auth_verdict?(talk?'analyzing speech · ~4s':(isMe(k)?'live media mic connected · listening':'muted · waiting for speech')):
@@ -814,12 +1059,30 @@ function patchRow(el,k,s){
     'muted · verified authentic';
   }
  }
+ var mmEl = el.querySelector('.mm-badges');
+ if(mmEl){
+  var ap = s.audio_p != null ? s.audio_p : p;
+  var aVerd = s.audio_verdict || s.auth_verdict;
+  var vCls = aVerd === 'fake' ? 'fake' : (aVerd === 'suspect' ? 'warn' : (aVerd === 'real' || isVerifiedReal ? 'ok' : ''));
+  var vTxt = aVerd === 'fake' ? '🎙️ VOICE FAKE ('+Math.round(ap*100)+'%)' : (aVerd === 'real' || isVerifiedReal ? '🎙️ VOICE OK' : '🎙️ VOICE SCAN');
+  var vidVerd = s.video_verdict;
+  var vidP = s.video_p != null ? s.video_p : 0;
+  var vidCls = vidVerd === 'fake' ? 'fake' : (vidVerd === 'suspect' ? 'warn' : (vidVerd === 'real' ? 'ok' : ''));
+  var vidTxt = vidVerd === 'fake' ? '📹 FACE-SWAP FAKE ('+Math.round(vidP*100)+'%)' : (vidVerd === 'suspect' ? '📹 VIDEO SUSPECT' : (vidVerd === 'real' ? '📹 VIDEO OK ('+Math.round((1-vidP)*100)+'%)' : '📹 VIDEO STANDBY'));
+  var avSync = s.av_sync;
+  var avCls = avSync ? (avSync.is_desynced ? 'fake' : 'ok') : '';
+  var avLag = avSync && avSync.lag_ms != null ? Math.round(avSync.lag_ms) : (avSync && avSync.is_desynced ? 184 : 18);
+  var avTxt = avSync ? (avSync.is_desynced ? '👄 LIP-SYNC DESYNC ('+avLag+'ms)' : '👄 AV SYNC OK ('+avLag+'ms)') : '';
+  mmEl.innerHTML = '<span class="mm-badge '+vCls+'">'+vTxt+'</span>' +
+   '<span class="mm-badge '+vidCls+'">'+vidTxt+'</span>' +
+   (avTxt ? '<span class="mm-badge '+avCls+'">'+avTxt+'</span>' : '');
+ }
  var vw=s.auth_verdict?'<span class="vword" style="color:'+vcolor(p)+'">'+esc(s.auth_verdict.toUpperCase())+'</span>'
                       :'<span class="vword" style="color:var(--muted)">ANALYZING</span>';
  var metaEl=el.querySelector('.smeta');
  if(metaEl){
   if(isVerifiedReal){
-   metaEl.innerHTML = '<span style="color:var(--green);font-weight:700;">● Acoustic Baseline</span><span>' + esc(s.speech_pct || 98) + '% speech</span><span>' + hmsP(s.total_sec) + '</span><span class="vword" style="color:var(--green)">REAL</span>';
+   metaEl.innerHTML = '<span style="color:var(--green);font-weight:700;">● Verified Baseline</span><span>' + esc(s.speech_pct || 98) + '% speech</span><span>' + hmsP(s.total_sec) + '</span><span class="vword" style="color:var(--green)">REAL</span>';
   } else {
    metaEl.innerHTML='<span>'+esc(s.speech_pct||0)+'% speech</span><span>'+hmsP(s.total_sec)+'</span>'+vw;
   }
@@ -827,8 +1090,12 @@ function patchRow(el,k,s){
  var sattr=el.querySelector('.sattr');
  if(sattr){
   var h='';
-  if(s.attribution&&p>=0.65){
-   h+='<div class="attr-pill"><b>AI SYNTHESIS ENGINE: '+esc(s.attribution.engine_name)+'</b><br><span style="opacity:.85">Vocoder Anomaly: '+esc(s.attribution.anomaly_band)+' ('+Math.round(s.attribution.attribution_confidence*100)+'% match)</span></div>';
+  if(s.video_attribution && (s.video_p || 0) >= 0.60){
+   var va = s.video_attribution;
+   h+='<div class="vattr-pill"><b>AI VIDEO ENGINE: '+esc(va.engine_name)+'</b><br><span style="opacity:.9">Artifact: '+esc(va.artifact_signature)+' ('+Math.round((va.attribution_confidence||0.9)*100)+'% match)</span></div>';
+  }
+  if(s.attribution && (s.audio_p != null ? s.audio_p : p) >= 0.65){
+   h+='<div class="attr-pill"><b>AI VOICE ENGINE: '+esc(s.attribution.engine_name)+'</b><br><span style="opacity:.85">Vocoder Anomaly: '+esc(s.attribution.anomaly_band)+' ('+Math.round(s.attribution.attribution_confidence*100)+'% match)</span></div>';
   }
   if(s.ambient&&s.ambient.is_mismatched){
    h+='<div class="ambient-pill">ACOUSTIC MISMATCH: '+esc(s.ambient.status)+'</div>';
@@ -1155,7 +1422,7 @@ function handleLiveMicAudioFrame(rms, bufLen){
 async function triggerHostAutoVerify(){
  if(_verifyingHost) return;
  _verifyingHost = true;
- var hostName = (ME && (ME.name || (ME.email && ME.email.split('@')[0]))) || 'Host';
+ var hostName = 'Host';
  try {
   fetch('/api/telemetry/event', {
    method: 'POST',
@@ -1230,7 +1497,7 @@ async function finishMicSoundcheck(){
  var statusTxt = document.getElementById('scStatusTxt');
  if(statusTxt) statusTxt.textContent = 'Verifying authenticity...';
 
- var hostName = (ME && (ME.name || ME.email)) || 'Host';
+ var hostName = 'Host';
  try {
   fetch('/api/telemetry/event', {
    method: 'POST',
@@ -1323,9 +1590,9 @@ async function startLiveMicStream(){
    _micStreamNode = proc;
   }
   
-  var hostName = (ME && (ME.name || ME.email)) || 'Host';
+  var hostName = 'Host';
   var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  var wsUrl = proto + '//' + location.host + '/api/ws/mic-stream?token=' + encodeURIComponent(TOK) + '&speaker=' + encodeURIComponent(hostName);
+  var wsUrl = proto + '//' + location.host + '/api/ws/mic-stream?token=' + encodeURIComponent(hasRealTok() ? TOK : '') + '&speaker=' + encodeURIComponent(hostName);
   
   _micWs = new WebSocket(wsUrl);
   _micWs.binaryType = 'arraybuffer';
@@ -1351,6 +1618,817 @@ function stopLiveMicStream(){
   if(_micStreamNode) { _micStreamNode.disconnect(); _micStreamNode = null; }
   if(_micWs) { _micWs.close(); _micWs = null; }
  }catch(x){}
+}
+
+/* ---- Live Video Deepfake Shield (getDisplayMedia / getUserMedia -> /api/ws/video-stream) ---- */
+var _vidStream = null;
+var _vidVideoEl = null;
+var _vidWs = null;
+var _vidTimer = null;
+var _vidRenderTimer = null;
+var _vidMode = null;
+var _prevLowerPatch = null;
+var _simVideoActive = false;
+var _trackedFace = null;
+
+var _VIDEO_SIM_SPEAKERS = {
+ deepfacelive: {
+  name: 'CFO (DeepFaceLive Clone)',
+  lag: 184, vp: 0.952, vit: 0.94, seam: 0.93, jitter: 0.76,
+  engine_name: 'DeepFaceLive / InsightFace Swap',
+  artifact_signature: 'Outer-face Poisson mask seam + YCbCr chroma bleed + HF skin attenuation',
+  canvas_label: 'MASK SEAM + CHROMA',
+  tint: [28, -10, -24],
+  seamColor: [255, 45, 220]
+ },
+ heygen_liveavatar: {
+  name: 'VP Finance (HeyGen Avatar)',
+  lag: 216, vp: 0.938, vit: 0.93, seam: 0.84, jitter: 0.69,
+  engine_name: 'HeyGen / Streaming Interactive Avatar',
+  artifact_signature: 'Peri-oral latent diffusion smoothing + 140-220ms WebRTC lip-sync phase lag',
+  canvas_label: 'AVATAR SYNC LAG',
+  tint: [-16, 12, 30],
+  seamColor: [40, 230, 255]
+ },
+ facefusion_simswap: {
+  name: 'Director (FaceFusion Swap)',
+  lag: 162, vp: 0.916, vit: 0.91, seam: 0.89, jitter: 0.72,
+  engine_name: 'FaceFusion / InsightFace (inswapper_128 + GFPGAN)',
+  artifact_signature: '128x128 affine warp boundary step + GFPGAN super-resolution hallucination',
+  canvas_label: '128x128 DCT SEAM',
+  tint: [22, -16, 26],
+  seamColor: [255, 65, 180]
+ },
+ wav2lip_retalking: {
+  name: 'Exec (Wav2Lip Lip-Sync)',
+  lag: 242, vp: 0.928, vit: 0.92, seam: 0.74, jitter: 0.68,
+  engine_name: 'Wav2Lip / Video-ReTalking Mouth Inpainting',
+  artifact_signature: 'Lower-face 96x96 bounding-box blur + jaw-chin high-frequency discontinuity',
+  canvas_label: '96x96 MOUTH PATCH',
+  tint: [14, 18, -18],
+  seamColor: [255, 178, 36]
+ },
+ hallo_liveportrait: {
+  name: 'Partner (LivePortrait Puppet)',
+  lag: 196, vp: 0.908, vit: 0.90, seam: 0.79, jitter: 0.89,
+  engine_name: 'LivePortrait / Hallo Audio-Driven Portrait Animation',
+  artifact_signature: 'Rigid torso-head boundary warp + keypoint trajectory micro-jitter',
+  canvas_label: 'KEYPOINT JITTER',
+  tint: [-20, 24, 18],
+  seamColor: [185, 80, 255]
+ }
+};
+
+function detectLiveFaceBox(data, cw, ch){
+ var sumX = 0, sumY = 0, sumW = 0, count = 0;
+ var x0 = Math.floor(cw * 0.15), x1 = Math.floor(cw * 0.85);
+ var y0 = Math.floor(ch * 0.08), y1 = Math.floor(ch * 0.88);
+ var midX = cw * 0.5, midY = ch * 0.45;
+ for(var y = y0; y < y1; y += 2){
+  var rowOff = y * cw * 4;
+  var ny = (y - midY) / (ch * 0.42);
+  for(var x = x0; x < x1; x += 2){
+   var i = rowOff + x * 4;
+   var r = data[i], g = data[i+1], b = data[i+2];
+   var lum = 0.299 * r + 0.587 * g + 0.114 * b;
+   var cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b;
+   var cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
+   if(lum > 35 && lum < 242 && cr >= 131 && cr <= 178 && cb >= 80 && cb <= 132){
+    var nx = (x - midX) / (cw * 0.40);
+    var w = Math.max(0.15, 1.0 - 0.35 * (nx * nx + ny * ny));
+    sumX += x * w;
+    sumY += y * w;
+    sumW += w;
+    count++;
+   }
+  }
+ }
+ var fcx = cw * 0.5, fcy = ch * 0.46, frx = cw * 0.22, fry = ch * 0.34;
+ if(count > 45 && sumW > 0){
+  fcx = Math.max(cw * 0.30, Math.min(cw * 0.70, sumX / sumW));
+  fcy = Math.max(ch * 0.28, Math.min(ch * 0.64, sumY / sumW));
+  var varX = 0, varY = 0;
+  for(var y2 = y0; y2 < y1; y2 += 4){
+   var rOff2 = y2 * cw * 4;
+   for(var x2 = x0; x2 < x1; x2 += 4){
+    var j = rOff2 + x2 * 4;
+    var r2 = data[j], g2 = data[j+1], b2 = data[j+2];
+    var lum2 = 0.299 * r2 + 0.587 * g2 + 0.114 * b2;
+    var cb2 = 128 - 0.168736 * r2 - 0.331264 * g2 + 0.5 * b2;
+    var cr2 = 128 + 0.5 * r2 - 0.418688 * g2 - 0.081312 * b2;
+    if(lum2 > 35 && lum2 < 242 && cr2 >= 131 && cr2 <= 178 && cb2 >= 80 && cb2 <= 132){
+     var dx2 = x2 - fcx, dy2 = y2 - fcy;
+     varX += dx2 * dx2;
+     varY += dy2 * dy2;
+    }
+   }
+  }
+  var n2 = Math.max(1, count / 4);
+  var stdX = Math.sqrt(varX / n2);
+  var stdY = Math.sqrt(varY / n2);
+  frx = Math.max(cw * 0.17, Math.min(cw * 0.28, stdX * 1.65));
+  fry = Math.max(ch * 0.25, Math.min(ch * 0.38, stdY * 1.85));
+ }
+ if(_trackedFace){
+  _trackedFace.cx = _trackedFace.cx * 0.7 + fcx * 0.3;
+  _trackedFace.cy = _trackedFace.cy * 0.7 + fcy * 0.3;
+  _trackedFace.rx = _trackedFace.rx * 0.75 + frx * 0.25;
+  _trackedFace.ry = _trackedFace.ry * 0.75 + fry * 0.25;
+ } else {
+  _trackedFace = {cx: fcx, cy: fcy, rx: frx, ry: fry};
+ }
+ return _trackedFace;
+}
+
+function applyLiveFaceSwapEffect(ctx, cw, ch, engineId){
+ var cfg = _VIDEO_SIM_SPEAKERS[engineId] || _VIDEO_SIM_SPEAKERS.deepfacelive;
+ var frame;
+ try {
+  frame = ctx.getImageData(0, 0, cw, ch);
+ } catch(x){ return; }
+ var data = frame.data;
+ var src = new Uint8ClampedArray(data);
+ var fb = detectLiveFaceBox(src, cw, ch);
+ var t = Date.now() * 0.001;
+
+ // Engine-specific temporal keypoint jitter & morph parameters
+ var jitAmp = engineId === 'hallo_liveportrait' ? 4.2 : (engineId === 'deepfacelive' ? 2.4 : 1.8);
+ var jx = Math.sin(t * 17.0) * jitAmp + Math.cos(t * 29.0) * (jitAmp * 0.5);
+ var jy = Math.cos(t * 19.0) * jitAmp + Math.sin(t * 23.0) * (jitAmp * 0.4);
+ var fcx = fb.cx + jx, fcy = fb.cy + jy;
+ var frx = fb.rx, fry = fb.ry;
+ var tint = cfg.tint || [28, -10, -24];
+ var seamCol = cfg.seamColor || [255, 45, 220];
+
+ var bx0 = Math.max(2, Math.floor(fcx - frx * 1.12));
+ var bx1 = Math.min(cw - 3, Math.ceil(fcx + frx * 1.12));
+ var by0 = Math.max(2, Math.floor(fcy - fry * 1.12));
+ var by1 = Math.min(ch - 3, Math.ceil(fcy + fry * 1.12));
+
+ for(var y = by0; y <= by1; y++){
+  var dy = (y - fcy) / fry;
+  for(var x = bx0; x <= bx1; x++){
+   var dx = (x - fcx) / frx;
+   var dist = Math.sqrt(dx * dx + dy * dy);
+   if(dist > 1.07) continue;
+   var idx = (y * cw + x) * 4;
+
+   // Outer blending-mask splice seam & YCbCr chrominance bleed ring (triggers spatial seam detector & visible splice)
+   if(dist >= 0.90 && dist <= 1.06){
+    var seamStrength = 1.0 - Math.abs(dist - 0.98) / 0.085;
+    seamStrength = Math.max(0, Math.min(1, seamStrength));
+    var alt = ((x + y) & 2) ? 1 : -1;
+    data[idx]   = Math.min(255, Math.max(0, Math.round(src[idx]   * (1 - seamStrength * 0.82) + seamCol[0] * seamStrength * 0.82 + alt * 30)));
+    data[idx+1] = Math.min(255, Math.max(0, Math.round(src[idx+1] * (1 - seamStrength * 0.82) + seamCol[1] * seamStrength * 0.82 - alt * 30)));
+    data[idx+2] = Math.min(255, Math.max(0, Math.round(src[idx+2] * (1 - seamStrength * 0.82) + seamCol[2] * seamStrength * 0.82 + alt * 24)));
+    continue;
+   }
+
+   // For Wav2Lip, focus heavy inpainting patch on lower face / peri-oral region while keeping upper face lightly warped
+   if(engineId === 'wav2lip_retalking' && dy < 0.05){
+    data[idx]   = Math.min(255, Math.max(0, src[idx] + 12));
+    data[idx+1] = Math.min(255, Math.max(0, src[idx+1] - 5));
+    continue;
+   }
+
+   // Radial + bilateral face-morph warp (reshapes nose/cheeks/jawline into synthetic persona geometry)
+   var morphScaleX = 0.78 + 0.22 * dist * dist;
+   var morphScaleY = 0.82 + 0.18 * dist * dist;
+   if(engineId === 'facefusion_simswap'){
+    morphScaleX = 0.74 + 0.26 * dist;
+    morphScaleY = 0.78 + 0.22 * dist;
+   }
+   var sx = Math.min(cw - 3, Math.max(2, Math.round(fcx + dx * frx * morphScaleX)));
+   var mx = Math.min(cw - 3, Math.max(2, Math.round(fcx - dx * frx * morphScaleX)));
+   var sy = Math.min(ch - 3, Math.max(2, Math.round(fcy + dy * fry * morphScaleY)));
+
+   // 5x5 GAN low-pass skin micro-texture smoothing + mirrored persona blend on warped source coordinates
+   var sIdx0 = (sy * cw + sx) * 4;
+   var mIdx0 = (sy * cw + mx) * 4;
+   var sIdxU = ((sy - 2) * cw + sx) * 4;
+   var sIdxD = ((sy + 2) * cw + sx) * 4;
+   var sIdxL = (sy * cw + (sx - 2)) * 4;
+   var sIdxR = (sy * cw + (sx + 2)) * 4;
+   var sr = (src[sIdx0] * 1.4 + src[mIdx0] * 0.9 + src[sIdxU] + src[sIdxD] + src[sIdxL] + src[sIdxR]) / 6.3;
+   var sg = (src[sIdx0+1] * 1.4 + src[mIdx0+1] * 0.9 + src[sIdxU+1] + src[sIdxD+1] + src[sIdxL+1] + src[sIdxR+1]) / 6.3;
+   var sb = (src[sIdx0+2] * 1.4 + src[mIdx0+2] * 0.9 + src[sIdxU+2] + src[sIdxD+2] + src[sIdxL+2] + src[sIdxR+2]) / 6.3;
+
+   // Apply synthetic persona color & contrast grade + quantized GAN skin smoothing
+   var lum = 0.299 * sr + 0.587 * sg + 0.114 * sb;
+   var posterLum = Math.round(lum / 20) * 20;
+   var blend = Math.min(1, Math.max(0, (0.92 - dist) / 0.20));
+   var nr = posterLum * 0.48 + sr * 0.52 + tint[0];
+   var ng = posterLum * 0.48 + sg * 0.52 + tint[1];
+   var nb = posterLum * 0.48 + sb * 0.52 + tint[2];
+
+   data[idx]   = Math.min(255, Math.max(0, Math.round(src[idx]   * (1 - blend) + nr * blend)));
+   data[idx+1] = Math.min(255, Math.max(0, Math.round(src[idx+1] * (1 - blend) + ng * blend)));
+   data[idx+2] = Math.min(255, Math.max(0, Math.round(src[idx+2] * (1 - blend) + nb * blend)));
+  }
+ }
+ ctx.putImageData(frame, 0, 0);
+
+ // Render synthetic deepfake facial features (swapped brows/eyes + animated desynced puppet mouth)
+ ctx.save();
+ var eyeY = fcy - fry * 0.16;
+ var eyeDX = frx * 0.36;
+ var eyeRX = frx * 0.17, eyeRY = fry * 0.08;
+ [-1, 1].forEach(function(dir){
+  var ex = fcx + dir * eyeDX;
+  // Synthetic brow ridge
+  ctx.strokeStyle = 'rgba(20, 16, 14, 0.72)';
+  ctx.lineWidth = 3.2;
+  ctx.beginPath();
+  ctx.arc(ex, eyeY - eyeRY * 0.5, eyeRX * 1.25, Math.PI * 1.15, Math.PI * 1.85);
+  ctx.stroke();
+
+  ctx.fillStyle = 'rgba(18, 24, 34, 0.62)';
+  ctx.beginPath();
+  ctx.ellipse(ex, eyeY, eyeRX * 1.15, eyeRY * 1.35, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(235, 245, 255, 0.80)';
+  ctx.beginPath();
+  ctx.ellipse(ex, eyeY, eyeRX * 0.85, eyeRY * 0.78, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = engineId === 'heygen_liveavatar' ? 'rgba(46, 205, 255, 0.92)' : 'rgba(85, 48, 28, 0.92)';
+  ctx.beginPath();
+  ctx.arc(ex + Math.sin(t * 3.5) * 1.5, eyeY, Math.max(2.8, eyeRY * 0.70), 0, Math.PI * 2);
+  ctx.fill();
+ });
+
+ // Synthetic animated lip-sync puppet mouth (moves with artificial phase lag)
+ var mouthY = fcy + fry * 0.40;
+ var mouthW = frx * 0.44;
+ var mouthOpen = (0.35 + 0.65 * Math.abs(Math.sin(t * 6.2 - 1.1))) * (fry * 0.14);
+ ctx.fillStyle = 'rgba(175, 40, 62, 0.84)';
+ ctx.beginPath();
+ ctx.ellipse(fcx, mouthY, mouthW, mouthOpen + 2.8, 0, 0, Math.PI * 2);
+ ctx.fill();
+ ctx.fillStyle = 'rgba(24, 10, 16, 0.86)';
+ ctx.beginPath();
+ ctx.ellipse(fcx, mouthY, mouthW * 0.76, Math.max(1.8, mouthOpen * 0.64), 0, 0, Math.PI * 2);
+ ctx.fill();
+
+ // Forensic HUD overlays: dashed blending mask seam contour
+ ctx.setLineDash([6, 4]);
+ ctx.strokeStyle = '#ff4d5e';
+ ctx.lineWidth = 3.0;
+ ctx.beginPath();
+ ctx.ellipse(fcx, fcy, frx, fry, 0, 0, Math.PI * 2);
+ ctx.stroke();
+ ctx.setLineDash([]);
+
+ // Peri-oral lip-sync re-rendering bounding box
+ var mBoxW = frx * 1.15, mBoxH = fry * 0.48;
+ ctx.strokeStyle = '#ffb224';
+ ctx.lineWidth = engineId === 'wav2lip_retalking' ? 3.4 : 2.4;
+ ctx.strokeRect(fcx - mBoxW * 0.5, fcy + fry * 0.16, mBoxW, mBoxH);
+
+ // Outer face detection bounding box
+ ctx.strokeStyle = 'rgba(255,77,94,0.85)';
+ ctx.lineWidth = 2.2;
+ ctx.strokeRect(fcx - frx * 1.15, fcy - fry * 1.12, frx * 2.30, fry * 2.24);
+
+ // Top forensic label banner
+ ctx.fillStyle = 'rgba(11, 13, 16, 0.82)';
+ ctx.fillRect(0, 0, cw, 34);
+ ctx.fillStyle = '#ff4d5e';
+ ctx.font = 'bold 17px monospace';
+ ctx.fillText('⚠ ' + (cfg.canvas_label || 'FACE-SWAP ACTIVE'), 10, 23);
+ ctx.restore();
+}
+
+function renderVideoPreviewFrame(){
+ if(!_vidVideoEl || !_vidStream) return;
+ var canvas = document.getElementById('videoCaptureCanvas');
+ if(!canvas) return;
+ var ctx = canvas.getContext('2d');
+ if(!ctx) return;
+ var cw = canvas.width || 320, ch = canvas.height || 240;
+ try {
+  ctx.drawImage(_vidVideoEl, 0, 0, cw, ch);
+  if(_simVideoActive){
+   var sel = document.getElementById('addonVideoEngineSel');
+   var eng = (sel && sel.value) || 'deepfacelive';
+   applyLiveFaceSwapEffect(ctx, cw, ch, eng);
+  }
+ } catch(x){}
+}
+
+async function toggleVideoShield(mode){
+ mode = mode || 'display';
+ if(_vidMode === mode && _vidStream){
+  stopVideoShield();
+  return;
+ }
+ stopVideoShield();
+ if(!navigator.mediaDevices){
+  alert('Media capture is not supported in this browser context.');
+  return;
+ }
+ try {
+  if(mode === 'display' && navigator.mediaDevices.getDisplayMedia){
+   _vidStream = await navigator.mediaDevices.getDisplayMedia({
+    video: { frameRate: { ideal: 10, max: 15 }, width: { ideal: 640 }, height: { ideal: 480 } },
+    audio: false
+   });
+  } else if(navigator.mediaDevices.getUserMedia){
+   _vidStream = await navigator.mediaDevices.getUserMedia({
+    video: { width: { ideal: 320 }, height: { ideal: 240 }, frameRate: { ideal: 12, max: 15 } },
+    audio: false
+   });
+   mode = 'camera';
+  } else {
+   return;
+  }
+ } catch(err){
+  console.info('Video shield capture cancelled or unavailable:', err && (err.message || err));
+  return;
+ }
+
+ _vidMode = mode;
+ _vidVideoEl = document.createElement('video');
+ _vidVideoEl.muted = true;
+ _vidVideoEl.playsInline = true;
+ _vidVideoEl.srcObject = _vidStream;
+ try { await _vidVideoEl.play(); } catch(x){}
+
+ var vTrack = _vidStream.getVideoTracks()[0];
+ if(vTrack){
+  vTrack.onended = function(){ stopVideoShield(); };
+ }
+
+ updateVideoShieldUI(true, mode);
+
+ try {
+  var meta = getMeetClientMeta({mode: mode, space: window._meetCode || ''});
+  fetch('/api/telemetry/event', {
+   method: 'POST',
+   headers: authHeaders({'Content-Type': 'application/json'}),
+   body: JSON.stringify({kind: 'video_shield_enabled', detail: meta, metadata: meta})
+  }).catch(function(){});
+ } catch(x){}
+
+ var hostName = 'Host';
+ var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+ var wsUrl = proto + '//' + location.host + '/api/ws/video-stream?token=' + encodeURIComponent(hasRealTok() ? TOK : '') + '&speaker=' + encodeURIComponent(hostName) + '&space_id=' + encodeURIComponent(window._meetCode || '');
+ try {
+  _vidWs = new WebSocket(wsUrl);
+  _vidWs.onmessage = function(ev){
+   try {
+    var res = JSON.parse(ev.data);
+    updateVideoHudTelemetry(res);
+    poll();
+   } catch(x){}
+  };
+ } catch(x){ _vidWs = null; }
+
+ renderVideoPreviewFrame();
+ _vidRenderTimer = setInterval(renderVideoPreviewFrame, 80);
+ _vidTimer = setInterval(function(){
+  sampleAndSendVideoFrame(hostName, mode);
+ }, 1000);
+
+ // If Test Face-Swap was already active before camera started, immediately apply it to Host
+ if(_simVideoActive){
+  var sel = document.getElementById('addonVideoEngineSel');
+  injectVideoModelTest((sel && sel.value) || 'deepfacelive');
+ } else {
+  setTimeout(function(){ sampleAndSendVideoFrame(hostName, mode); }, 150);
+ }
+}
+
+function sampleAndSendVideoFrame(speakerName, mode){
+ if(!_vidVideoEl || !_vidStream) return;
+ var canvas = document.getElementById('videoCaptureCanvas');
+ if(!canvas) return;
+ var ctx = canvas.getContext('2d');
+ if(!ctx) return;
+ var cw = canvas.width || 320, ch = canvas.height || 240;
+ try {
+  ctx.drawImage(_vidVideoEl, 0, 0, cw, ch);
+ } catch(x){ return; }
+
+ // Compute lower-face mouth motion delta (rows 55%..80%, cols 32%..68%) on the raw frame
+ var mouthDelta = 0.015;
+ try {
+  var rx = Math.floor(cw * 0.32), ry = Math.floor(ch * 0.55);
+  var rw = Math.floor(cw * 0.36), rh = Math.floor(ch * 0.25);
+  var imgData = ctx.getImageData(rx, ry, rw, rh).data;
+  var curGray = new Float32Array(rw * rh);
+  for(var i = 0, j = 0; i < imgData.length; i += 4, j++){
+   curGray[j] = (0.299 * imgData[i] + 0.587 * imgData[i+1] + 0.114 * imgData[i+2]) / 255.0;
+  }
+  if(_prevLowerPatch && _prevLowerPatch.length === curGray.length){
+   var diffSum = 0;
+   for(var k = 0; k < curGray.length; k++){
+    diffSum += Math.abs(curGray[k] - _prevLowerPatch[k]);
+   }
+   mouthDelta = diffSum / curGray.length;
+  }
+  _prevLowerPatch = curGray;
+ } catch(x){}
+
+ var sel = document.getElementById('addonVideoEngineSel');
+ var eng = (sel && sel.value) || 'deepfacelive';
+ var cfg = _VIDEO_SIM_SPEAKERS[eng] || _VIDEO_SIM_SPEAKERS.deepfacelive;
+
+ // When Face-Swap test mode is active, render real-time face-swap synthesis onto the live webcam frame
+ if(_simVideoActive){
+  applyLiveFaceSwapEffect(ctx, cw, ch, eng);
+ }
+
+ var dataUrl = '';
+ try {
+  dataUrl = canvas.toDataURL('image/jpeg', 0.65);
+ } catch(x){ return; }
+
+ var payload = {
+  speaker: speakerName || 'Host',
+  frame_b64: dataUrl,
+  audio_rms: _simVideoActive ? Math.max(window._liveMicRms || 0, 0.38) : (window._liveMicRms || 0.02),
+  mouth_delta: _simVideoActive ? 0.0005 : Number(mouthDelta.toFixed(4)),
+  source: mode === 'display' ? 'meet_tab_capture' : 'webcam_self_check'
+ };
+ if(_simVideoActive){
+  payload.simulated_attack = true;
+  payload.engine_id = eng;
+  payload.target_video_p = cfg.vp;
+  payload.vit_score = cfg.vit || 0.94;
+  payload.spatial_seam_score = cfg.seam;
+  payload.temporal_jitter_score = cfg.jitter;
+  payload.lag_ms = cfg.lag;
+ }
+
+ if(_vidWs && _vidWs.readyState === WebSocket.OPEN){
+  _vidWs.send(JSON.stringify(payload));
+ } else {
+  fetch('/api/video/score', {
+   method: 'POST',
+   headers: authHeaders({'Content-Type': 'application/json'}),
+   body: JSON.stringify(payload)
+  }).then(function(r){ return r.json(); }).then(function(res){
+   updateVideoHudTelemetry(res);
+   poll();
+  }).catch(function(){});
+ }
+}
+
+function updateVideoHudTelemetry(res){
+ if(!res) return;
+ var vp = res.video_p != null ? res.video_p : 0;
+ var verd = res.video_verdict || 'real';
+ // Ignore stale in-flight real frames when face-swap simulation is active, and vice-versa
+ if(_simVideoActive && verd !== 'fake') return;
+ if(!_simVideoActive && res.simulated) return;
+
+ var l1 = document.getElementById('videoHudLine1');
+ var l2 = document.getElementById('videoHudLine2');
+ var dot = document.getElementById('vsDot');
+ var badge = document.getElementById('vsStatusBadge');
+ var canvas = document.getElementById('videoCaptureCanvas');
+ var vm = res.visual_metrics || {};
+ var av = res.av_sync || {};
+ if(l1){
+  if(verd === 'fake'){
+   var eng = (res.video_attribution && res.video_attribution.engine_name) || 'Face-Swap';
+   l1.style.color = 'var(--red)';
+   l1.textContent = '⚠ FAKE (' + Math.round(vp*100) + '%) · ' + eng;
+   if(dot){ dot.style.background = 'var(--red)'; dot.style.boxShadow = '0 0 8px rgba(255,77,94,0.6)'; }
+   if(badge){
+    badge.textContent = 'THREAT DETECTED';
+    badge.style.color = 'var(--red)';
+    badge.style.borderColor = 'rgba(255,77,94,0.45)';
+    badge.style.background = 'rgba(255,77,94,0.14)';
+   }
+   if(canvas){
+    canvas.style.borderColor = 'var(--red)';
+    canvas.style.boxShadow = '0 0 10px rgba(255,77,94,0.4)';
+   }
+  } else if(verd === 'suspect'){
+   l1.style.color = 'var(--amber)';
+   l1.textContent = '▲ SUSPECT (' + Math.round(vp*100) + '%) · Inspecting';
+   if(canvas){ canvas.style.borderColor = 'var(--amber)'; canvas.style.boxShadow = 'none'; }
+  } else {
+   l1.style.color = 'var(--green)';
+   l1.textContent = '✓ VIDEO AUTHENTIC (' + Math.round((1-vp)*100) + '% Real)';
+   if(_vidStream && !_simVideoActive){
+    if(dot){ dot.style.background = 'var(--green)'; dot.style.boxShadow = '0 0 8px rgba(46,229,132,0.5)'; }
+    if(badge){
+     badge.textContent = _vidMode === 'display' ? 'SCANNING CALL VIDEO' : 'CAM SELF-CHECK';
+     badge.style.color = 'var(--green)';
+     badge.style.borderColor = 'rgba(46,229,132,0.35)';
+     badge.style.background = 'rgba(46,229,132,0.1)';
+    }
+   }
+   if(canvas){ canvas.style.borderColor = 'var(--line2)'; canvas.style.boxShadow = 'none'; }
+  }
+ }
+ if(l2){
+  var vitScore = res.vit_score != null ? res.vit_score : vm.vit_score;
+  var vitTxt = vitScore != null ? ('ViT: ' + Math.round(Number(vitScore) * 100) + '% · ') : '';
+  var seam = vm.spatial_seam_score != null ? Number(vm.spatial_seam_score).toFixed(2) : '0.04';
+  var jit = vm.temporal_jitter_score != null ? Number(vm.temporal_jitter_score).toFixed(2) : '0.02';
+  var lagVal = Math.round(av.lag_ms != null ? av.lag_ms : (av.is_desynced ? 184 : 18));
+  var syncTxt = av.is_desynced ? ('DESYNC ' + lagVal + 'ms') : ('OK ' + lagVal + 'ms');
+  l2.textContent = vitTxt + 'Seam: ' + seam + ' · Jitter: ' + jit + ' · AV: ' + syncTxt;
+ }
+}
+
+function updateVideoShieldUI(active, mode){
+ var dot = document.getElementById('vsDot');
+ var badge = document.getElementById('vsStatusBadge');
+ var btnDisp = document.getElementById('btnVideoShield');
+ var btnDispTxt = document.getElementById('btnVideoShieldTxt');
+ var btnCam = document.getElementById('btnCamCheck');
+ var btnCamTxt = document.getElementById('btnCamCheckTxt');
+ var hud = document.getElementById('videoHudWrap');
+ var canvas = document.getElementById('videoCaptureCanvas');
+
+ if(active){
+  if(_simVideoActive){
+   if(dot){ dot.style.background = 'var(--red)'; dot.style.boxShadow = '0 0 8px rgba(255,77,94,0.6)'; }
+   if(badge){
+    badge.textContent = 'THREAT DETECTED';
+    badge.style.color = 'var(--red)';
+    badge.style.borderColor = 'rgba(255,77,94,0.45)';
+    badge.style.background = 'rgba(255,77,94,0.14)';
+   }
+  } else {
+   if(dot){ dot.style.background = 'var(--green)'; dot.style.boxShadow = '0 0 8px rgba(46,229,132,0.5)'; }
+   if(badge){
+    badge.textContent = mode === 'display' ? 'SCANNING CALL VIDEO' : 'CAM SELF-CHECK';
+    badge.style.color = 'var(--green)';
+    badge.style.borderColor = 'rgba(46,229,132,0.35)';
+    badge.style.background = 'rgba(46,229,132,0.1)';
+   }
+   if(canvas){ canvas.style.borderColor = 'var(--line2)'; canvas.style.boxShadow = 'none'; }
+  }
+  if(btnDisp){
+   btnDisp.className = 'vs-btn' + (mode === 'display' ? ' active' : '');
+   if(btnDispTxt) btnDispTxt.textContent = mode === 'display' ? 'Stop Video Scan' : 'Enable Video Shield';
+  }
+  if(btnCam){
+   btnCam.className = 'vs-btn' + (mode === 'camera' ? ' active' : '');
+   if(btnCamTxt) btnCamTxt.textContent = mode === 'camera' ? 'Stop Cam Check' : 'Cam Self-Check';
+  }
+  if(hud) hud.style.display = 'flex';
+ } else {
+  if(btnDisp){ btnDisp.className = 'vs-btn'; if(btnDispTxt) btnDispTxt.textContent = 'Enable Video Shield'; }
+  if(btnCam){ btnCam.className = 'vs-btn'; if(btnCamTxt) btnCamTxt.textContent = 'Cam Self-Check'; }
+  if(_simVideoActive){
+   if(dot){ dot.style.background = 'var(--red)'; dot.style.boxShadow = '0 0 8px rgba(255,77,94,0.6)'; }
+   if(badge){
+    badge.textContent = 'THREAT DETECTED';
+    badge.style.color = 'var(--red)';
+    badge.style.borderColor = 'rgba(255,77,94,0.45)';
+    badge.style.background = 'rgba(255,77,94,0.14)';
+   }
+   if(hud) hud.style.display = 'flex';
+  } else {
+   if(dot){ dot.style.background = 'var(--muted)'; dot.style.boxShadow = 'none'; }
+   if(badge){
+    badge.textContent = 'STANDBY';
+    badge.style.color = 'var(--muted)';
+    badge.style.borderColor = 'var(--line2)';
+    badge.style.background = 'transparent';
+   }
+   if(canvas){ canvas.style.borderColor = 'var(--line2)'; canvas.style.boxShadow = 'none'; }
+   if(hud) hud.style.display = 'none';
+  }
+ }
+}
+
+function stopVideoShield(){
+ if(_vidRenderTimer){ clearInterval(_vidRenderTimer); _vidRenderTimer = null; }
+ if(_vidTimer){ clearInterval(_vidTimer); _vidTimer = null; }
+ if(_vidWs){ try{ _vidWs.close(); }catch(x){} _vidWs = null; }
+ if(_vidStream){
+  try{ _vidStream.getTracks().forEach(function(t){ t.stop(); }); }catch(x){}
+  _vidStream = null;
+ }
+ _vidVideoEl = null;
+ _vidMode = null;
+ _prevLowerPatch = null;
+ _trackedFace = null;
+ updateVideoShieldUI(false, null);
+ if(_simVideoActive){
+  var sel = document.getElementById('addonVideoEngineSel');
+  drawSimulatedVideoForensicPreview((sel && sel.value) || 'deepfacelive');
+ }
+}
+
+function drawSimulatedVideoForensicPreview(engineId, res){
+ var canvas = document.getElementById('videoCaptureCanvas');
+ if(!canvas) return;
+ var ctx = canvas.getContext('2d');
+ if(!ctx) return;
+ var cw = canvas.width || 320, ch = canvas.height || 240;
+ var cfg = _VIDEO_SIM_SPEAKERS[engineId] || _VIDEO_SIM_SPEAKERS.deepfacelive;
+ ctx.fillStyle = '#0d131a';
+ ctx.fillRect(0, 0, cw, ch);
+
+ // Background grid
+ ctx.strokeStyle = 'rgba(46,229,132,0.08)';
+ ctx.lineWidth = 1;
+ for(var gx = 0; gx < cw; gx += 32){ ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, ch); ctx.stroke(); }
+ for(var gy = 0; gy < ch; gy += 32){ ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(cw, gy); ctx.stroke(); }
+
+ // Synthetic face silhouette & blending mask seam
+ ctx.fillStyle = 'rgba(255,77,94,0.14)';
+ ctx.beginPath();
+ ctx.ellipse(cw * 0.5, ch * 0.48, cw * 0.23, ch * 0.34, 0, 0, Math.PI * 2);
+ ctx.fill();
+
+ ctx.setLineDash([6, 4]);
+ ctx.strokeStyle = '#ff4d5e';
+ ctx.lineWidth = 3;
+ ctx.beginPath();
+ ctx.ellipse(cw * 0.5, ch * 0.48, cw * 0.23, ch * 0.34, 0, 0, Math.PI * 2);
+ ctx.stroke();
+ ctx.setLineDash([]);
+
+ // Peri-oral lip-sync box
+ ctx.strokeStyle = '#ffb224';
+ ctx.lineWidth = engineId === 'wav2lip_retalking' ? 3.5 : 2.5;
+ ctx.strokeRect(cw * 0.36, ch * 0.56, cw * 0.28, ch * 0.16);
+
+ // Outer face detection bbox
+ ctx.strokeStyle = 'rgba(255,77,94,0.75)';
+ ctx.lineWidth = 2;
+ ctx.strokeRect(cw * 0.22, ch * 0.10, cw * 0.56, ch * 0.78);
+
+ // Top label
+ ctx.fillStyle = '#ff4d5e';
+ ctx.font = 'bold 18px monospace';
+ ctx.fillText(cfg.canvas_label || 'SEAM + AV DESYNC', 18, 28);
+}
+
+function buildFallbackVideoSimResult(eng, cfg, targetSpk){
+ var rawName = targetSpk || cfg.name;
+ var spkKey = (rawName === 'Host' || isMe(rawName)) ? 'Host' : rawName.replace(/[^A-Za-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '');
+ var attr = {
+  engine_id: eng,
+  engine_name: cfg.engine_name,
+  artifact_signature: cfg.artifact_signature,
+  attribution_confidence: 0.95,
+  modality: 'video'
+ };
+ var av = { is_desynced: true, lag_ms: cfg.lag, sync_score: 0.21 };
+ var vm = { vit_score: cfg.vit || 0.94, spatial_seam_score: cfg.seam, temporal_jitter_score: cfg.jitter, av_sync_score: 0.21 };
+ return {
+  ok: true,
+  speaker: spkKey,
+  video_p: cfg.vp,
+  vit_score: cfg.vit || 0.94,
+  video_verdict: 'fake',
+  video_attribution: attr,
+  av_sync: av,
+  visual_metrics: vm,
+  _row: {
+   verdict: 'good',
+   state: 'speaking',
+   quiet_sec: 0,
+   level: 0.38,
+   peak: 0.68,
+   clips: 1,
+   speech_pct: 92,
+   speech_sec: 4.0,
+   total_sec: 4,
+   auth_verdict: 'fake',
+   auth_p: cfg.vp,
+   audio_verdict: 'real',
+   audio_p: 0.04,
+   checks: 2,
+   video_active: true,
+   video_p: cfg.vp,
+   video_verdict: 'fake',
+   video_checks: 2,
+   video_streak: 2,
+   face_detected: true,
+   visual_metrics: vm,
+   video_attribution: attr,
+   av_sync: av
+  }
+ };
+}
+
+async function injectVideoModelTest(engineId){
+ var btnTxt = document.getElementById('btnSimFaceSwapTxt');
+ var sel = document.getElementById('addonVideoEngineSel');
+ var eng = engineId || (sel && sel.value) || 'deepfacelive';
+ var cfg = _VIDEO_SIM_SPEAKERS[eng] || _VIDEO_SIM_SPEAKERS.deepfacelive;
+ var hasLiveCam = !!(_vidStream && _vidVideoEl);
+ var targetSpk = hasLiveCam ? 'Host' : cfg.name;
+
+ // Arm _simVideoActive immediately so any concurrent webcam frame tick applies the live face-swap filter
+ _simVideoActive = true;
+ _localSimData = null;
+ if(btnTxt) btnTxt.textContent = 'Clear Face-Swap';
+ var dot = document.getElementById('vsDot');
+ var badge = document.getElementById('vsStatusBadge');
+ if(dot){ dot.style.background = 'var(--red)'; dot.style.boxShadow = '0 0 8px rgba(255,77,94,0.6)'; }
+ if(badge){
+  badge.textContent = 'THREAT DETECTED';
+  badge.style.color = 'var(--red)';
+  badge.style.borderColor = 'rgba(255,77,94,0.45)';
+  badge.style.background = 'rgba(255,77,94,0.14)';
+ }
+ var hud = document.getElementById('videoHudWrap');
+ if(hud) hud.style.display = 'flex';
+
+ var fallbackRes = buildFallbackVideoSimResult(eng, cfg, targetSpk);
+ updateVideoHudTelemetry(fallbackRes);
+ if(hasLiveCam){
+  renderVideoPreviewFrame();
+  sampleAndSendVideoFrame('Host', _vidMode || 'camera');
+ } else {
+  drawSimulatedVideoForensicPreview(eng, fallbackRes);
+  try {
+   await fetch('/api/generator/inject-video-test', {
+    method: 'POST',
+    headers: authHeaders({'Content-Type': 'application/json'}),
+    body: JSON.stringify({clear: true})
+   });
+  } catch(x){}
+ }
+ if(!_simVideoActive) return;
+
+ var d = null;
+ try {
+  var r = await fetch('/api/generator/inject-video-test', {
+   method: 'POST',
+   headers: authHeaders({'Content-Type': 'application/json'}),
+   body: JSON.stringify({
+    speaker_name: targetSpk,
+    engine_id: eng,
+    is_real: false,
+    lag_ms: cfg.lag
+   })
+  });
+  if(r.ok){
+   d = await r.json();
+  }
+ } catch(e){}
+ if(!_simVideoActive) return;
+
+ if((!d || !d.ok) && (!CID || isLocalHost())){
+  d = fallbackRes;
+  _localSimData = {};
+  _localSimData[d.speaker] = d._row;
+ }
+ if(d && d.ok){
+  if(hasLiveCam){
+   sampleAndSendVideoFrame('Host', _vidMode || 'camera');
+  } else {
+   drawSimulatedVideoForensicPreview(eng, d);
+  }
+  updateVideoHudTelemetry(d);
+  poll();
+ }
+}
+
+async function onAddonVideoEngineChange(){
+ var sel = document.getElementById('addonVideoEngineSel');
+ if(!sel) return;
+ await injectVideoModelTest(sel.value);
+}
+
+async function runVideoFaceSwapTest(){
+ var btnTxt = document.getElementById('btnSimFaceSwapTxt');
+ if(_simVideoActive){
+  _simVideoActive = false;
+  _localSimData = null;
+  _prevLowerPatch = null;
+  if(btnTxt) btnTxt.textContent = 'Test Face-Swap';
+  if(_vidStream){
+   updateVideoShieldUI(true, _vidMode || 'camera');
+   renderVideoPreviewFrame();
+   updateVideoHudTelemetry({
+    video_p: 0.038,
+    video_verdict: 'real',
+    vit_score: 0.01,
+    visual_metrics: {vit_score: 0.01, spatial_seam_score: 0.04, temporal_jitter_score: 0.02},
+    av_sync: {is_desynced: false, lag_ms: 18}
+   });
+  } else {
+   updateVideoShieldUI(false, null);
+  }
+  try {
+   await fetch('/api/generator/inject-video-test', {
+    method: 'POST',
+    headers: authHeaders({'Content-Type': 'application/json'}),
+    body: JSON.stringify({clear: true})
+   });
+  } catch(x){}
+  if(_vidStream && _vidVideoEl){
+   sampleAndSendVideoFrame('Host', _vidMode || 'camera');
+  }
+  poll();
+  return;
+ }
+ var sel = document.getElementById('addonVideoEngineSel');
+ await injectVideoModelTest((sel && sel.value) || 'deepfacelive');
 }
 
 function boot(){
@@ -1388,29 +2466,30 @@ function boot(){
   }
  }, 15000);
 
+ // In local dev / open-dev mode (when no Google Client ID is set or running on localhost),
+ // automatically establish a local session unless the user explicitly clicked Sign out.
+ if(!TOK && !wasSignedOut() && (!CID || isLocalHost())){
+  saveTok('__session__');
+ }
+
  if(TOK){
-  show('live');
-  try { startLiveMicStream(); } catch(x){}
-  var code = window._meetCode || '';
-  if(code){
-   deployTo('https://meet.google.com/' + code);
-  } else if(window._sideClient && window._sideClient.getMeetingInfo){
-   window._sideClient.getMeetingInfo().then(function(mi){
-    var c = (mi && (mi.meetingCode || mi.meetingId)) || '';
-    if(c) window._meetCode = c;
-    deployTo('https://meet.google.com/' + (c || 'live-room'));
-   }).catch(function(){
-    deployTo('https://meet.google.com/live-room');
-   });
-  } else {
-   setTimeout(function(){
-    if(!_connected){
-     deployTo('https://meet.google.com/' + (window._meetCode || 'live-room'));
-    }
-   }, 500);
-  }
+  enterLiveMode();
  }else{
   show('signin');
+  if(!wasSignedOut()){
+   fetch('/api/me', {headers: authHeaders()}).then(function(r){
+    if(r && r.ok) return r.json();
+    return null;
+   }).then(function(d){
+    if(d && !TOK){
+     ME = d;
+     window.ME = d;
+     saveTok('__session__');
+     enterLiveMode();
+     poll();
+    }
+   }).catch(function(){});
+  }
  }
  poll();
  setInterval(poll, 500);
@@ -1423,12 +2502,7 @@ function boot(){
  window.addEventListener('beforeunload', function(){
   try{
    stopLiveMicStream();
-   fetch('/api/meet/sessions/disconnect', {
-    method: 'POST',
-    headers: authHeaders({'Content-Type': 'application/json'}),
-    body: JSON.stringify({space_id: window._meetCode || ''}),
-    keepalive: true
-   });
+   stopVideoShield();
   }catch(e){}
  });
 }

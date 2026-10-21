@@ -28,6 +28,14 @@ import os
 import modal
 
 BACKBONE = "facebook/wav2vec2-xls-r-300m"   # public, no HF token needed
+VIDEO_BACKBONE = "dima806/deepfake_vs_real_image_detection"
+VIDEO_BACKBONE_FALLBACK = "prithivMLmods/Deep-Fake-Detector-v2-Model"
+VIDEO_BACKBONE_ENSEMBLE = (
+    "dima806/deepfake_vs_real_image_detection",
+    "prithivMLmods/Deep-Fake-Detector-v2-Model",
+    "Wvolf/ViT_Deepfake_Detection",
+    "umm-maybe/AI-image-detector",
+)
 
 # Opt-in auth: if SONAVE_API_TOKEN is set in the shell you deploy from, it's injected
 # as a runtime secret so /score* requires it (set the SAME token on Railway). Unset =
@@ -44,11 +52,28 @@ _HF_SECRET = modal.Secret.from_dict({"HF_TOKEN": os.environ.get("HF_TOKEN", "")}
 
 
 def _cache_backbone():
-    """Runs at image BUILD time: bake the 1.2 GB XLS-R backbone into the image so
-    cold starts don't re-download it."""
-    from transformers import AutoFeatureExtractor, Wav2Vec2Model
+    """Runs at image BUILD time: bake the 1.2 GB XLS-R audio backbone and the
+    Multi-ViT video deepfake ensemble into the image so cold starts don't re-download them."""
+    from transformers import (
+        AutoFeatureExtractor,
+        AutoImageProcessor,
+        AutoModelForImageClassification,
+        Wav2Vec2Model,
+    )
     Wav2Vec2Model.from_pretrained(BACKBONE)
     AutoFeatureExtractor.from_pretrained(BACKBONE)
+    for vid_model in VIDEO_BACKBONE_ENSEMBLE:
+        try:
+            AutoModelForImageClassification.from_pretrained(vid_model)
+            try:
+                AutoImageProcessor.from_pretrained(vid_model)
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+
+_download_model = _cache_backbone
 
 
 image = (
@@ -56,6 +81,8 @@ image = (
     .apt_install("ffmpeg", "libsndfile1")          # librosa / soundfile decoders
     .pip_install(
         "torch",                                    # PyPI CUDA build — matches Modal's T4/L4
+        "torchvision",                              # Vision transforms & backbone support for video deepfakes
+        "Pillow>=10.0",                             # Frame decoding (JPEG/PNG/WebP)
         "transformers>=4.44",
         "huggingface_hub>=0.24",
         "soundfile>=0.12",
@@ -66,9 +93,12 @@ image = (
         "python-multipart>=0.0.9",
         "pydantic>=2.6",
     )
-    .run_function(_cache_backbone, secrets=[_HF_SECRET])   # bake backbone (HF_TOKEN if set)
+    .run_function(_cache_backbone, secrets=[_HF_SECRET])   # bake audio + video backbones (HF_TOKEN if set)
     .env({
         "SONAVE_MODEL": "/root/models/sonave_xlsr_meet",   # the combined Meet model (Stage 8)
+        "SONAVE_VIDEO_HF_MODEL": VIDEO_BACKBONE,
+        "SONAVE_VIDEO_HF_MODELS": ",".join(VIDEO_BACKBONE_ENSEMBLE),
+        "SONAVE_ENABLE_HF_VIDEO": "1",
         "SONAVE_TAU_REAL": "0.50",
         "SONAVE_TAU_FAKE": "0.72",
         "PYTHONPATH": "/root",
