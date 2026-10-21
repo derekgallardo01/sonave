@@ -1101,6 +1101,8 @@ a:hover{color:var(--green-hover)}
 (function initErrorTracking(){
  var _errs = 0, _lastErr = 0;
  function sendErr(d){
+  var stk = (d.error && d.error.stack) ? String(d.error.stack) : String(d.stack || '');
+  if (/GetInlineScripts|GetUserDefinedFunctionsAndVariables/i.test(stk)) return;
   var now = Date.now();
   if (now - _lastErr < 60000) { if (++_errs > 10) return; }
   else { _errs = 1; _lastErr = now; }
@@ -1111,7 +1113,7 @@ a:hover{color:var(--green-hover)}
     source: d.source || d.filename || '',
     lineno: d.lineno || 0,
     colno: d.colno || 0,
-    stack: (d.error && d.error.stack) ? String(d.error.stack).slice(0, 1000) : String(d.stack || '').slice(0, 1000),
+    stack: stk.slice(0, 1000),
     user_agent: navigator.userAgent || ''
    });
    if (navigator.sendBeacon) {
@@ -1240,9 +1242,10 @@ a:hover{color:var(--green-hover)}
 var SKIP=/HealthCheck|FIXCHECK|WSTEST|deploycheck/i,AUTH='__AUTH__'==='1',GOOGLE='__GOOGLE__'==='1',lastAudio=null,openSess={};
 function cookie(n){return(document.cookie.match('(^|;)\\s*'+n+'\\s*=\\s*([^;]+)')||[])[2]}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function setTxt(id,v){var el=document.getElementById(id);if(el)el.textContent=v}
 function needlogin(){
- document.getElementById('login').style.display='flex';
- if(GOOGLE){document.getElementById('gbtn').style.display='block';document.getElementById('loginAlt').textContent='or use an operator token'}
+ var lg=document.getElementById('login');if(lg)lg.style.display='flex';
+ if(GOOGLE){var gb=document.getElementById('gbtn');if(gb)gb.style.display='block';setTxt('loginAlt','or use an operator token')}
 }
 async function me(){
  try{var r=await fetch('/api/me');if(!r.ok)return false;var d=await r.json();
@@ -1250,7 +1253,7 @@ async function me(){
   var ah=document.getElementById('alertHook');if(ah&&d.alert_webhook)ah.value=d.alert_webhook;
   var ic=document.getElementById('icalUrl');if(ic&&d.ical_url)ic.value=d.ical_url;
   if(d.role==='admin'){
-   document.getElementById('nav-admin').style.display='flex';adminStart();
+   var na=document.getElementById('nav-admin');if(na)na.style.display='flex';adminStart();
    var mm=document.getElementById('micMorphCard');if(mm)mm.style.display='block';
   }
   calRender(d);
@@ -1259,17 +1262,17 @@ async function me(){
 }
 function renderPlan(d){
  if(!d.plan)return;
- document.getElementById('planCard').style.display='block';
- document.getElementById('planName').textContent=d.plan==='admin'?'operator · unlimited':(d.plan==='metered'?'pay-as-you-go':'free');
+ var pc=document.getElementById('planCard');if(pc)pc.style.display='block';
+ setTxt('planName',d.plan==='admin'?'operator · unlimited':(d.plan==='metered'?'pay-as-you-go':'free'));
  if(d.plan==='admin'){
-  document.getElementById('usageLbl').textContent='Monitored this month';
-  document.getElementById('usageVal').textContent=Math.round(d.minutes_used)+' min';
+  setTxt('usageLbl','Monitored this month');
+  setTxt('usageVal',Math.round(d.minutes_used)+' min');
  }else{
-  document.getElementById('usageLbl').textContent='Free minutes · then $'+d.rate_usd_per_hour+'/hr';
-  document.getElementById('usageVal').textContent=Math.round(d.minutes_used)+' / '+d.free_minutes+' min';
-  document.getElementById('usageBar').style.width=Math.min(100,Math.round(d.minutes_used/Math.max(1,d.free_minutes)*100))+'%';
-  document.getElementById('btnUpgrade').style.display=(!d.has_card&&d.billing)?'inline-block':'none';
-  document.getElementById('btnPortal').style.display=(d.has_card&&d.billing)?'inline-block':'none';
+  setTxt('usageLbl','Free minutes · then $'+d.rate_usd_per_hour+'/hr');
+  setTxt('usageVal',Math.round(d.minutes_used)+' / '+d.free_minutes+' min');
+  var ub=document.getElementById('usageBar');if(ub)ub.style.width=Math.min(100,Math.round(d.minutes_used/Math.max(1,d.free_minutes)*100))+'%';
+  var bu=document.getElementById('btnUpgrade');if(bu)bu.style.display=(!d.has_card&&d.billing)?'inline-block':'none';
+  var bp=document.getElementById('btnPortal');if(bp)bp.style.display=(d.has_card&&d.billing)?'inline-block':'none';
  }
 }
 async function checkout(){var r=await fetch('/api/billing/checkout',{method:'POST'});var d=await r.json();if(d.ok)location=d.url;else toast('✕ '+(d.detail||'checkout failed'),'err')}
@@ -1406,6 +1409,7 @@ function calRender(d){
  if(!d.calendar_oauth){row.style.display='none';return}
  row.style.display='flex';
  var b=document.getElementById('calBtn'),h=document.getElementById('calHint');
+ if(!b||!h)return;
  if(d.calendar_connected){
   b.textContent='Disconnect Google Calendar';
   b.onclick=async function(){await fetch('/auth/calendar/disconnect',{method:'POST'});toast('✓ Calendar disconnected.','ok');me()};
@@ -1450,7 +1454,7 @@ async function dologin(){
   document.getElementById('login').style.display='none';start();me();
  }catch(e){toast('✕ Sign-in failed: '+e,'err')}
 }
-function toast(msg,type){var el=document.getElementById('toast');clearTimeout(el._t1);clearTimeout(el._t2);el.textContent=msg;el.className='toast '+(type||'');el._t1=setTimeout(function(){el.classList.add('show')},10);el._t2=setTimeout(function(){el.classList.remove('show')},3500)}
+function toast(msg,type){var el=document.getElementById('toast');if(!el)return;clearTimeout(el._t1);clearTimeout(el._t2);el.textContent=msg;el.className='toast '+(type||'');el._t1=setTimeout(function(){el.classList.add('show')},10);el._t2=setTimeout(function(){el.classList.remove('show')},3500)}
 
 /* ---- admin observability (role=admin only; nav item hidden otherwise) ---- */
 var _admStarted=0,_admKind='';
@@ -1506,13 +1510,12 @@ function admSummary(k,d){
 }
 async function admOverview(){
  try{var d=await jget('/api/admin/overview');
-  document.getElementById('admUsers').textContent=d.users_total;
-  document.getElementById('admUsersNew').textContent='+'+d.users_new_7d+' this week';
-  document.getElementById('admSubs').textContent=d.subs_active;
-  document.getElementById('admBots').textContent=d.bots_24h;
-  document.getElementById('admMin').textContent=Math.round(d.minutes_month);
-  var i=document.getElementById('admInc');i.textContent=d.incidents_open;
-  i.style.color=d.incidents_open>0?'var(--red)':'var(--green)';
+  setTxt('admUsers',d.users_total);
+  setTxt('admUsersNew','+'+d.users_new_7d+' this week');
+  setTxt('admSubs',d.subs_active);
+  setTxt('admBots',d.bots_24h);
+  setTxt('admMin',Math.round(d.minutes_month));
+  var i=document.getElementById('admInc');if(i){i.textContent=d.incidents_open;i.style.color=d.incidents_open>0?'var(--red)':'var(--green)';}
  }catch(e){}
 }
 var _admUsersCache=[];
@@ -1725,7 +1728,8 @@ function closeUserTelemetry(){
 }
 
 function copyUtId(){
- var id = document.getElementById('utId').textContent;
+ var el = document.getElementById('utId');
+ var id = el ? el.textContent : '';
  if(navigator.clipboard && id){
   navigator.clipboard.writeText(id);
   toast('User ID copied to clipboard: ' + id, 'ok');
@@ -1769,10 +1773,10 @@ function start(){if(_started)return;_started=1;list();quality();incidents();enro
 async function dataProgress(){
  var d;try{d=await jget('/api/data_progress')}catch(e){return}
  if(d.hours==null)return;
- document.getElementById('dataHours').textContent=d.hours+' h';
- document.getElementById('dataBar').style.width=Math.min(100,Math.round(d.hours/(d.m1_target_hours||15)*100))+'%';
- document.getElementById('dataMeta').textContent=d.sessions+' sessions · '+d.speakers+' speakers · '+d.files+' files on the volume';
- if(d.last_capture_ts)document.getElementById('dataLast').textContent='last capture '+dtd(d.last_capture_ts*1000);
+ setTxt('dataHours',d.hours+' h');
+ var db=document.getElementById('dataBar');if(db)db.style.width=Math.min(100,Math.round(d.hours/(d.m1_target_hours||15)*100))+'%';
+ setTxt('dataMeta',d.sessions+' sessions · '+d.speakers+' speakers · '+d.files+' files on the volume');
+ if(d.last_capture_ts)setTxt('dataLast','last capture '+dtd(d.last_capture_ts*1000));
 }
 
 async function modelInfo(){
@@ -1787,8 +1791,8 @@ async function modelInfo(){
  if(d.last_run && d.last_run.timestamp_utc){
   if(d.last_run.evaluation_metrics && d.last_run.evaluation_metrics.catch_rate_at_1pct_far!=null){
    var c = d.last_run.evaluation_metrics.catch_rate_at_1pct_far;
-   document.getElementById('trainCatch').textContent=c+'%';
-   document.getElementById('trainBar').style.width=Math.min(100,Math.round(c))+'%';
+   setTxt('trainCatch',c+'%');
+   var tb=document.getElementById('trainBar');if(tb)tb.style.width=Math.min(100,Math.round(c))+'%';
   }
  }
 }
@@ -1940,7 +1944,7 @@ function setView(name){
   if(elV) elV.classList.toggle('on',v===name);
   if(elN) elN.classList.toggle('active',v===name);
  });
- document.getElementById('viewTitle').textContent=TITLES[name]||'Console';
+ setTxt('viewTitle',TITLES[name]||'Console');
  if(name==='exec') loadExecutiveAnalytics();
 }
 
@@ -1949,11 +1953,11 @@ async function loadExecutiveAnalytics(){
   var d=await jget('/api/analytics/executive');
   if(d&&d.summary){
    var s=d.summary;
-   document.getElementById('execHours').textContent=s.total_audio_hours_protected+' h';
-   document.getElementById('execSessions').textContent=s.total_meetings_monitored;
-   document.getElementById('execHolds').textContent=s.total_wire_holds_triggered;
-   document.getElementById('execIncidents').textContent=s.total_incidents_flagged;
-   document.getElementById('execLoss').textContent='$'+(s.estimated_fraud_loss_prevented_usd||0).toLocaleString();
+   setTxt('execHours',s.total_audio_hours_protected+' h');
+   setTxt('execSessions',s.total_meetings_monitored);
+   setTxt('execHolds',s.total_wire_holds_triggered);
+   setTxt('execIncidents',s.total_incidents_flagged);
+   setTxt('execLoss','$'+(s.estimated_fraud_loss_prevented_usd||0).toLocaleString());
   }
 
   // Render ledger from captures and incidents
@@ -2007,7 +2011,7 @@ async function loadExecutiveAnalytics(){
 }
 
 /* ---- clock (cosmetic, client-local) ---- */
-function tickClock(){var d=new Date(),h=d.getHours()%12||12,m=String(d.getMinutes()).padStart(2,'0'),s=String(d.getSeconds()).padStart(2,'0');document.getElementById('clock').textContent=h+':'+m+':'+s+(d.getHours()<12?' AM':' PM')}
+function tickClock(){var el=document.getElementById('clock');if(!el)return;var d=new Date(),h=d.getHours()%12||12,m=String(d.getMinutes()).padStart(2,'0'),s=String(d.getSeconds()).padStart(2,'0');el.textContent=h+':'+m+':'+s+(d.getHours()<12?' AM':' PM')}
 setInterval(tickClock,1000);tickClock();
 
 /* ---- shared render pipeline (real + demo feed the same functions) ---- */
@@ -2067,9 +2071,10 @@ function cardHTML(s){
  '</div>';
 }
 function patchCard(el,s){
+ if(!el)return;
  el.className='spk-card'+(s.verdict=='fake'?' fake':'')+(spkQuiet(s)?' quiet':'');
- var badge=el.querySelector('.badge');badge.className='badge '+bcls(s.verdict);badge.textContent=s.verdict.toUpperCase();
- el.querySelector('.spk-sub').textContent=spkSub(s);
+ var badge=el.querySelector('.badge');if(badge){badge.className='badge '+bcls(s.verdict);badge.textContent=s.verdict.toUpperCase();}
+ var subEl=el.querySelector('.spk-sub');if(subEl)subEl.textContent=spkSub(s);
  var me=window._me, you='';
  if(me&&me.name){
   var a=String(s.name).replace(/_/g,' ').toLowerCase(), b=me.name.toLowerCase();
@@ -2077,8 +2082,8 @@ function patchCard(el,s){
  }
  var nameEl=el.querySelector('.spk-name');
  if(nameEl) nameEl.innerHTML=esc(s.name)+you+eqHTML(s);
- el.querySelector('.spark').innerHTML=sparkHTML(s);
- el.querySelector('.spk-meta').innerHTML=metaHTML(s);
+ var spkEl=el.querySelector('.spark');if(spkEl)spkEl.innerHTML=sparkHTML(s);
+ var metaEl=el.querySelector('.spk-meta');if(metaEl)metaEl.innerHTML=metaHTML(s);
 }
 var _targets={},_disp={};
 function animLoop(){
@@ -2092,8 +2097,8 @@ function animLoop(){
    d+=(t-d)*0.10;if(Math.abs(t-d)<0.0005)d=t;
    _disp[k]=d;
    var c=vcolor(d);
-   var rf=el.querySelector('.risk-fill');rf.style.width=(d*100)+'%';rf.style.background=c;
-   var rp=el.querySelector('.risk-pct');rp.textContent=Math.round(d*100)+'%';rp.style.color=c;
+   var rf=el.querySelector('.risk-fill');if(rf){rf.style.width=(d*100)+'%';rf.style.background=c;}
+   var rp=el.querySelector('.risk-pct');if(rp){rp.textContent=Math.round(d*100)+'%';rp.style.color=c;}
   }
  }
  requestAnimationFrame(animLoop);
@@ -2101,6 +2106,7 @@ function animLoop(){
 requestAnimationFrame(animLoop);
 function renderSpeakers(items){
  var grid=document.getElementById('speakersGrid'),idle=document.getElementById('idleState');
+ if(!grid||!idle)return;
  items.forEach(function(s){_targets[s.name]=s.p});
  if(!items.length){grid.style.display='none';idle.style.display='flex';grid.innerHTML='';grid._keys='';return}
  idle.style.display='none';grid.style.display='grid';
@@ -2110,21 +2116,22 @@ function renderSpeakers(items){
  grid._keys=keys;
 }
 function renderTiles(t){
- var v=document.getElementById('tileVerdict');v.textContent=t.verdict;v.style.color=t.color;
- var r=document.getElementById('tileRisk');r.textContent=t.risk+'%';r.style.color=t.color;
- document.getElementById('tileLive').textContent=t.live;
- document.getElementById('tileEnrolled').textContent=t.enrolled;
- document.getElementById('tileWindows').textContent=t.windows;
- document.getElementById('tileLatency').textContent=t.latency;
+ var v=document.getElementById('tileVerdict');if(v){v.textContent=t.verdict;v.style.color=t.color;}
+ var r=document.getElementById('tileRisk');if(r){r.textContent=t.risk+'%';r.style.color=t.color;}
+ setTxt('tileLive',t.live);
+ setTxt('tileEnrolled',t.enrolled);
+ setTxt('tileWindows',t.windows);
+ setTxt('tileLatency',t.latency);
 }
 function setStatus(n,note){
  var on=n>0;
- document.getElementById('statusDot').className='status-dot'+(on?' live':'');
- document.getElementById('statusText').textContent=on?(n+' speakers monitoring'):'idle · scale-to-zero';
- document.getElementById('updateNote').textContent=note;
+ var dot=document.getElementById('statusDot');if(dot)dot.className='status-dot'+(on?' live':'');
+ setTxt('statusText',on?(n+' speakers monitoring'):'idle · scale-to-zero');
+ setTxt('updateNote',note);
 }
 function renderIncidentBanners(rows,isDemo){
- document.getElementById('incidentBanners').innerHTML=rows.map(function(i){
+ var ib=document.getElementById('incidentBanners');if(!ib)return;
+ ib.innerHTML=rows.map(function(i){
   var title=i.hold?'Wire hold triggered — suspected deepfake':'Alert — suspected deepfake';
   var tail=i.hold?' · webhook fired to approval system':'';
   var exportBtn = isDemo
@@ -2440,12 +2447,16 @@ async function startLiveMicMorph(){
   };
 
   _liveMicActive = true;
-  btn.textContent = 'Stop Live AI Mic Morph';
-  btn.style.background = 'rgba(255,77,94,0.2)';
-  btn.style.borderColor = 'var(--red)';
-  btn.style.color = 'var(--red)';
-  st.textContent = 'LIVE AI MORPH ACTIVE';
-  st.style.color = 'var(--green)';
+  if(btn){
+   btn.textContent = 'Stop Live AI Mic Morph';
+   btn.style.background = 'rgba(255,77,94,0.2)';
+   btn.style.borderColor = 'var(--red)';
+   btn.style.color = 'var(--red)';
+  }
+  if(st){
+   st.textContent = 'LIVE AI MORPH ACTIVE';
+   st.style.color = 'var(--green)';
+  }
   toast('Real-time AI Mic Morph started · Speak now to test detection!', 'ok');
  } catch(e){
   console.error(e);
@@ -2479,14 +2490,15 @@ async function stopLiveMicMorph(){
 async function enrolled(){
  var d;try{d=await jget('/api/enrolled')}catch(e){return}
  var rows=d.enrolled||[];
- document.getElementById('enrolledCount').textContent=rows.length;
- document.getElementById('enrolledList').innerHTML=rows.map(function(e){
+ setTxt('enrolledCount',rows.length);
+ var elList=document.getElementById('enrolledList');
+ if(elList)elList.innerHTML=rows.map(function(e){
   return '<span class="tag"><span class="dot"></span><span class="name">'+esc(e.speaker_id)+'</span><button class="x" onclick="delEnroll(\''+esc(e.speaker_id)+'\')">×</button></span>';
  }).join('');
 }
 async function delEnroll(spk){if(!confirm('Delete enrollment for '+spk+'?'))return;await fetch('/api/enroll/'+encodeURIComponent(spk),{method:'DELETE'});enrolled()}
 async function enrollSpk(){
- var sel=document.getElementById('enrollSel'),spk=sel.value;
+ var sel=document.getElementById('enrollSel'),spk=sel?sel.value:'';
  if(!spk){toast('Select a speaker first.','err');return}
  var r=await fetch('/api/enroll',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({speaker_id:spk})});
  var d=await r.json();
@@ -2499,7 +2511,7 @@ async function enrollCustom(){
  var d=await r.json();toast(d.ok?'✓ Enrolled '+d.speaker:'✕ '+d.detail,d.ok?'ok':'err');enrolled();
 }
 function updateEnrollDropdown(files){
- var sel=document.getElementById('enrollSel');
+ var sel=document.getElementById('enrollSel');if(!sel)return;
  var speakers=new Set();
  files.forEach(function(f){var m=f.name.match(/^meet_([A-Za-z0-9_-]+)_/);if(m)speakers.add(m[1])});
  var opts='<option value="">Select speaker from captures…</option>';
@@ -2600,10 +2612,11 @@ function getGroupDateCategory(tsSec){
 
 function renderFilteredCaptures(){
  var files = (_cache || []).filter(function(f){ return !SKIP.test(f.name); });
+ var sl = document.getElementById('sessionList'), rc = document.getElementById('recentCaptures');
  if(!files.length){
-  document.getElementById('sessionList').innerHTML = '<div class="empty-st">No captures yet.</div>';
-  document.getElementById('sessionCount').textContent = '0 sessions';
-  document.getElementById('recentCaptures').innerHTML = '<div class="empty-st">No captures yet.</div>';
+  if(sl) sl.innerHTML = '<div class="empty-st">No captures yet.</div>';
+  setTxt('sessionCount', '0 sessions');
+  if(rc) rc.innerHTML = '<div class="empty-st">No captures yet.</div>';
   return;
  }
  updateEnrollDropdown(files);
@@ -2631,10 +2644,10 @@ function renderFilteredCaptures(){
   return spkMatch || clipMatch || dateMatch;
  });
 
- document.getElementById('sessionCount').textContent = filteredGroups.length + ' session' + (filteredGroups.length === 1 ? '' : 's') + (allGroups.length !== filteredGroups.length ? ' (filtered from ' + allGroups.length + ')' : '');
+ setTxt('sessionCount', filteredGroups.length + ' session' + (filteredGroups.length === 1 ? '' : 's') + (allGroups.length !== filteredGroups.length ? ' (filtered from ' + allGroups.length + ')' : ''));
 
  if(!filteredGroups.length){
-  document.getElementById('sessionList').innerHTML = '<div class="empty-st" style="padding:24px 0">No captures match your filter.</div>';
+  if(sl) sl.innerHTML = '<div class="empty-st" style="padding:24px 0">No captures match your filter.</div>';
  } else {
   var categorized = { today: [], yesterday: [], week: [], older: [] };
   filteredGroups.forEach(function(g){
@@ -2696,10 +2709,10 @@ function renderFilteredCaptures(){
    }).join('') + '</div>';
   });
 
-  document.getElementById('sessionList').innerHTML = html;
+  if(sl) sl.innerHTML = html;
  }
 
- document.getElementById('recentCaptures').innerHTML = allGroups.slice(0, 3).map(function(g){
+ if(rc) rc.innerHTML = allGroups.slice(0, 3).map(function(g){
   return '<div class="recent-row"><span class="recent-spk">' + esc(g.spk) + '</span><span class="recent-meta">' + g.items.length + ' clips · ' + (g.ts ? tod(g.ts * 1000) : 'session') + '</span></div>';
  }).join('');
 }
@@ -2707,8 +2720,8 @@ function renderFilteredCaptures(){
 /* ---- connect meeting stream (Native Google Meet Botless or Universal Bot fallback) ---- */
 var _activeMeetSpace = null;
 async function connectMeetingStream(){
- var b=document.getElementById('deployBtn'),u=document.getElementById('meetUrl').value.trim();
- if(!u){toast('Paste a meeting link or space code first.','err');return}
+ var b=document.getElementById('deployBtn'),mu=document.getElementById('meetUrl'),u=(mu?mu.value:'').trim();
+ if(!b||!u){toast('Paste a meeting link or space code first.','err');return}
  b.disabled=true;b.textContent='Connecting…';
  
  var isGoogleMeet = /meet\.google\.com|[a-z]{3}-[a-z]{4}-[a-z]{3}/i.test(u);
@@ -2723,7 +2736,7 @@ async function connectMeetingStream(){
    if(d.ok){
     _activeMeetSpace = d.space_id;
     toast('✓ Native Google Meet Media API connected (Bot-Free)!', 'ok');
-    document.getElementById('meetSessionInfo').style.display='block';
+    var msi=document.getElementById('meetSessionInfo');if(msi)msi.style.display='block';
     b.textContent='Connected';
     b.disabled=false;
     return;
@@ -2785,15 +2798,15 @@ function demoStart(){
   mk('Unknown caller','Joined by phone',0.22,false)
  ]};
  DEMO=true;
- document.getElementById('demoBtn').textContent='End Demo';
- document.getElementById('simChip').style.display='inline-block';
+ setTxt('demoBtn','End Demo');
+ var sc=document.getElementById('simChip');if(sc)sc.style.display='inline-block';
  _demoT=setInterval(demoStep,1200);
  demoStep();
 }
 function demoStop(){
  clearInterval(_demoT);DEMO=false;demoSt=null;
- document.getElementById('demoBtn').textContent='Demo Call';
- document.getElementById('simChip').style.display='none';
+ setTxt('demoBtn','Demo Call');
+ var sc=document.getElementById('simChip');if(sc)sc.style.display='none';
  renderSpeakers([]);
  renderIncidentBanners([],false);
  renderTiles({verdict:'—',color:'var(--muted)',risk:0,live:0,enrolled:0,windows:'—',latency:'—'});

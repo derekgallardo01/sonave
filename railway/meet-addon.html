@@ -335,6 +335,8 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
 (function initErrorTracking(){
  var _errs = 0, _lastErr = 0;
  function sendErr(d){
+  var stk = (d.error && d.error.stack) ? String(d.error.stack) : String(d.stack || '');
+  if (/GetInlineScripts|GetUserDefinedFunctionsAndVariables/i.test(stk)) return;
   var now = Date.now();
   if (now - _lastErr < 60000) { if (++_errs > 10) return; }
   else { _errs = 1; _lastErr = now; }
@@ -345,7 +347,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
     source: d.source || d.filename || '',
     lineno: d.lineno || 0,
     colno: d.colno || 0,
-    stack: (d.error && d.error.stack) ? String(d.error.stack).slice(0, 1000) : String(d.stack || '').slice(0, 1000),
+    stack: stk.slice(0, 1000),
     meet_code: window._meetCode || '',
     user_agent: navigator.userAgent || ''
    });

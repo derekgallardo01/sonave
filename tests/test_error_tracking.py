@@ -75,3 +75,33 @@ def test_multi_kind_event_filtering(railway_mod):
     assert "client_error" in kinds
     assert "server_error" in kinds
     assert "signin" not in kinds
+
+
+def test_client_error_ignores_inline_script_sandbox_probes(railway_mod):
+    c = client(railway_mod)
+    before = len(db.list_events(kind="client_error", limit=100))
+    payload = {
+        "page": "console",
+        "message": "Uncaught TypeError: Cannot set properties of null (setting 'textContent')",
+        "source": "https://usesonave.com/console",
+        "lineno": 912,
+        "colno": 187,
+        "stack": (
+            "TypeError: Cannot set properties of null (setting 'textContent')\n"
+            "    at tickClock (<anonymous>:912:187)\n"
+            "    at GetUserDefinedFunctionsAndVariables (about:blank:1029:39)\n"
+            "    at GetInlineScripts (about:blank:675:48)"
+        ),
+    }
+    r = c.post("/api/telemetry/client-error", json=payload)
+    assert r.status_code == 204
+    after = len(db.list_events(kind="client_error", limit=100))
+    assert after == before
+
+
+def test_console_tick_clock_guards_null_element(railway_mod):
+    c = client(railway_mod)
+    html = c.get("/console").text
+    assert "function tickClock(){var el=document.getElementById('clock');if(!el)return;" in html
+    assert "document.getElementById('clock').textContent=" not in html
+

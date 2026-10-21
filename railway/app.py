@@ -891,6 +891,9 @@ class ClientErrorReq(BaseModel):
 @app.post("/api/telemetry/client-error", status_code=204)
 def api_telemetry_client_error(req: ClientErrorReq, request: Request):
     """Receive client-side JS exception and unhandled rejection telemetry."""
+    if ("GetInlineScripts" in req.stack
+            or "GetUserDefinedFunctionsAndVariables" in req.stack):
+        return Response(status_code=204)
     ip = (request.headers.get("cf-connecting-ip")
           or (request.client.host if request.client else "unknown"))
     if not _telemetry_rate_ok(ip):
