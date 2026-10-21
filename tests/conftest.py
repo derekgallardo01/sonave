@@ -52,6 +52,7 @@ def railway_mod(monkeypatch):
     mod = load_module("rwapp", "railway/app.py")
     mod.QUALITY.clear()
     mod.VERDICTS.clear()
+    mod.VIDEO_STATE.clear()
     mod.ROLL.clear()
     return mod
 

@@ -102,6 +102,9 @@ CREATE INDEX IF NOT EXISTS idx_api_keys_user ON api_keys(user_id);
 """
 
 
+_INITIALIZED_DBS: set[tuple[str, int]] = set()
+
+
 def _db_path() -> Path:
     return Path(os.environ.get("SONAVE_APP_DB", "/data/app.db"))
 
@@ -109,22 +112,39 @@ def _db_path() -> Path:
 def _conn() -> sqlite3.Connection:
     p = _db_path()
     p.parent.mkdir(parents=True, exist_ok=True)
+    need_init = False
+    try:
+        st = p.stat()
+        key = (str(p.resolve()), int(st.st_ctime_ns))
+        if st.st_size == 0 or key not in _INITIALIZED_DBS:
+            need_init = True
+    except OSError:
+        need_init = True
+        key = (str(p), 0)
+
     c = sqlite3.connect(p, timeout=10)
     c.row_factory = sqlite3.Row
-    c.execute("PRAGMA journal_mode=WAL")
-    c.executescript(_SCHEMA)
-    cols = [r[1] for r in c.execute("PRAGMA table_info(users)").fetchall()]
-    if "alert_webhook" not in cols:                  # additive migration, idempotent
-        c.execute("ALTER TABLE users ADD COLUMN alert_webhook TEXT")
-    if "ical_url" not in cols:                       # calendar auto-join (zero-scope)
-        c.execute("ALTER TABLE users ADD COLUMN ical_url TEXT")
-    if "webhook_secret" not in cols:                 # HMAC webhook signing secret
-        c.execute("ALTER TABLE users ADD COLUMN webhook_secret TEXT")
-    if "metadata" not in cols:                       # rich acquisition & client metadata
-        c.execute("ALTER TABLE users ADD COLUMN metadata TEXT DEFAULT '{}'")
-    c.execute("CREATE TABLE IF NOT EXISTS autojoin_log ("
-              "user_id TEXT, event_key TEXT, bot_id TEXT, ts REAL, "
-              "PRIMARY KEY (user_id, event_key))")
+    if need_init:
+        c.execute("PRAGMA journal_mode=WAL")
+        c.executescript(_SCHEMA)
+        cols = [r[1] for r in c.execute("PRAGMA table_info(users)").fetchall()]
+        if "alert_webhook" not in cols:                  # additive migration, idempotent
+            c.execute("ALTER TABLE users ADD COLUMN alert_webhook TEXT")
+        if "ical_url" not in cols:                       # calendar auto-join (zero-scope)
+            c.execute("ALTER TABLE users ADD COLUMN ical_url TEXT")
+        if "webhook_secret" not in cols:                 # HMAC webhook signing secret
+            c.execute("ALTER TABLE users ADD COLUMN webhook_secret TEXT")
+        if "metadata" not in cols:                       # rich acquisition & client metadata
+            c.execute("ALTER TABLE users ADD COLUMN metadata TEXT DEFAULT '{}'")
+        c.execute("CREATE TABLE IF NOT EXISTS autojoin_log ("
+                  "user_id TEXT, event_key TEXT, bot_id TEXT, ts REAL, "
+                  "PRIMARY KEY (user_id, event_key))")
+        try:
+            st2 = p.stat()
+            if st2.st_size > 0:
+                _INITIALIZED_DBS.add((str(p.resolve()), int(st2.st_ctime_ns)))
+        except OSError:
+            pass
     return c
 
 
