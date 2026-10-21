@@ -1187,3 +1187,231 @@ def test_live_webcam_apply_deepfake_model_ws_and_rest_without_simulated_override
     )
     assert body_rest["video_attribution"]["engine_id"] == "hallo_liveportrait"
 
+
+def test_real_webcam_false_positive_prevention_and_forensic_corroboration(monkeypatch, railway_mod):
+    """Regression test for real indoor low-res webcam false-positive prevention:
+    1. Specialist face-deepfake ViTs (dima806 & Wvolf < 0.01) prevent out-of-domain AI-art
+       models (prithivMLmods & umm-maybe ~ 0.78) from triggering a false positive.
+    2. Dark lower-face beard/shadow (mouth_lum_mean < 0.72 * upper_lum_mean) and high
+       hf_peak_ratio (ceiling fan / background blades) do not inflate perioral or outer seam scores.
+    3. Forensic corroboration gating dampens uncorroborated ViT spikes (e.g. ViT=0.85 with
+       Seam=0.13, Jitter=0.02, AV=0.96) to REAL (< 0.25) in both score_frame() and _score_video_and_store().
+    4. All 5 visual deepfake synthesis engines applied to a bearded/indoor webcam frame still
+       genuinely score FAKE (video_p >= 0.65)."""
+    from pathlib import Path
+    import model_video
+    import transformers
+
+    # 1. Test ViT ensemble specialist weighting when dima806 & Wvolf confirm REAL (<0.01)
+    #    while prithivMLmods & umm-maybe false-positive (~0.76-0.78) on low-res webcam JPEG
+    webcam_specs = {
+        "dima806/deepfake_vs_real_image_detection": {
+            "id2label": {0: "Real", 1: "Fake"},
+            "logits": [3.01, -3.01],  # P(Fake) ~ 0.0024
+            "image_size": 224,
+        },
+        "prithivMLmods/Deep-Fake-Detector-v2-Model": {
+            "id2label": {0: "Realism", 1: "Deepfake"},
+            "logits": [-0.566, 0.566],  # P(Deepfake) ~ 0.7562
+            "image_size": 224,
+        },
+        "Wvolf/ViT_Deepfake_Detection": {
+            "id2label": {0: "Real", 1: "Fake"},
+            "logits": [2.90, -2.90],  # P(Fake) ~ 0.0030
+            "image_size": 224,
+        },
+        "umm-maybe/AI-image-detector": {
+            "id2label": {0: "artificial", 1: "human"},
+            "logits": [0.636, -0.636],  # P(artificial) ~ 0.7811
+            "image_size": [224, 224],
+        },
+    }
+
+    class _Cfg:
+        def __init__(self, id2label, image_size):
+            self.id2label = id2label
+            self.image_size = image_size
+
+    class _Out:
+        def __init__(self, logits):
+            self.logits = np.asarray([logits], dtype=np.float32)
+
+    class _Mdl:
+        def __init__(self, spec):
+            self.config = _Cfg(spec["id2label"], spec["image_size"])
+            self._logits = spec["logits"]
+
+        def to(self, dev):
+            return self
+
+        def eval(self):
+            return self
+
+        def __call__(self, **kwargs):
+            return _Out(self._logits)
+
+    monkeypatch.setattr(
+        transformers.AutoModelForImageClassification,
+        "from_pretrained",
+        lambda mid, **kw: _Mdl(webcam_specs[mid]),
+    )
+    monkeypatch.setenv("SONAVE_ENABLE_HF_VIDEO", "1")
+
+    bb_cam = model_video.HuggingFaceViTDeepfakeBackbone(device="cpu")
+    assert bb_cam.load(allow_download=True) is True
+
+    # Build a realistic indoor webcam frame with a dark beard/shadow on the lower face
+    bearded_cam = _make_natural_face_rgb(160, 210, seed=108, mouth_open=0.1)
+    # Darken lower-face beard region (so mouth_lum_mean < 0.72 * upper_lum_mean)
+    bearded_cam[92:134, 72:138] = (bearded_cam[92:134, 72:138].astype(np.float32) * 0.35).astype(np.uint8)
+
+    det_cam = model_video.VideoDeepfakeDetector(vit_backbone=bb_cam)
+    res_bearded = det_cam.score_frame(bearded_cam, speaker_id="bearded_host", audio_rms=0.02)
+    assert res_bearded["verdict"] == "real", f"Bearded real webcam frame scored fake: {res_bearded}"
+    assert res_bearded["video_p"] < 0.20
+    assert res_bearded["vit_score"] is not None and res_bearded["vit_score"] < 0.15
+
+    # Verify all 5 visual deepfake synthesis engines on bearded_cam genuinely score FAKE (>= 0.65)
+    det_no_vit = model_video.VideoDeepfakeDetector()
+    for eng_id in (
+        "deepfacelive",
+        "facefusion_simswap",
+        "heygen_liveavatar",
+        "wav2lip_retalking",
+        "hallo_liveportrait",
+    ):
+        r_syn = det_no_vit.score_frame(
+            bearded_cam,
+            speaker_id=f"bearded_syn_{eng_id}",
+            audio_rms=0.02,
+            client_metrics={"apply_deepfake_model": eng_id},
+        )
+        assert r_syn["verdict"] == "fake", f"Expected fake for {eng_id} on bearded webcam, got {r_syn}"
+        assert r_syn["video_p"] >= 0.65
+
+    # If user's cropped webcam thumbnail exists on disk, verify it and all 5 synthesized engines directly
+    derek_thumb = Path(r"C:\Users\Derek\.gemini\antigravity\brain\51b1814f-2a59-4d80-9afd-49fd27ed0d73\scratch\derek_thumb.png")
+    if derek_thumb.is_file():
+        raw_thumb = model_video.decode_frame(derek_thumb.read_bytes())
+        crop_thumb = (raw_thumb[8:-8, 8:-8] * 255.0).clip(0, 255).astype(np.uint8)
+        r_derek = det_cam.score_frame(crop_thumb, speaker_id="derek_real", audio_rms=0.02)
+        assert r_derek["verdict"] == "real", f"derek_thumb scored fake: {r_derek}"
+        assert r_derek["video_p"] < 0.20
+        assert r_derek["vit_score"] < 0.15
+        for eng_id in (
+            "deepfacelive",
+            "facefusion_simswap",
+            "heygen_liveavatar",
+            "wav2lip_retalking",
+            "hallo_liveportrait",
+        ):
+            r_dsyn = det_no_vit.score_frame(
+                crop_thumb,
+                speaker_id=f"derek_syn_{eng_id}",
+                audio_rms=0.02,
+                client_metrics={"apply_deepfake_model": eng_id},
+            )
+            assert r_dsyn["verdict"] == "fake", f"derek_thumb {eng_id} expected fake, got {r_dsyn}"
+            assert r_dsyn["video_p"] >= 0.65
+
+    # 2. Test forensic corroboration gating when ViT=0.85 but Seam=0.13, Jitter=0.02, AV=0.96
+    det_spike = model_video.VideoDeepfakeDetector()
+    monkeypatch.setattr(
+        det_spike.vit_backbone,
+        "score",
+        lambda img, fi=None: {
+            "vit_score": 0.85,
+            "vit_ensemble_scores": {"custom/vit": 0.85},
+            "vit_models_loaded": ["custom/vit"],
+            "hf_loaded": True,
+            "hf_model_id": "custom/vit",
+            "device": "cpu",
+        },
+    )
+    monkeypatch.setattr(
+        det_spike.spatial_net,
+        "analyze",
+        lambda img, fi=None: {
+            "spatial_score": 0.13,
+            "spatial_seam_score": 0.13,
+            "frequency_seam_score": 0.11,
+            "perioral_seam_score": 0.04,
+            "skin_smoothing_score": 0.06,
+            "boundary_seam_ratio": 1.12,
+            "mouth_seam_ratio": 1.04,
+            "hf_energy_ratio": 0.05,
+            "chroma_step": 0.015,
+        },
+    )
+    monkeypatch.setattr(
+        det_spike.temporal_tracker,
+        "update",
+        lambda spk, img, fi=None, ts=None: {
+            "temporal_jitter_score": 0.02,
+            "mouth_delta": 0.025,
+            "face_flicker": 0.005,
+            "centroid_jitter": 0.002,
+            "frames_tracked": 4,
+        },
+    )
+    monkeypatch.setattr(
+        det_spike.av_analyzer,
+        "analyze",
+        lambda speaker_id, mouth_delta, audio_rms=None, client_av_lag_ms=None: {
+            "av_sync_score": 0.96,
+            "sync_score": 0.96,
+            "sync_coherence": 0.96,
+            "av_mismatch_score": 0.04,
+            "lag_ms": 28.0,
+            "is_desynced": False,
+            "desync_flag": False,
+            "status": "AV Lip-Sync Coherent",
+        },
+    )
+    res_gated = det_spike.score_frame(bearded_cam, speaker_id="gated_user", audio_rms=0.02)
+    assert res_gated["verdict"] == "real", f"Uncorroborated ViT=0.85 spike must be gated to real: {res_gated}"
+    assert res_gated["video_p"] < 0.25
+    assert res_gated["vit_score"] < 0.35
+
+    # 3. Also verify _score_video_and_store in railway/app.py dampens remote SCORER_URL spike
+    #    (video_p=0.71, vit_score=0.85, Seam=0.13, Jitter=0.02, AV=0.96 -> real < 0.25)
+    monkeypatch.setattr(
+        railway_mod.model_video,
+        "score_video_bytes",
+        lambda *a, **kw: {
+            "video_p": 0.71,
+            "verdict": "fake",
+            "face_detected": True,
+            "bbox": [20, 20, 120, 120],
+            "vit_score": 0.85,
+            "vit_ensemble_scores": {
+                "dima806/deepfake_vs_real_image_detection": 0.0024,
+                "Wvolf/ViT_Deepfake_Detection": 0.0030,
+                "prithivMLmods/Deep-Fake-Detector-v2-Model": 0.7564,
+                "umm-maybe/AI-image-detector": 0.7812,
+            },
+            "vit_models_loaded": list(model_video.DEFAULT_HF_VIDEO_ENSEMBLE),
+            "hf_model_id": "dima806/deepfake_vs_real_image_detection",
+            "hf_loaded": True,
+            "spatial_seam_score": 0.13,
+            "temporal_jitter_score": 0.02,
+            "av_sync_score": 0.96,
+            "visual_metrics": {
+                "vit_score": 0.85,
+                "spatial_seam_score": 0.13,
+                "temporal_jitter_score": 0.02,
+                "av_sync_score": 0.96,
+            },
+            "av_sync": {"sync_score": 0.96, "lag_ms": 28.0, "desync_flag": False},
+            "latency_ms": 18.0,
+            "model_version": "sonave-vit-freq-v1",
+        },
+    )
+    railway_mod.VIDEO_STATE.clear()
+    entry_rw = railway_mod._score_video_and_store(
+        "admin", "Host", _encode_rgb_png(bearded_cam), audio_rms=0.02
+    )
+    assert entry_rw["video_verdict"] == "real", f"Expected real verdict in _score_video_and_store, got {entry_rw}"
+    assert entry_rw["video_p"] < 0.25
+    assert entry_rw["vit_score"] < 0.15
+

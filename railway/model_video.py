@@ -741,7 +741,22 @@ class SpatialFrequencyResidualNet:
 
         mouth_inner_lap = abs_lap[miy0:miy1, mix0:mix1]
         mouth_lap_mean = float(np.mean(mouth_inner_lap)) if mouth_inner_lap.size > 0 else upper_lap_mean
-        mouth_tex_ratio = mouth_lap_mean / max(upper_lap_mean, 1e-4)
+        upper_lum_mean = (
+            float(np.mean(lum[iy0:upper_y1, ix0:ix1]))
+            if upper_y1 > iy0
+            else float(np.mean(lum[iy0:iy1, ix0:ix1]))
+        )
+        mouth_lum_mean = (
+            float(np.mean(lum[miy0:miy1, mix0:mix1]))
+            if (miy1 > miy0 and mix1 > mix0)
+            else upper_lum_mean
+        )
+        raw_mouth_tex_ratio = mouth_lap_mean / max(upper_lap_mean, 1e-4)
+        if mouth_lum_mean < 0.72 * upper_lum_mean:
+            lum_scale = max(0.25, mouth_lum_mean / max(upper_lum_mean, 1e-4))
+            mouth_tex_ratio = raw_mouth_tex_ratio / lum_scale
+        else:
+            mouth_tex_ratio = raw_mouth_tex_ratio
 
         mouth_seam_mask = np.zeros((h, w), dtype=bool)
         mouth_seam_mask[max(0, my0 - 2):min(h, my1 + 2), max(0, mx0 - 2):min(w, mx1 + 2)] = True
@@ -815,11 +830,12 @@ class SpatialFrequencyResidualNet:
             skin_smoothing_score = 0.06
 
         # Seam score from boundary gradient spike + chrominance discontinuity + peri-oral inpainting seam
-        seam_excess = max(0.0, boundary_seam_ratio - 1.55) / 1.80
-        chroma_excess = max(0.0, chroma_step - 0.055) / 0.12
+        seam_excess = min(1.5, max(0.0, boundary_seam_ratio - 1.55) / 1.80)
+        chroma_excess = min(1.5, max(0.0, chroma_step - 0.055) / 0.12)
+        hf_excess = min(1.0, max(0.0, (hf_peak_ratio - 6.5) / 10.0))
         outer_seam_score = float(
             np.clip(
-                0.55 * seam_excess + 0.35 * chroma_excess + 0.10 * max(0.0, (hf_peak_ratio - 6.5) / 10.0),
+                0.55 * seam_excess + 0.35 * chroma_excess + 0.10 * hf_excess,
                 0.02,
                 0.99,
             )
@@ -833,6 +849,7 @@ class SpatialFrequencyResidualNet:
                     0.55 * frequency_seam_score + 0.45 * skin_smoothing_score,
                     0.85 * min(frequency_seam_score, skin_smoothing_score) + 0.15 * max(frequency_seam_score, skin_smoothing_score),
                     0.90 * skin_smoothing_score if (boundary_seam_ratio >= 1.35 or skin_smoothing_score >= 0.65) else 0.0,
+                    0.84 if (boundary_seam_ratio >= 1.75 and skin_smoothing_score >= 0.45) else 0.0,
                     0.90 * perioral_seam_score,
                 ),
                 0.02,
@@ -1516,7 +1533,22 @@ class HuggingFaceViTDeepfakeBackbone:
             scores_list = list(ensemble_scores.values())
             mean_p = float(np.mean(scores_list))
             max_p = float(np.max(scores_list))
-            p_fake = round(float(np.clip(0.55 * mean_p + 0.45 * max_p, 0.001, 0.999)), 4)
+            face_specialists = [
+                v for k, v in ensemble_scores.items() if "dima806" in k or "wvolf" in k.lower()
+            ]
+            if face_specialists and max(face_specialists) < 0.22:
+                p_fake = round(
+                    float(
+                        np.clip(
+                            0.85 * float(np.mean(face_specialists)) + 0.15 * mean_p,
+                            0.001,
+                            0.999,
+                        )
+                    ),
+                    4,
+                )
+            else:
+                p_fake = round(float(np.clip(0.55 * mean_p + 0.45 * max_p, 0.001, 0.999)), 4)
             loaded_list = list(ensemble_scores.keys())
 
             return {
@@ -1605,6 +1637,16 @@ class VideoDeepfakeDetector:
         # Weighted ensemble combining pretrained ViT neural classifier (when active)
         # with spatial-frequency seam analysis, temporal consistency, and AV lip-sync.
         if vit_score is not None:
+            forensic_max = max(s_score, f_score, seam_score, t_score, av_mismatch)
+            uncorroborated_vit = (
+                forensic_max < 0.28
+                and vit_score < 0.90
+                and not apply_model
+                and not cm.get("simulated_attack")
+            )
+            if uncorroborated_vit:
+                eff_vit = vit_score * min(1.0, (forensic_max / 0.28) ** 1.25)
+                vit_score = round(eff_vit, 4)
             visual_core = 0.45 * vit_score + 0.30 * s_score + 0.25 * f_score
             weighted = (
                 0.38 * vit_score
@@ -1614,7 +1656,7 @@ class VideoDeepfakeDetector:
                 + 0.08 * av_mismatch
             )
             peak_signal = max(
-                vit_score * 0.95,
+                vit_score * (0.65 if uncorroborated_vit else 0.95),
                 s_score,
                 f_score,
                 seam_score,

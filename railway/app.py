@@ -2475,6 +2475,40 @@ def _score_video_and_store(
         lag_ms = lag_ms if lag_ms is not None else int(sim_prof["lag"])
     else:
         raw_p = float(res.get("video_p", res.get("p_fake", 0.04)))
+        if not now_sim_or_filter:
+            ens_map = v_metrics.get("vit_ensemble_scores") or res.get("vit_ensemble_scores") or {}
+            if isinstance(ens_map, dict) and ens_map:
+                face_specs = [
+                    float(v) for k, v in ens_map.items() if "dima806" in k or "wvolf" in k.lower()
+                ]
+                if face_specs and max(face_specs) < 0.22:
+                    all_vals = [float(v) for v in ens_map.values()]
+                    re_vit = round(
+                        min(
+                            0.999,
+                            max(
+                                0.001,
+                                0.85 * (sum(face_specs) / len(face_specs))
+                                + 0.15 * (sum(all_vals) / len(all_vals)),
+                            ),
+                        ),
+                        4,
+                    )
+                    v_metrics["vit_score"] = re_vit
+                    res["vit_score"] = re_vit
+            r_vit = v_metrics.get("vit_score", res.get("vit_score"))
+            r_seam = float(v_metrics.get("spatial_seam_score", res.get("spatial_seam_score", 0.04)) or 0.04)
+            r_jit = float(v_metrics.get("temporal_jitter_score", res.get("temporal_jitter_score", 0.02)) or 0.02)
+            r_av = float(v_metrics.get("av_sync_score", res.get("av_sync_score", 0.96)) or 0.96)
+            forensic_max = max(r_seam, r_jit, max(0.0, 1.0 - r_av))
+            if r_vit is not None and float(r_vit) < 0.90 and forensic_max < 0.28:
+                if float(r_vit) >= 0.35:
+                    eff_vit = round(float(r_vit) * min(1.0, (forensic_max / 0.28) ** 1.25), 4)
+                    v_metrics["vit_score"] = eff_vit
+                    res["vit_score"] = eff_vit
+                else:
+                    eff_vit = float(r_vit)
+                raw_p = min(raw_p, round(max(forensic_max * 1.35, eff_vit * 0.65), 4))
 
     with _STATE_LOCK:
         prev_vs = VIDEO_STATE.get(key, {})
