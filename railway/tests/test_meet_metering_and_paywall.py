@@ -179,3 +179,44 @@ def test_meet_addon_template_contains_paywall_and_upgrade_elements():
     assert 'startUpgradeCheckout' in html
     assert 'refreshEntitlement' in html
     assert 'updatePlanUI' in html
+
+
+def test_backfill_usage_from_events(mod):
+    u = _user(mod, sub="s-backfill-test", email="backfill@x.com")
+    uid = u["id"]
+    month = mod.billing.month_key()
+
+    # Initially 0 usage
+    assert mod.db.get_usage_minutes(uid, month) == 0.0
+
+    # User had historical meetings and milestones
+    mod.db.add_event(uid, "meet_connected", json.dumps({"space": "space-1"}))
+    mod.db.add_event(uid, "session_milestone", json.dumps({"minutes": 30, "space": "space-1"}))
+    mod.db.add_event(uid, "meet_connected", json.dumps({"space": "space-2"}))
+    mod.db.add_event(uid, "session_milestone", json.dumps({"minutes": 15, "space": "space-2"}))
+
+    # Run backfill
+    res = mod.db.backfill_usage_from_events(month)
+    assert u["email"] in res
+    assert res[u["email"]] >= 30.0
+    assert mod.db.get_usage_minutes(uid, month) >= 30.0
+
+    # Running backfill again is idempotent
+    res2 = mod.db.backfill_usage_from_events(month)
+    assert u["email"] not in res2
+
+
+def test_admin_backfill_endpoint(mod):
+    u = _user(mod, sub="s-bf-ep", email="bfep@x.com")
+    admin = _user(mod, sub="s-admin-bf", email="admbf@x.com", role="admin")
+    c_admin = _client_as(mod, admin["id"])
+
+    mod.db.add_event(u["id"], "meet_connected", json.dumps({"space": "call-1"}))
+    mod.db.add_event(u["id"], "session_milestone", json.dumps({"minutes": 25, "space": "call-1"}))
+
+    r = c_admin.post("/api/admin/backfill-usage")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["ok"] is True
+    assert "backfilled" in data
+

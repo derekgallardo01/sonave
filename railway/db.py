@@ -594,6 +594,46 @@ def get_usage_minutes(user_id: str, month: str) -> float:
         c.close()
 
 
+def backfill_usage_from_events(month: str, min_per_meet: float = 8.0) -> dict[str, float]:
+    """Backfill unmetered historical Google Meet usage from telemetry events into the usage table."""
+    c = _conn()
+    try:
+        users = c.execute("SELECT id, email, role FROM users").fetchall()
+        updated = {}
+        for u in users:
+            uid = u["id"]
+            if u["role"] == "admin":
+                continue
+            cur_used = get_usage_minutes(uid, month)
+            evs = c.execute("SELECT kind, detail FROM events WHERE user_id=? ORDER BY id ASC", (uid,)).fetchall()
+            calc_minutes = 0.0
+            meets_count = 0
+            for ev in evs:
+                k = ev["kind"]
+                d_raw = ev["detail"] or "{}"
+                try:
+                    d = json.loads(d_raw) if isinstance(d_raw, str) else d_raw
+                except Exception:
+                    d = {}
+                if k in ("meet_media_connect", "meet_connected"):
+                    meets_count += 1
+                elif k == "session_milestone":
+                    m_val = float(d.get("minutes") or 0.0)
+                    calc_minutes = max(calc_minutes, m_val)
+                elif k in ("meet_media_disconnect", "meeting_ended"):
+                    sec_val = float(d.get("duration_sec") or 0.0)
+                    if sec_val > 0:
+                        calc_minutes += round(sec_val / 60.0, 1)
+            total_est = round(max(calc_minutes, meets_count * min_per_meet), 1)
+            if total_est > cur_used:
+                diff = total_est - cur_used
+                add_usage_minutes(uid, month, diff)
+                updated[u["email"] or uid] = total_est
+        return updated
+    finally:
+        c.close()
+
+
 def add_score(user_id: str, speaker: str, p_fake: float, rolling: float, verdict: str) -> None:
     """Append to the scored-window history (feeds forensic reports)."""
     with _LOCK:

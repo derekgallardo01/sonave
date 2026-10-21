@@ -36,7 +36,7 @@ def configured() -> bool:
 
 
 def free_minutes(user: dict | str | None = None) -> int:
-    base = int(_env("SONAVE_FREE_MINUTES", "120"))
+    base = int(_env("SONAVE_FREE_MINUTES", "45"))
     if not user:
         return base
     meta = {}
@@ -117,7 +117,7 @@ def entitlement(user_id: str, role: str = "member") -> dict:
                 role = u["role"]
     used = db.get_usage_minutes(real_uid, month_key())
     free = free_minutes(real_uid)
-    bonus = max(0, free - int(_env("SONAVE_FREE_MINUTES", "120")))
+    bonus = max(0, free - int(_env("SONAVE_FREE_MINUTES", "45")))
     if role == "admin":
         return {"plan": "admin", "minutes_used": round(used, 1), "free_minutes": free,
                 "bonus_minutes": bonus,
@@ -143,9 +143,10 @@ def can_launch_bot(user_id: str, role: str = "member") -> dict | None:
     ent = entitlement(user_id, role)
     if ent["plan"] == "free":
         if ent["remaining_free"] <= 0:
-            free_h = ent["free_minutes"] // 60
+            free_m = ent["free_minutes"]
+            quota_label = f"{free_m // 60} monitored hours" if free_m >= 60 else f"{free_m} monitored minutes"
             return {"ok": False, "code": "quota_exceeded",
-                    "detail": f"Free {free_h} monitored hours used this month — "
+                    "detail": f"Free {quota_label} used this month — "
                               f"add a card to continue at ${RATE_USD_PER_HOUR:g}/hour."}
         return None
     if ent.get("month_spend_usd", 0) >= ent.get("monthly_cap_usd", 1e9):

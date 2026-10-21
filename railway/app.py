@@ -3022,6 +3022,14 @@ def api_admin_outreach(req: AdminOutreachReq, p: auth.Principal = Depends(requir
     return {"ok": True, "to": req.to_email, "subject": req.subject}
 
 
+@app.post("/api/admin/backfill-usage")
+def api_admin_backfill_usage(p: auth.Principal = Depends(require_admin)):
+    """Backfill unmetered historical Google Meet usage into the billing usage table."""
+    month = billing.month_key()
+    res = db.backfill_usage_from_events(month)
+    return {"ok": True, "month": month, "count": len(res), "backfilled": res}
+
+
 @app.get("/api/model", dependencies=[Depends(require_auth)])
 def api_model():
     """Metrics of the deployed checkpoint (written by tools/write_metrics.py)."""
@@ -4938,5 +4946,9 @@ def _startup_migrate():
     admin = db.first_admin_id()
     if admin:
         db.migrate_legacy(DATA_DIR, enroll.ENROLL_DIR, admin)
+    try:
+        db.backfill_usage_from_events(billing.month_key())
+    except Exception as e:
+        logger.warning("backfill usage on startup failed: %s", repr(e)[:80])
 
 

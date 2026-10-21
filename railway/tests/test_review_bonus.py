@@ -38,23 +38,23 @@ def _client_as(m, uid):
 
 
 def test_free_minutes_calculation(mod):
-    """free_minutes() returns base 120, and adds bonus_minutes when provided in user/dict/id."""
+    """free_minutes() returns base 45, and adds bonus_minutes when provided in user/dict/id."""
     # 1. Base / None
-    assert mod.billing.free_minutes() == 120
-    assert mod.billing.free_minutes(None) == 120
+    assert mod.billing.free_minutes() == 45
+    assert mod.billing.free_minutes(None) == 45
 
     # 2. User with no bonus
     u = mod.db.upsert_google_user("sub-u1", "u1@example.com", "U1", "", "member")
-    assert mod.billing.free_minutes(u["id"]) == 120
-    assert mod.billing.free_minutes(u) == 120
+    assert mod.billing.free_minutes(u["id"]) == 45
+    assert mod.billing.free_minutes(u) == 45
 
     # 3. User with bonus_minutes in metadata
     mod.db.update_user_metadata(u["id"], {"bonus_minutes": 240, "review_bonus_awarded": True})
-    assert mod.billing.free_minutes(u["id"]) == 360  # 120 + 240 = 360 min (6 hours)
+    assert mod.billing.free_minutes(u["id"]) == 285  # 45 + 240 = 285 min
 
     # 4. User dict with direct bonus_minutes key
-    assert mod.billing.free_minutes({"bonus_minutes": 240}) == 360
-    assert mod.billing.free_minutes({"metadata": json.dumps({"bonus_minutes": 120})}) == 240
+    assert mod.billing.free_minutes({"bonus_minutes": 240}) == 285
+    assert mod.billing.free_minutes({"metadata": json.dumps({"bonus_minutes": 120})}) == 165
 
 
 def test_review_prompt_clicked_awards_bonus(mod):
@@ -62,10 +62,10 @@ def test_review_prompt_clicked_awards_bonus(mod):
     u = mod.db.upsert_google_user("sub-rev", "derek@usesonave.com", "Derek", "", "member")
     c = _client_as(mod, u["id"])
 
-    # Before review: base 120 min
-    assert mod.billing.free_minutes(u["id"]) == 120
+    # Before review: base 45 min
+    assert mod.billing.free_minutes(u["id"]) == 45
     ent_before = mod.billing.entitlement(u["id"])
-    assert ent_before["free_minutes"] == 120
+    assert ent_before["free_minutes"] == 45
     assert ent_before["bonus_minutes"] == 0
 
     # Send review_prompt_clicked telemetry
@@ -83,11 +83,11 @@ def test_review_prompt_clicked_awards_bonus(mod):
     assert meta["review_bonus_awarded"] is True
     assert "reviewed_at" in meta
 
-    # Verify billing entitlement now reflects 360 minutes (6 free hours)
+    # Verify billing entitlement now reflects 285 minutes
     ent_after = mod.billing.entitlement(u["id"])
-    assert ent_after["free_minutes"] == 360
+    assert ent_after["free_minutes"] == 285
     assert ent_after["bonus_minutes"] == 240
-    assert ent_after["remaining_free"] == 360
+    assert ent_after["remaining_free"] == 285
 
     # Idempotent click does not double stack
     resp2 = c.post("/api/telemetry/event", json={
@@ -105,27 +105,27 @@ def test_billing_quota_allows_past_120_minutes_with_bonus(mod):
     u = mod.db.upsert_google_user("sub-q", "quota_user@example.com", "Quota User", "", "member")
     mod.db.add_usage_minutes(u["id"], mod.billing.month_key(), 150)
 
-    # 1. Without bonus: 150 > 120 -> blocked
+    # 1. Without bonus: 150 > 45 -> blocked
     denied = mod.billing.can_launch_bot(u["id"])
     assert denied is not None
     assert denied["code"] == "quota_exceeded"
-    assert "Free 2 monitored hours" in denied["detail"]
+    assert "Free 45 monitored minutes" in denied["detail"]
 
-    # 2. Award +4 hours (240 min) review bonus -> total 360 min
+    # 2. Award +4 hours (240 min) review bonus -> total 285 min
     mod.db.award_review_bonus(u["id"], 240)
     allowed = mod.billing.can_launch_bot(u["id"])
-    assert allowed is None  # Allowed because 150 < 360!
+    assert allowed is None  # Allowed because 150 < 285!
 
     # Check remaining free minutes
     ent = mod.billing.entitlement(u["id"])
-    assert ent["remaining_free"] == 210.0  # 360 - 150 = 210 min remaining
+    assert ent["remaining_free"] == 135.0  # 285 - 150 = 135 min remaining
 
-    # 3. Consume beyond 360 min (e.g. 365 min) -> blocked with 6 hours in detail
-    mod.db.add_usage_minutes(u["id"], mod.billing.month_key(), 215)  # 150 + 215 = 365
+    # 3. Consume beyond 285 min (e.g. 290 min) -> blocked with 4 monitored hours in detail
+    mod.db.add_usage_minutes(u["id"], mod.billing.month_key(), 140)  # 150 + 140 = 290
     denied2 = mod.billing.can_launch_bot(u["id"])
     assert denied2 is not None
     assert denied2["code"] == "quota_exceeded"
-    assert "Free 6 monitored hours" in denied2["detail"]
+    assert "Free 4 monitored hours" in denied2["detail"]
 
 
 def test_format_activity_review_prompt_clicked(mod):
@@ -143,7 +143,7 @@ def test_api_me_returns_bonus_minutes_and_flag(mod):
     r = c.get("/api/me")
     assert r.status_code == 200
     data = r.json()
-    assert data["free_minutes"] == 360
+    assert data["free_minutes"] == 285
     assert data["bonus_minutes"] == 240
     assert data["review_bonus_awarded"] is True
 
@@ -219,9 +219,9 @@ def test_billing_entitlement_and_free_minutes_by_email(mod):
     u = mod.db.upsert_google_user("sub-email-lookup", "derek@usesonave.com", "Derek", "", "member")
     mod.db.award_review_bonus(u["id"], 240)
 
-    assert mod.billing.free_minutes("derek@usesonave.com") == 360
+    assert mod.billing.free_minutes("derek@usesonave.com") == 285
     ent = mod.billing.entitlement("derek@usesonave.com")
-    assert ent["free_minutes"] == 360
+    assert ent["free_minutes"] == 285
     assert ent["bonus_minutes"] == 240
 
 
@@ -291,12 +291,12 @@ def test_admin_outreach_endpoint(mod):
     assert any("founder_outreach" in ev.get("detail", "") for ev in events)
 
 
-def test_default_free_quota_120_without_env_var(monkeypatch):
-    """billing.free_minutes defaults to 120 (2 hours) when SONAVE_FREE_MINUTES is unset."""
+def test_default_free_quota_45_without_env_var(monkeypatch):
+    """billing.free_minutes defaults to 45 minutes when SONAVE_FREE_MINUTES is unset."""
     monkeypatch.delenv("SONAVE_FREE_MINUTES", raising=False)
     import billing
-    assert billing.free_minutes() == 120
-    assert billing.free_minutes(None) == 120
+    assert billing.free_minutes() == 45
+    assert billing.free_minutes(None) == 45
     # Custom env var override works
     monkeypatch.setenv("SONAVE_FREE_MINUTES", "240")
     assert billing.free_minutes() == 240
