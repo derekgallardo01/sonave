@@ -535,21 +535,26 @@ a:hover{color:var(--green-hover)}
        </div>
       </div>
       <div style="margin-top:14px; padding-top:12px; border-top:1px solid var(--line);">
-       <div class="card-lbl" style="margin-bottom:8px;">VIDEO DEEPFAKE &amp; FACE-SWAP SIMULATOR</div>
+       <div class="card-lbl" style="margin-bottom:8px;">LIVE WEBCAM &amp; VISUAL DEEPFAKE MODELS</div>
        <div style="display:flex; flex-direction:column; gap:8px;">
-        <select class="sel" id="videoSimEngineSel">
+        <select class="sel" id="videoSimEngineSel" onchange="onConsoleVideoEngineChange()">
          <option value="deepfacelive">DeepFaceLive / DeepFaceLab (ONNX Live Face-Swap)</option>
          <option value="heygen_liveavatar">HeyGen / Streaming Interactive Avatar</option>
          <option value="facefusion_simswap">FaceFusion / InsightFace inswapper_128</option>
          <option value="wav2lip_retalking">Wav2Lip / Video-ReTalking Lip-Sync</option>
          <option value="hallo_liveportrait">LivePortrait / Hallo Diffusion Puppetry</option>
         </select>
-        <div style="display:flex; gap:8px;">
-         <button class="btn-primary" id="btnInjectVideoSim" onclick="injectConsoleVideoSim()" style="flex:1">Inject Face-Swap Attack</button>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+         <button class="btn-soft" id="btnConsoleCam" onclick="toggleConsoleCam()" style="flex:1">Cam Self-Check</button>
+         <button class="btn-primary" id="btnInjectVideoSim" onclick="injectConsoleVideoSim()" style="flex:1.4">Run Visual Deepfake</button>
          <button class="btn-soft" onclick="clearConsoleSim()">Reset</button>
         </div>
+        <div id="consoleVideoHudWrap" style="display:none; flex-direction:column; gap:6px; margin-top:4px;">
+         <canvas id="videoCaptureCanvas" width="320" height="240" style="width:100%; max-width:280px; height:auto; aspect-ratio:4/3; border-radius:8px; border:1.5px solid var(--line2); background:#000; display:block; margin:0 auto;"></canvas>
+         <div id="consoleVideoHudTxt" style="font-size:10px; font-family:var(--mono); color:var(--green); text-align:center;">Cam Self-Check Active</div>
+        </div>
        </div>
-       <div class="hint" style="margin-top:8px">Injects synthetic spatial-frequency blending seams, landmark jitter, and AV lip-sync desynchronization into the live monitor.</div>
+       <div class="hint" style="margin-top:8px">Applies real PyTorch/NumPy visual deepfake transformations to your live webcam feed and scores the synthesized frames genuinely.</div>
       </div>
      </div>
     </div>
@@ -2190,11 +2195,139 @@ async function quality(){
  setStatus(active,scorerOff?'no scorer configured':'live · 0.5s');
 }
 
+var _conVidStream = null;
+var _conVidEl = null;
+var _conVidTimer = null;
+var _conDeepfakeActive = false;
+
+async function toggleConsoleCam(){
+ var btnCam = document.getElementById('btnConsoleCam');
+ var wrap = document.getElementById('consoleVideoHudWrap');
+ if(_conVidStream){
+  stopConsoleCam();
+  return;
+ }
+ if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+  toast('✕ Webcam capture not available in this browser', 'err');
+  return;
+ }
+ try {
+  _conVidStream = await navigator.mediaDevices.getUserMedia({
+   video: { width: { ideal: 320 }, height: { ideal: 240 }, frameRate: { ideal: 12, max: 15 } },
+   audio: false
+  });
+  _conVidEl = document.createElement('video');
+  _conVidEl.muted = true;
+  _conVidEl.playsInline = true;
+  _conVidEl.srcObject = _conVidStream;
+  try { await _conVidEl.play(); } catch(x){}
+  if(btnCam) btnCam.textContent = 'Stop Cam Check';
+  if(wrap) wrap.style.display = 'flex';
+  sampleConsoleCamFrame();
+  _conVidTimer = setInterval(sampleConsoleCamFrame, 900);
+ } catch(err){
+  _conVidStream = null;
+  toast('✕ Camera access denied or unavailable', 'err');
+ }
+}
+
+function stopConsoleCam(){
+ if(_conVidTimer){ clearInterval(_conVidTimer); _conVidTimer = null; }
+ if(_conVidStream){
+  try { _conVidStream.getTracks().forEach(function(t){ t.stop(); }); } catch(x){}
+  _conVidStream = null;
+ }
+ _conVidEl = null;
+ var btnCam = document.getElementById('btnConsoleCam');
+ var wrap = document.getElementById('consoleVideoHudWrap');
+ if(btnCam) btnCam.textContent = 'Cam Self-Check';
+ if(wrap && !_conDeepfakeActive) wrap.style.display = 'none';
+}
+
+async function sampleConsoleCamFrame(){
+ if(!_conVidStream || !_conVidEl) return;
+ var canvas = document.getElementById('videoCaptureCanvas');
+ if(!canvas) return;
+ var ctx = canvas.getContext('2d');
+ if(!ctx) return;
+ var cw = canvas.width || 320, ch = canvas.height || 240;
+ try { ctx.drawImage(_conVidEl, 0, 0, cw, ch); } catch(x){ return; }
+ var rawDataUrl = '';
+ try { rawDataUrl = canvas.toDataURL('image/jpeg', 0.80); } catch(x){ return; }
+ var sel = document.getElementById('videoSimEngineSel');
+ var eng = (sel && sel.value) || 'deepfacelive';
+ var payload = {
+  speaker: 'Host',
+  frame_b64: rawDataUrl,
+  audio_rms: 0.02,
+  source: 'webcam_self_check'
+ };
+ if(_conDeepfakeActive){
+  payload.apply_deepfake_model = eng;
+  payload.engine_id = eng;
+ }
+ try {
+  var r = await fetch('/api/video/score', {
+   method: 'POST',
+   headers: {'Content-Type': 'application/json'},
+   body: JSON.stringify(payload)
+  });
+  var res = await r.json();
+  if(res && res.transformed_frame_b64 && _conDeepfakeActive){
+   var img = new Image();
+   img.onload = function(){ try{ ctx.drawImage(img, 0, 0, cw, ch); }catch(x){} };
+   img.src = res.transformed_frame_b64;
+  }
+  var hudTxt = document.getElementById('consoleVideoHudTxt');
+  if(hudTxt && res){
+   var vp = Math.round((res.video_p || 0) * 100);
+   if(res.video_verdict === 'fake'){
+    var eName = (res.video_attribution && res.video_attribution.engine_name) || eng;
+    hudTxt.style.color = 'var(--red)';
+    hudTxt.textContent = '⚠ FAKE (' + vp + '%) · ' + eName;
+    canvas.style.borderColor = 'var(--red)';
+   } else {
+    hudTxt.style.color = 'var(--green)';
+    hudTxt.textContent = '✓ VIDEO AUTHENTIC (' + (100 - vp) + '% Real)';
+    canvas.style.borderColor = 'var(--line2)';
+   }
+  }
+  quality();
+  incidents();
+ } catch(x){}
+}
+
+function onConsoleVideoEngineChange(){
+ if(_conDeepfakeActive && _conVidStream){
+  sampleConsoleCamFrame();
+ }
+}
+
 async function injectConsoleVideoSim(){
  var sel = document.getElementById('videoSimEngineSel');
  var eng = sel ? sel.value : 'deepfacelive';
  var btn = document.getElementById('btnInjectVideoSim');
- if(btn){ btn.disabled = true; btn.textContent = 'Injecting...'; }
+ if(_conDeepfakeActive){
+  _conDeepfakeActive = false;
+  if(btn) btn.textContent = 'Run Visual Deepfake';
+  if(_conVidStream){
+   await sampleConsoleCamFrame();
+  } else {
+   await clearConsoleSim();
+  }
+  return;
+ }
+ if(!_conVidStream && navigator.mediaDevices && navigator.mediaDevices.getUserMedia){
+  try { await toggleConsoleCam(); } catch(x){}
+ }
+ if(_conVidStream){
+  _conDeepfakeActive = true;
+  if(btn) btn.textContent = 'Stop Deepfake Filter';
+  await sampleConsoleCamFrame();
+  toast('✓ Visual deepfake model applied to live webcam (' + eng + ')', 'ok');
+  return;
+ }
+ if(btn){ btn.disabled = true; btn.textContent = 'Applying...'; }
  try {
   var r = await fetch('/api/generator/inject-video-test', {
    method: 'POST',
@@ -2208,7 +2341,8 @@ async function injectConsoleVideoSim(){
   });
   var d = await r.json();
   if(d && d.ok){
-   toast('✓ Video deepfake attack injected (' + Math.round((d.video_p||0.95)*100) + '% Fake Caught)', 'ok');
+   _conDeepfakeActive = true;
+   toast('✓ Visual deepfake model active (' + Math.round((d.video_p||0.95)*100) + '% Fake Caught)', 'ok');
    quality();
    incidents();
   } else {
@@ -2217,13 +2351,20 @@ async function injectConsoleVideoSim(){
  } catch(e){
   toast('✕ Simulation error: ' + e, 'err');
  } finally {
-  if(btn){ btn.disabled = false; btn.textContent = 'Inject Face-Swap Attack'; }
+  if(btn){
+   btn.disabled = false;
+   btn.textContent = _conDeepfakeActive ? 'Stop Deepfake Filter' : 'Run Visual Deepfake';
+  }
  }
 }
 
 async function clearConsoleSim(){
+ _conDeepfakeActive = false;
+ var btn = document.getElementById('btnInjectVideoSim');
+ if(btn) btn.textContent = 'Run Visual Deepfake';
  try {
   await fetch('/api/generator/clear-test', {method: 'POST'});
+  if(_conVidStream) await sampleConsoleCamFrame();
   toast('✓ Simulated threats cleared', 'ok');
   quality();
   incidents();

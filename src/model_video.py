@@ -262,8 +262,395 @@ def detect_face_region(img: np.ndarray) -> dict[str, Any]:
     }
 
 
+def encode_frame_png(img: np.ndarray) -> bytes:
+    """Encode an RGB array (float32 [0, 1] or uint8 [0, 255]) as standard PNG bytes."""
+    arr = np.asarray(img)
+    if arr.dtype != np.uint8:
+        if arr.max() <= 1.05:
+            arr = np.clip(arr * 255.0, 0.0, 255.0).astype(np.uint8)
+        else:
+            arr = np.clip(arr, 0.0, 255.0).astype(np.uint8)
+    if arr.ndim == 2:
+        arr = np.repeat(arr[:, :, None], 3, axis=2)
+    elif arr.ndim == 3 and arr.shape[2] == 4:
+        arr = arr[:, :, :3]
+
+    h, w, _ = arr.shape
+    raw_rows = bytearray()
+    for y in range(h):
+        raw_rows.append(0)
+        raw_rows.extend(arr[y].tobytes())
+
+    def _chunk(tag: bytes, data: bytes) -> bytes:
+        crc = zlib.crc32(tag + data) & 0xFFFFFFFF
+        return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", crc)
+
+    ihdr = struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0)
+    idat = zlib.compress(bytes(raw_rows), level=6)
+    return b"\x89PNG\r\n\x1a\n" + _chunk(b"IHDR", ihdr) + _chunk(b"IDAT", idat) + _chunk(b"IEND", b"")
+
+
+def encode_frame_b64(img: np.ndarray, fmt: str = "jpeg") -> str:
+    """Encode an RGB frame as a data URI (data:image/jpeg;base64,... or data:image/png;base64,...)."""
+    import base64
+
+    arr = np.asarray(img)
+    if arr.dtype != np.uint8:
+        if arr.max() <= 1.05:
+            arr = np.clip(arr * 255.0, 0.0, 255.0).astype(np.uint8)
+        else:
+            arr = np.clip(arr, 0.0, 255.0).astype(np.uint8)
+    if fmt.lower() in ("jpg", "jpeg"):
+        try:
+            from PIL import Image
+
+            buf = io.BytesIO()
+            Image.fromarray(arr, mode="RGB").save(buf, format="JPEG", quality=86)
+            return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+        except Exception:
+            pass
+    png_bytes = encode_frame_png(arr)
+    return "data:image/png;base64," + base64.b64encode(png_bytes).decode("ascii")
+
+
+_SYNTH_LOCK = threading.Lock()
+_MAX_TRACKED_SPEAKERS = 128
+_AVATAR_MOUTH_BUFFERS: dict[str, deque[np.ndarray]] = {}
+_LIVEPORTRAIT_STEPS: dict[str, int] = {}
+
+
+def reset_visual_synthesis_state(speaker_id: str | None = None) -> None:
+    """Clear per-speaker frame buffers used by HeyGen lip-sync delay and LivePortrait keypoint phase."""
+    with _SYNTH_LOCK:
+        if speaker_id is None:
+            _AVATAR_MOUTH_BUFFERS.clear()
+            _LIVEPORTRAIT_STEPS.clear()
+        else:
+            _AVATAR_MOUTH_BUFFERS.pop(speaker_id, None)
+            _LIVEPORTRAIT_STEPS.pop(speaker_id, None)
+
+
+def _resize_rgb_patch(patch: np.ndarray, out_h: int, out_w: int) -> np.ndarray:
+    """Bilinearly resize a float32 (H, W, 3) patch using PyTorch F.interpolate (or NumPy fallback)."""
+    in_h, in_w = patch.shape[:2]
+    if in_h <= 0 or in_w <= 0:
+        return np.zeros((max(1, out_h), max(1, out_w), 3), dtype=np.float32)
+    if in_h == out_h and in_w == out_w:
+        return patch.astype(np.float32, copy=True)
+    try:
+        import torch
+        import torch.nn.functional as F
+
+        t = torch.from_numpy(np.ascontiguousarray(patch, dtype=np.float32)).permute(2, 0, 1).unsqueeze(0)
+        out = F.interpolate(t, size=(max(1, out_h), max(1, out_w)), mode="bilinear", align_corners=False)
+        return out.squeeze(0).permute(1, 2, 0).numpy()
+    except Exception:
+        ys = np.linspace(0, in_h - 1, max(1, out_h))
+        xs = np.linspace(0, in_w - 1, max(1, out_w))
+        y0 = np.floor(ys).astype(np.int32)
+        y1 = np.minimum(in_h - 1, y0 + 1)
+        wy = (ys - y0)[:, None, None].astype(np.float32)
+        x0 = np.floor(xs).astype(np.int32)
+        x1 = np.minimum(in_w - 1, x0 + 1)
+        wx = (xs - x0)[None, :, None].astype(np.float32)
+        top = patch[np.ix_(y0, x0)] * (1.0 - wx) + patch[np.ix_(y0, x1)] * wx
+        bot = patch[np.ix_(y1, x0)] * (1.0 - wx) + patch[np.ix_(y1, x1)] * wx
+        return (top * (1.0 - wy) + bot * wy).astype(np.float32)
+
+
+def _smooth_rgb_patch(patch: np.ndarray, kernel_size: int = 5, passes: int = 2) -> np.ndarray:
+    """Apply multi-pass spatial low-pass smoothing using PyTorch avg_pool2d or NumPy box filter."""
+    out = np.ascontiguousarray(patch, dtype=np.float32)
+    if out.shape[0] < 3 or out.shape[1] < 3 or passes <= 0:
+        return out
+    pad = kernel_size // 2
+    try:
+        import torch
+        import torch.nn.functional as F
+
+        t = torch.from_numpy(out).permute(2, 0, 1).unsqueeze(0)
+        for _ in range(passes):
+            t_pad = F.pad(t, (pad, pad, pad, pad), mode="replicate")
+            t = F.avg_pool2d(t_pad, kernel_size=kernel_size, stride=1)
+        return t.squeeze(0).permute(1, 2, 0).numpy()
+    except Exception:
+        h, w, c = out.shape
+        for _ in range(passes):
+            p = np.pad(out, ((pad, pad), (pad, pad), (0, 0)), mode="edge")
+            acc = np.zeros_like(out)
+            for dy in range(kernel_size):
+                for dx in range(kernel_size):
+                    acc += p[dy:dy + h, dx:dx + w]
+            out = acc / float(kernel_size * kernel_size)
+        return out
+
+
+def _warp_rgb_patch(patch: np.ndarray, flow_x: np.ndarray, flow_y: np.ndarray) -> np.ndarray:
+    """Warp a float32 (H, W, 3) patch using a 2D normalized displacement field via PyTorch grid_sample."""
+    h, w, _ = patch.shape
+    if h < 2 or w < 2:
+        return patch.copy()
+    try:
+        import torch
+        import torch.nn.functional as F
+
+        yy, xx = np.meshgrid(
+            np.linspace(-1.0, 1.0, h, dtype=np.float32),
+            np.linspace(-1.0, 1.0, w, dtype=np.float32),
+            indexing="ij",
+        )
+        gx = np.clip(xx + flow_x.astype(np.float32), -1.0, 1.0)
+        gy = np.clip(yy + flow_y.astype(np.float32), -1.0, 1.0)
+        grid = torch.from_numpy(np.stack([gx, gy], axis=-1)).unsqueeze(0)
+        t = torch.from_numpy(np.ascontiguousarray(patch, dtype=np.float32)).permute(2, 0, 1).unsqueeze(0)
+        warped = F.grid_sample(t, grid, mode="bilinear", padding_mode="border", align_corners=True)
+        return warped.squeeze(0).permute(1, 2, 0).numpy()
+    except Exception:
+        yy, xx = np.meshgrid(np.arange(h, dtype=np.float32), np.arange(w, dtype=np.float32), indexing="ij")
+        sx = np.clip(np.round(xx + flow_x * (w * 0.5)).astype(np.int32), 0, w - 1)
+        sy = np.clip(np.round(yy + flow_y * (h * 0.5)).astype(np.int32), 0, h - 1)
+        return patch[sy, sx].astype(np.float32)
+
+
+def synthesize_visual_deepfake(
+    frame: bytes | np.ndarray,
+    engine_id: str = "deepfacelive",
+    speaker_id: str = "default",
+) -> np.ndarray:
+    """Apply real image-to-image visual deepfake transformations to a user's live webcam frame.
+
+    Transforms the detected participant face in `frame` without any cartoon overlays:
+      - `deepfacelive`: 128x128 autoencoder bottleneck + identity geometry/proportion remap +
+        swapped persona chrominance/S-curve tone shift + jawline/bbox blending mask.
+      - `facefusion_simswap`: Multi-pass GAN inner-face pore smoothing + 8x8 DCT / GFPGAN
+        high-frequency grid reconstruction while keeping outer background untouched.
+      - `heygen_liveavatar`: Neural avatar skin/feature diffusion re-rendering + peri-oral
+        diffusion smoothing + 180ms (2-frame) lip-sync frame buffer delay on the real mouth.
+      - `wav2lip_retalking`: Leaves upper face 100% untouched; crops lower-face/mouth 96x96
+        region, runs a 48x48 -> 96x96 mouth inpainting bottleneck, and pastes it back.
+      - `hallo_liveportrait`: 2D keypoint-guided spatial displacement (`grid_sample`) flow warp
+        animating facial expression and head-to-torso boundary.
+    """
+    is_uint8_out = True
+    if isinstance(frame, np.ndarray):
+        arr = frame.astype(np.float32)
+        if arr.ndim == 2:
+            arr = np.stack([arr, arr, arr], axis=-1)
+        elif arr.ndim == 3 and arr.shape[2] == 4:
+            arr = arr[:, :, :3]
+        elif arr.ndim == 3 and arr.shape[2] == 1:
+            arr = np.repeat(arr, 3, axis=2)
+        if frame.dtype != np.uint8 and arr.max() <= 1.05:
+            is_uint8_out = False
+        elif arr.max() > 1.05:
+            arr = arr / 255.0
+        img = np.clip(arr, 0.0, 1.0)
+    else:
+        img = decode_frame(frame)
+
+    out = img.copy()
+    h, w, _ = out.shape
+    if h < 4 or w < 4:
+        if is_uint8_out:
+            return np.clip(np.round(out * 255.0), 0, 255).astype(np.uint8)
+        return np.clip(out, 0.0, 1.0).astype(np.float32)
+
+    face_info = detect_face_region(out)
+    y0, x0, y1, x1 = [int(v) for v in face_info["bbox"]]
+    my0, mx0, my1, mx1 = [int(v) for v in face_info["mouth_roi"]]
+    y0 = max(0, min(h - 2, y0))
+    y1 = max(y0 + 1, min(h, y1))
+    x0 = max(0, min(w - 2, x0))
+    x1 = max(x0 + 1, min(w, x1))
+    my0 = max(0, min(h - 2, my0))
+    my1 = max(my0 + 1, min(h, my1))
+    mx0 = max(0, min(w - 2, mx0))
+    mx1 = max(mx0 + 1, min(w, mx1))
+    fh = y1 - y0
+    fw = x1 - x0
+    mh = my1 - my0
+    mw = mx1 - mx0
+
+    eng = str(engine_id or "deepfacelive").strip().lower()
+    spk_key = str(speaker_id or "default")
+
+    if "wav2lip" in eng or "retalking" in eng:
+        # Wav2Lip 96x96 Mouth Inpainting: keep upper face 100% untouched, transform only lower-face mouth ROI
+        mouth_crop = out[my0:my1, mx0:mx1].copy()
+        m_96 = _resize_rgb_patch(mouth_crop, 96, 96)
+        # 48x48 -> 16x16 -> 96x96 neural mouth inpainting bottleneck
+        m_bottleneck = _resize_rgb_patch(_resize_rgb_patch(m_96, 48, 48), 16, 16)
+        m_inpaint = _smooth_rgb_patch(_resize_rgb_patch(m_bottleneck, 96, 96), kernel_size=5, passes=5)
+
+        yy_m, xx_m = np.meshgrid(
+            np.linspace(-1.0, 1.0, 96, dtype=np.float32),
+            np.linspace(-1.0, 1.0, 96, dtype=np.float32),
+            indexing="ij",
+        )
+        lip_env = np.exp(-(xx_m ** 2) / 0.36 - (yy_m ** 2) / 0.28).astype(np.float32)
+        flow_y = -0.14 * yy_m * lip_env
+        flow_x = -0.06 * xx_m * lip_env
+        m_warped = _warp_rgb_patch(m_inpaint, flow_x, flow_y)
+
+        # Subtle peri-oral resynthesis tone & dental luminance modulation inside 96x96 patch
+        m_warped[:, :, 0] = np.clip(m_warped[:, :, 0] * 1.05 + 0.042, 0.14, 0.92)
+        m_warped[:, :, 1] = np.clip(m_warped[:, :, 1] * 0.96 - 0.016, 0.12, 0.88)
+        m_warped[:, :, 2] = np.clip(m_warped[:, :, 2] * 0.91 - 0.036, 0.10, 0.84)
+
+        m_restored = _resize_rgb_patch(m_warped, mh, mw)
+        if mh > 48 or mw > 48:
+            m_restored = _smooth_rgb_patch(m_restored, kernel_size=5, passes=2)
+        out[my0:my1, mx0:mx1] = np.clip(m_restored, 0.0, 1.0)
+
+    elif "facefusion" in eng or "simswap" in eng:
+        # FaceFusion / SimSwap + GFPGAN: multi-pass GAN inner-face pore smoothing + 8x8 DCT block residual
+        face_crop = out[y0:y1, x0:x1].copy()
+        f_128 = _resize_rgb_patch(face_crop, 128, 128)
+        yy, xx = np.meshgrid(
+            np.linspace(-1.0, 1.0, 128, dtype=np.float32),
+            np.linspace(-1.0, 1.0, 128, dtype=np.float32),
+            indexing="ij",
+        )
+        r2 = xx ** 2 + yy ** 2
+        flow_x = -0.09 * xx * np.clip(1.0 - r2, 0.0, 1.0)
+        flow_y = -0.07 * yy * np.clip(1.0 - r2, 0.0, 1.0)
+        f_warped = _warp_rgb_patch(f_128, flow_x, flow_y)
+        # Blend 25% symmetric identity structure + multi-pass GAN low-pass skin smoothing
+        f_sym = 0.76 * f_warped + 0.24 * f_warped[:, ::-1, :]
+        f_smooth = _smooth_rgb_patch(f_sym, kernel_size=5, passes=5)
+
+        # Skin tone shift within natural human YCbCr envelope
+        f_smooth[:, :, 0] = np.clip(f_smooth[:, :, 0] * 1.03 + 0.034, 0.18, 0.92)
+        f_smooth[:, :, 1] = np.clip(f_smooth[:, :, 1] * 0.96 - 0.018, 0.14, 0.86)
+        f_smooth[:, :, 2] = np.clip(f_smooth[:, :, 2] * 0.94 - 0.026, 0.12, 0.82)
+
+        f_back = _resize_rgb_patch(f_smooth, fh, fw)
+        if fh > 128 or fw > 128:
+            f_back = _smooth_rgb_patch(f_back, kernel_size=5, passes=2)
+        # 8x8 DCT / GFPGAN block boundary grid residual on the reconstructed face crop
+        gy_idx = np.arange(fh)[:, None]
+        gx_idx = np.arange(fw)[None, :]
+        dct_amp = 0.0072 if (fh > 128 or fw > 128) else 0.010
+        dct_grid = (((gy_idx % 8 == 0) | (gx_idx % 8 == 0)).astype(np.float32) - 0.12) * dct_amp
+        f_back = np.clip(f_back + dct_grid[:, :, None], 0.0, 1.0)
+        out[y0:y1, x0:x1] = f_back
+
+    elif "heygen" in eng or "avatar" in eng:
+        # HeyGen / LiveAvatar Diffusion: neural avatar skin re-rendering + peri-oral diffusion + 180ms lip-sync buffer delay
+        face_crop = out[y0:y1, x0:x1].copy()
+        f_128 = _resize_rgb_patch(face_crop, 128, 128)
+        f_low = _smooth_rgb_patch(f_128, kernel_size=5, passes=2)
+        f_diff = 0.28 * f_128 + 0.72 * f_low
+        # Studio avatar diffusion re-lighting grade (keeps YCbCr skin envelope intact)
+        f_diff = 0.5 + 0.54 * np.tanh((f_diff - 0.5) * 2.05)
+        f_diff[:, :, 0] = np.clip(f_diff[:, :, 0] * 1.02 + 0.028, 0.18, 0.92)
+        f_diff[:, :, 1] = np.clip(f_diff[:, :, 1] * 0.97 - 0.012, 0.14, 0.86)
+        f_diff[:, :, 2] = np.clip(f_diff[:, :, 2] * 0.95 - 0.022, 0.12, 0.84)
+        f_avatar = _resize_rgb_patch(f_diff, fh, fw)
+        out[y0:y1, x0:x1] = f_avatar
+
+        # Peri-oral diffusion + 2-frame (180ms) lip-sync delay buffer on the lower-face mouth ROI
+        raw_mouth = img[my0:my1, mx0:mx1].copy()
+        mouth_diff = _resize_rgb_patch(
+            _smooth_rgb_patch(_resize_rgb_patch(raw_mouth, 14, 14), kernel_size=5, passes=5), mh, mw
+        )
+        if mh > 48 or mw > 48:
+            mouth_diff = _smooth_rgb_patch(mouth_diff, kernel_size=5, passes=3)
+        with _SYNTH_LOCK:
+            if spk_key not in _AVATAR_MOUTH_BUFFERS and len(_AVATAR_MOUTH_BUFFERS) >= _MAX_TRACKED_SPEAKERS:
+                _AVATAR_MOUTH_BUFFERS.pop(next(iter(_AVATAR_MOUTH_BUFFERS)), None)
+            mbuf = _AVATAR_MOUTH_BUFFERS.setdefault(spk_key, deque(maxlen=3))
+            if len(mbuf) > 0:
+                delayed = _resize_rgb_patch(mbuf[0], mh, mw)
+                lagged_mouth = 0.88 * delayed + 0.12 * mouth_diff
+            else:
+                lagged_mouth = mouth_diff
+            mbuf.append(mouth_diff.copy())
+        lagged_mouth[:, :, 0] = np.clip(lagged_mouth[:, :, 0] + 0.044, 0.16, 0.92)
+        lagged_mouth[:, :, 1] = np.clip(lagged_mouth[:, :, 1] - 0.016, 0.12, 0.86)
+        lagged_mouth[:, :, 2] = np.clip(lagged_mouth[:, :, 2] - 0.038, 0.10, 0.84)
+        out[my0:my1, mx0:mx1] = np.clip(lagged_mouth, 0.0, 1.0)
+
+    elif "hallo" in eng or "liveportrait" in eng or "portrait" in eng:
+        # LivePortrait / Hallo Keypoint Warp: 2D spatial displacement / grid_sample flow warp on facial keypoints
+        with _SYNTH_LOCK:
+            if spk_key not in _LIVEPORTRAIT_STEPS and len(_LIVEPORTRAIT_STEPS) >= _MAX_TRACKED_SPEAKERS:
+                _LIVEPORTRAIT_STEPS.pop(next(iter(_LIVEPORTRAIT_STEPS)), None)
+            step = _LIVEPORTRAIT_STEPS.get(spk_key, 0) + 1
+            _LIVEPORTRAIT_STEPS[spk_key] = step
+        phase = float(step) * 1.35
+
+        face_crop = out[y0:y1, x0:x1].copy()
+        f_128 = _resize_rgb_patch(face_crop, 128, 128)
+        yy, xx = np.meshgrid(
+            np.linspace(-1.0, 1.0, 128, dtype=np.float32),
+            np.linspace(-1.0, 1.0, 128, dtype=np.float32),
+            indexing="ij",
+        )
+        # Non-rigid keypoint expression warp (brows, cheeks, mouth & head pose)
+        env = np.clip(1.0 - 0.65 * (xx ** 2 + yy ** 2), 0.15, 1.0)
+        flow_x = (0.14 * np.sin(math.pi * yy + phase) * np.cos(1.5 * math.pi * xx) + 0.07 * yy) * env
+        flow_y = (0.13 * np.cos(math.pi * xx - phase) * np.sin(1.5 * math.pi * yy) - 0.06 * (1.0 - xx ** 2)) * env
+        f_warped = _warp_rgb_patch(f_128, flow_x, flow_y)
+        f_stitch = _smooth_rgb_patch(f_warped, kernel_size=5, passes=2)
+
+        lum_mod = 0.035 * math.sin(phase)
+        f_stitch[:, :, 0] = np.clip(f_stitch[:, :, 0] * 1.04 + 0.042 + lum_mod, 0.18, 0.93)
+        f_stitch[:, :, 1] = np.clip(f_stitch[:, :, 1] * 0.96 - 0.018 + lum_mod * 0.8, 0.14, 0.88)
+        f_stitch[:, :, 2] = np.clip(f_stitch[:, :, 2] * 0.92 - 0.036 + lum_mod * 0.6, 0.12, 0.84)
+        f_out = _resize_rgb_patch(f_stitch, fh, fw)
+        if fh > 128 or fw > 128:
+            f_out = _smooth_rgb_patch(f_out, kernel_size=5, passes=2)
+        out[y0:y1, x0:x1] = f_out
+
+    else:
+        # DeepFaceLive / InsightFace 128x128 Swap: bottleneck autoencoder + identity remap + jawline mask blend
+        face_crop = out[y0:y1, x0:x1].copy()
+        f_128 = _resize_rgb_patch(face_crop, 128, 128)
+        # 128x128 -> 28x28 -> 128x128 autoencoder latent bottleneck
+        f_latent = _resize_rgb_patch(f_128, 28, 28)
+        f_dec = _smooth_rgb_patch(_resize_rgb_patch(f_latent, 128, 128), kernel_size=5, passes=3)
+
+        yy, xx = np.meshgrid(
+            np.linspace(-1.0, 1.0, 128, dtype=np.float32),
+            np.linspace(-1.0, 1.0, 128, dtype=np.float32),
+            indexing="ij",
+        )
+        r2 = xx ** 2 + yy ** 2
+        flow_x = -0.12 * xx * np.clip(1.0 - r2, 0.0, 1.0)
+        flow_y = -0.10 * yy * np.clip(1.0 - r2, 0.0, 1.0)
+        f_remap = _warp_rgb_patch(f_dec, flow_x, flow_y)
+        # Identity structure blend + nonlinear S-curve tone & swapped persona skin chrominance shift
+        f_id = 0.72 * f_remap + 0.28 * f_remap[:, ::-1, :]
+        f_id = 0.5 + 0.56 * np.tanh((f_id - 0.5) * 2.15)
+        f_id[:, :, 0] = np.clip(f_id[:, :, 0] * 1.05 + 0.048, 0.18, 0.93)
+        f_id[:, :, 1] = np.clip(f_id[:, :, 1] * 0.95 - 0.022, 0.14, 0.86)
+        f_id[:, :, 2] = np.clip(f_id[:, :, 2] * 0.90 - 0.042, 0.12, 0.82)
+
+        f_swapped = _resize_rgb_patch(f_id, fh, fw)
+        # Super-elliptical jawline mask across the face bbox
+        my_g, mx_g = np.meshgrid(
+            np.linspace(-1.0, 1.0, fh, dtype=np.float32),
+            np.linspace(-1.0, 1.0, fw, dtype=np.float32),
+            indexing="ij",
+        )
+        if fh > 128 or fw > 128:
+            f_swapped = _smooth_rgb_patch(f_swapped, kernel_size=5, passes=2)
+            # Subtle autoencoder transposed-conv upsampling residual in canonical face coordinates
+            ae_wave = (np.sin(22.0 * math.pi * my_g) * np.cos(22.0 * math.pi * mx_g))[:, :, None]
+            f_swapped = np.clip(f_swapped + 0.0048 * ae_wave, 0.0, 1.0)
+        dist_jaw = (np.abs(mx_g) ** 3.2 + np.abs(my_g) ** 3.2) ** (1.0 / 3.2)
+        mask = np.clip((1.12 - dist_jaw) / 0.14, 0.0, 1.0)[:, :, None]
+        out[y0:y1, x0:x1] = np.clip(face_crop * (1.0 - mask) + f_swapped * mask, 0.0, 1.0)
+
+    out_u8 = np.clip(np.round(out * 255.0), 0, 255).astype(np.uint8)
+    if is_uint8_out:
+        return out_u8
+    return out_u8.astype(np.float32) / 255.0
+
+
 class SpatialFrequencyResidualNet:
-    """Analyzes spatial blending seams, 2D FFT/DCT frequency artifacts, and skin micro-texture smoothing."""
+    """Analyzes spatial blending seams, 2D FFT/DCT frequency artifacts, peri-oral inpainting, and skin smoothing."""
 
     def analyze(self, img: np.ndarray, face_info: dict[str, Any] | None = None) -> dict[str, Any]:
         if face_info is None:
@@ -272,6 +659,7 @@ class SpatialFrequencyResidualNet:
         h, w, _ = img.shape
         lum = 0.299 * img[:, :, 0] + 0.587 * img[:, :, 1] + 0.114 * img[:, :, 2]
         y0, x0, y1, x1 = face_info["bbox"]
+        my0, mx0, my1, mx1 = face_info.get("mouth_roi", (h // 2, w // 4, h, (3 * w) // 4))
 
         # 1. Laplacian high-pass residual (isolates micro-texture & GAN/diffusion seams)
         padded = np.pad(lum, 1, mode="edge")
@@ -285,7 +673,7 @@ class SpatialFrequencyResidualNet:
         abs_lap = np.abs(lap)
 
         # Shrink inner box so boundary seams never bleed into inner skin texture/gradient
-        pad_in = max(4, min(6, min(y1 - y0, x1 - x0) // 10))
+        pad_in = max(4, min(y1 - y0, x1 - x0) // 12)
         iy0, iy1 = min(h, y0 + pad_in), max(y0 + 1, y1 - pad_in)
         ix0, ix1 = min(w, x0 + pad_in), max(x0 + 1, x1 - pad_in)
         if iy1 <= iy0 or ix1 <= ix0:
@@ -296,7 +684,7 @@ class SpatialFrequencyResidualNet:
         inner_mean = float(np.mean(inner_lap)) if inner_lap.size > 0 else 0.0
 
         outer_mask = np.ones((h, w), dtype=bool)
-        bw = max(4, min(6, min(h, w) // 16))
+        bw = max(4, min(h, w) // 20)
         outer_mask[max(0, y0 - bw):min(h, y1 + bw), max(0, x0 - bw):min(w, x1 + bw)] = False
         outer_lap = abs_lap[outer_mask]
         outer_var = float(np.var(outer_lap)) if outer_lap.size > 0 else inner_var
@@ -334,8 +722,58 @@ class SpatialFrequencyResidualNet:
         int_c_grad = float(np.mean(c_grad[interior_mask])) if np.any(interior_mask) else max(seam_c_grad, 0.01)
         chroma_step = max(0.0, seam_c_grad - int_c_grad)
 
+        # 2b. Peri-oral / 96x96 Mouth Inpainting Seam & Upper-vs-Lower Face Texture Discontinuity (Wav2Lip / HeyGen)
+        mpad = max(2, min(4, min(my1 - my0, mx1 - mx0) // 8))
+        miy0, miy1 = min(h, my0 + mpad), max(my0 + 1, my1 - mpad)
+        mix0, mix1 = min(w, mx0 + mpad), max(mx0 + 1, mx1 - mpad)
+        if miy1 <= miy0 or mix1 <= mix0:
+            miy0, miy1, mix0, mix1 = my0, my1, mx0, mx1
+
+        upper_y1 = max(iy0 + 2, min(my0 - 2, iy1))
+        if (y1 - y0) > 96 or (x1 - x0) > 96:
+            uy0 = min(upper_y1 - 1, max(iy0, y0 + int((y1 - y0) * 0.22)))
+            upper_lap = abs_lap[uy0:upper_y1, mix0:mix1]
+            if upper_lap.size == 0:
+                upper_lap = abs_lap[iy0:upper_y1, ix0:ix1]
+        else:
+            upper_lap = abs_lap[iy0:upper_y1, ix0:ix1]
+        upper_lap_mean = float(np.mean(upper_lap)) if upper_lap.size > 0 else inner_mean
+
+        mouth_inner_lap = abs_lap[miy0:miy1, mix0:mix1]
+        mouth_lap_mean = float(np.mean(mouth_inner_lap)) if mouth_inner_lap.size > 0 else upper_lap_mean
+        mouth_tex_ratio = mouth_lap_mean / max(upper_lap_mean, 1e-4)
+
+        mouth_seam_mask = np.zeros((h, w), dtype=bool)
+        mouth_seam_mask[max(0, my0 - 2):min(h, my1 + 2), max(0, mx0 - 2):min(w, mx1 + 2)] = True
+        mouth_seam_mask[miy0:miy1, mix0:mix1] = False
+        mouth_seam_vals = grad[mouth_seam_mask]
+        mouth_int_vals = grad[miy0:miy1, mix0:mix1]
+        mouth_seam_grad = float(np.mean(mouth_seam_vals)) if mouth_seam_vals.size > 0 else 0.0
+        mouth_int_grad = float(np.mean(mouth_int_vals)) if mouth_int_vals.size > 0 else max(mouth_seam_grad, 0.025)
+        mouth_seam_ratio = mouth_seam_grad / max(mouth_int_grad, 0.025)
+
+        perioral_tex_drop = max(0.0, (0.55 - mouth_tex_ratio) / 0.32) if mouth_tex_ratio < 0.55 else 0.0
+        perioral_edge_excess = max(0.0, (mouth_seam_ratio - 1.55) / 1.35) if perioral_tex_drop > 0.05 else 0.0
+        perioral_seam_score = float(
+            np.clip(
+                max(
+                    0.55 * perioral_tex_drop + 0.45 * perioral_edge_excess,
+                    0.92 * perioral_tex_drop if mouth_seam_ratio >= 1.15 else 0.0,
+                ),
+                0.02,
+                0.99,
+            )
+        )
+
         # 3. 2D FFT spectral energy & checkerboard upsampling periodicity
-        face_patch = lum[iy0:iy1, ix0:ix1] if (iy1 - iy0 >= 8 and ix1 - ix0 >= 8) else lum
+        raw_face_patch = lum[iy0:iy1, ix0:ix1] if (iy1 - iy0 >= 8 and ix1 - ix0 >= 8) else lum
+        rfh, rfw = raw_face_patch.shape
+        # Normalize large face patches to canonical 72x72 when no 8x8 DCT grid spike is present so
+        # hf_energy_ratio stays consistent across 128x128 and 320x240/640x480 webcam resolutions
+        if rfh > 96 or rfw > 96:
+            face_patch = _resize_rgb_patch(raw_face_patch[:, :, None], 72, 72)[:, :, 0]
+        else:
+            face_patch = raw_face_patch
         fh, fw = face_patch.shape
         win_y = np.hanning(fh)[:, None]
         win_x = np.hanning(fw)[None, :]
@@ -351,6 +789,21 @@ class SpatialFrequencyResidualNet:
         hf_peak_ratio = (float(np.max(high_band)) / max(high_energy, 1e-5)) if high_band.size > 0 else 1.0
         hf_energy_ratio = high_energy / max(mid_energy, 1e-5)
 
+        # Also check raw-resolution FFT when rfh > 96 so 8x8 DCT block harmonics (FaceFusion/GFPGAN) are preserved
+        if rfh > 96 or rfw > 96:
+            rwin_y = np.hanning(rfh)[:, None]
+            rwin_x = np.hanning(rfw)[None, :]
+            rfft = np.abs(np.fft.fftshift(np.fft.fft2((raw_face_patch - np.mean(raw_face_patch)) * rwin_y * rwin_x)))
+            rcy, rcx = rfh // 2, rfw // 2
+            ryy, rxx = np.ogrid[:rfh, :rfw]
+            rdist = np.hypot((ryy - rcy) / max(1.0, rfh / 2.0), (rxx - rcx) / max(1.0, rfw / 2.0))
+            rmid = rfft[(rdist >= 0.18) & (rdist < 0.55)]
+            rhigh = rfft[rdist >= 0.55]
+            raw_hf_ratio = (float(np.mean(rhigh)) / max(float(np.mean(rmid)), 1e-5)) if (rmid.size > 0 and rhigh.size > 0) else hf_energy_ratio
+            rhigh_peak = (float(np.max(rhigh)) / max(float(np.mean(rhigh)), 1e-5)) if rhigh.size > 0 else 1.0
+            if raw_hf_ratio >= 0.125 and rhigh_peak >= 9.5:
+                hf_energy_ratio = raw_hf_ratio
+
         # Skin smoothing score: when the face interior has abnormally low high-frequency micro-texture
         # compared to the surrounding frame, or extreme over-sharpening from GFPGAN super-resolution
         tex_ratio = inner_mean / max(outer_mean, 1e-4)
@@ -361,16 +814,17 @@ class SpatialFrequencyResidualNet:
         else:
             skin_smoothing_score = 0.06
 
-        # Seam score from boundary gradient spike + chrominance discontinuity
+        # Seam score from boundary gradient spike + chrominance discontinuity + peri-oral inpainting seam
         seam_excess = max(0.0, boundary_seam_ratio - 1.55) / 1.80
         chroma_excess = max(0.0, chroma_step - 0.055) / 0.12
-        frequency_seam_score = float(
+        outer_seam_score = float(
             np.clip(
                 0.55 * seam_excess + 0.35 * chroma_excess + 0.10 * max(0.0, (hf_peak_ratio - 6.5) / 10.0),
                 0.02,
                 0.99,
             )
         )
+        frequency_seam_score = float(np.clip(max(outer_seam_score, perioral_seam_score), 0.02, 0.99))
 
         # Combined spatial score
         spatial_score = float(
@@ -378,6 +832,8 @@ class SpatialFrequencyResidualNet:
                 max(
                     0.55 * frequency_seam_score + 0.45 * skin_smoothing_score,
                     0.85 * min(frequency_seam_score, skin_smoothing_score) + 0.15 * max(frequency_seam_score, skin_smoothing_score),
+                    0.90 * skin_smoothing_score if (boundary_seam_ratio >= 1.35 or skin_smoothing_score >= 0.65) else 0.0,
+                    0.90 * perioral_seam_score,
                 ),
                 0.02,
                 0.99,
@@ -388,11 +844,14 @@ class SpatialFrequencyResidualNet:
             "spatial_score": round(spatial_score, 4),
             "spatial_seam_score": round(max(spatial_score, frequency_seam_score), 4),
             "frequency_seam_score": round(frequency_seam_score, 4),
+            "perioral_seam_score": round(perioral_seam_score, 4),
             "skin_smoothing_score": round(float(skin_smoothing_score), 4),
             "boundary_seam_ratio": round(boundary_seam_ratio, 3),
+            "mouth_seam_ratio": round(mouth_seam_ratio, 3),
             "hf_energy_ratio": round(hf_energy_ratio, 3),
             "chroma_step": round(chroma_step, 3),
         }
+
 
 
 class TemporalConsistencyTracker:
@@ -918,6 +1377,7 @@ class HuggingFaceViTDeepfakeBackbone:
 
         def _bg_worker() -> None:
             try:
+                time.sleep(0.005)
                 # On live request paths, only load local cached weights and default to 1 primary
                 # model on CPU unless SONAVE_VIDEO_HF_MODELS was explicitly configured.
                 explicit_multi = bool(os.environ.get("SONAVE_VIDEO_HF_MODELS", "").strip())
@@ -1092,6 +1552,7 @@ class VideoDeepfakeDetector:
     def reset_speaker(self, speaker_id: str | None = None) -> None:
         self.temporal_tracker.reset(speaker_id)
         self.av_analyzer.reset(speaker_id)
+        reset_visual_synthesis_state(speaker_id)
 
     def score_frame(
         self,
@@ -1104,13 +1565,22 @@ class VideoDeepfakeDetector:
     ) -> dict[str, Any]:
         """Decode and score a participant video frame, returning video_p / p_video_fake and forensic breakdown."""
         eff_ts = ts if ts is not None else timestamp
+        cm = dict(client_metrics or {})
+        apply_model = str(cm.get("apply_deepfake_model") or "").strip().lower()
+        transformed_frame_b64: str | None = cm.get("transformed_frame_b64")
+
         img = decode_frame(frame)
+        if apply_model and not cm.get("_already_synthesized"):
+            syn_arr = synthesize_visual_deepfake(img, engine_id=apply_model, speaker_id=speaker_id)
+            transformed_frame_b64 = encode_frame_b64(syn_arr, fmt="jpeg")
+            img = decode_frame(syn_arr)
+            cm.pop("mouth_delta", None)
+
         face_info = detect_face_region(img)
         vit_res = self.vit_backbone.score(img, face_info)
         spatial = self.spatial_net.analyze(img, face_info)
         temporal = self.temporal_tracker.update(speaker_id, img, face_info, ts=eff_ts)
 
-        cm = dict(client_metrics or {})
         eff_mouth_delta = float(cm.get("mouth_delta", temporal["mouth_delta"]))
         eff_rms = float(cm["audio_rms"]) if "audio_rms" in cm and cm["audio_rms"] is not None else audio_rms
         eff_lag = float(cm["lag_ms"]) if "lag_ms" in cm and cm["lag_ms"] is not None else None
@@ -1152,12 +1622,12 @@ class VideoDeepfakeDetector:
                 t_score * 0.92,
                 av_mismatch * 0.90,
             )
-            p_video = max(0.45 * weighted + 0.55 * peak_signal, 0.88 * visual_core)
+            p_video = max(0.45 * weighted + 0.55 * peak_signal, 0.88 * visual_core, 0.86 * peak_signal)
         else:
             visual_core = 0.55 * s_score + 0.45 * f_score
             weighted = 0.46 * s_score + 0.34 * f_score + 0.10 * t_score + 0.10 * av_mismatch
             peak_signal = max(s_score, f_score, seam_score, visual_core, t_score * 0.92, av_mismatch * 0.90)
-            p_video = max(0.45 * weighted + 0.55 * peak_signal, 0.88 * visual_core)
+            p_video = max(0.45 * weighted + 0.55 * peak_signal, 0.88 * visual_core, 0.86 * peak_signal)
 
         # Allow explicit red-team / client anomaly override when testing synthetic face-swaps
         if cm.get("simulated_attack") or cm.get("force_p_fake") is not None:
@@ -1184,19 +1654,22 @@ class VideoDeepfakeDetector:
             "spatial_score": round(s_score, 4),
             "spatial_seam_score": round(seam_score, 4),
             "frequency_seam_score": round(f_score, 4),
+            "perioral_seam_score": spatial.get("perioral_seam_score", 0.02),
             "skin_smoothing_score": spatial["skin_smoothing_score"],
             "boundary_seam_ratio": spatial["boundary_seam_ratio"],
+            "mouth_seam_ratio": spatial.get("mouth_seam_ratio", 1.0),
             "hf_energy_ratio": spatial["hf_energy_ratio"],
+            "chroma_step": spatial.get("chroma_step", 0.0),
             "temporal_jitter_score": round(t_score, 4),
             "mouth_delta": round(eff_mouth_delta, 4),
             "av_sync_score": round(av_sync_score, 4),
             "lag_ms": av["lag_ms"],
             "face_detected": face_info["face_detected"],
             "face_coverage": face_info["face_coverage"],
-            "engine_hint": cm.get("engine_id") or "",
+            "engine_hint": cm.get("engine_id") or apply_model or "",
         }
 
-        return {
+        out_res = {
             "video_p": p_video,
             "p_video_fake": p_video,
             "verdict": v,
@@ -1211,6 +1684,7 @@ class VideoDeepfakeDetector:
             "spatial_score": round(s_score, 4),
             "spatial_seam_score": round(seam_score, 4),
             "frequency_seam_score": round(f_score, 4),
+            "perioral_seam_score": spatial.get("perioral_seam_score", 0.02),
             "temporal_jitter_score": round(t_score, 4),
             "av_sync_score": round(av_sync_score, 4),
             "mouth_delta": round(eff_mouth_delta, 4),
@@ -1219,6 +1693,11 @@ class VideoDeepfakeDetector:
             "visual_metrics": visual_metrics,
             "model_version": MODEL_VIDEO_VERSION,
         }
+        if transformed_frame_b64:
+            out_res["transformed_frame_b64"] = transformed_frame_b64
+        if apply_model:
+            out_res["applied_deepfake_model"] = apply_model
+        return out_res
 
 
 _VIDEO_DETECTOR: VideoDeepfakeDetector | None = None

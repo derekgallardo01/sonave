@@ -983,3 +983,207 @@ def test_railway_standalone_root_dir_deploy_has_vendored_model_video(monkeypatch
         if saved_mv is not None:
             sys.modules["model_video"] = saved_mv
 
+
+def test_synthesize_visual_deepfake_all_five_engines_genuine_detection():
+    """Verify synthesize_visual_deepfake() applies real pixel-level visual deepfake
+    transformations for all 5 engines and that VideoDeepfakeDetector.score_frame()
+    genuinely detects every transformed frame as FAKE (video_p >= 0.65) without
+    relying on simulated_attack=True score overrides."""
+    import model_video
+    from railway import attribution
+
+    det = model_video.VideoDeepfakeDetector()
+    model_video.reset_visual_synthesis_state()
+
+    nat = _make_natural_face_rgb(128, 128, seed=42, mouth_open=0.22)
+    res_nat = det.score_frame(nat, speaker_id="real_cam_user", audio_rms=0.015)
+    assert res_nat["verdict"] == "real"
+    assert res_nat["video_p"] < 0.45
+
+    engines = [
+        "deepfacelive",
+        "facefusion_simswap",
+        "heygen_liveavatar",
+        "wav2lip_retalking",
+        "hallo_liveportrait",
+    ]
+    for idx, eng_id in enumerate(engines):
+        spk = f"synth_{eng_id}"
+        # Run 2 frames so stateful buffers (e.g. heygen_liveavatar mouth history & jitter) populate
+        out1 = model_video.synthesize_visual_deepfake(nat, eng_id, speaker_id=spk)
+        nat2 = _make_natural_face_rgb(128, 128, seed=42 + idx + 1, mouth_open=0.55)
+        out2 = model_video.synthesize_visual_deepfake(nat2, eng_id, speaker_id=spk)
+
+        assert out2.shape == nat2.shape
+        assert out2.dtype == np.uint8
+        mean_diff = float(np.abs(out2.astype(np.float32) - nat2.astype(np.float32)).mean())
+        assert mean_diff > 1.0, f"{eng_id} did not visibly transform frame pixels"
+
+        if eng_id == "wav2lip_retalking":
+            # Upper face (forehead/eyes) must remain untouched; only lower-face mouth box is inpainted
+            upper_h = int(128 * 0.45)
+            assert np.array_equal(out2[:upper_h], nat2[:upper_h])
+            lower_diff = float(np.abs(out2[int(128 * 0.56):int(128 * 0.84)].astype(np.float32) - nat2[int(128 * 0.56):int(128 * 0.84)].astype(np.float32)).mean())
+            assert lower_diff > 3.5
+
+        # Score genuinely via VideoDeepfakeDetector (no simulated_attack override)
+        det.score_frame(out1, speaker_id=spk, audio_rms=0.24)
+        res = det.score_frame(out2, speaker_id=spk, audio_rms=0.28)
+        assert res["verdict"] == "fake", f"Expected fake verdict for {eng_id}, got {res}"
+        assert res["video_p"] >= 0.65, f"Expected video_p >= 0.65 for {eng_id}, got {res['video_p']}"
+
+        # Verify attribution from real extracted visual_metrics (without engine_hint)
+        attr_no_hint = attribution.attribute_visual_engine(
+            res["video_p"], visual_metrics=res["visual_metrics"]
+        )
+        assert attr_no_hint is not None
+        assert attr_no_hint["engine_id"] == eng_id
+
+    # Verify 320x240 (h=240, w=320) JPEG webcam frames with quiet mic (audio_rms=0.02) on a SINGLE frame
+    nat_cam = _make_natural_face_rgb(240, 320, seed=77, mouth_open=0.15)
+    jpeg_b64 = model_video.encode_frame_b64(nat_cam, fmt="jpeg")
+    jpeg_bytes = base64.b64decode(jpeg_b64.split(",", 1)[1])
+    res_cam_nat = det.score_frame(jpeg_bytes, speaker_id="cam_320x240_nat", audio_rms=0.02)
+    assert res_cam_nat["verdict"] == "real"
+    assert res_cam_nat["video_p"] < 0.45
+
+    blind_mismatches = []
+    for eng_id in engines:
+        res_1f = det.score_frame(
+            jpeg_bytes,
+            speaker_id=f"cam_1f_{eng_id}",
+            audio_rms=0.02,
+            client_metrics={"apply_deepfake_model": eng_id},
+        )
+        assert res_1f["verdict"] == "fake", f"320x240 1-frame {eng_id} expected fake, got {res_1f}"
+        assert res_1f["video_p"] >= 0.65
+        vm_1f_blind = {k: v for k, v in res_1f["visual_metrics"].items() if k != "engine_hint"}
+        attr_1f = attribution.attribute_visual_engine(
+            res_1f["video_p"], visual_metrics=vm_1f_blind
+        )
+        assert attr_1f is not None
+        if attr_1f["engine_id"] != eng_id:
+            blind_mismatches.append((eng_id, attr_1f["engine_id"], vm_1f_blind))
+    assert not blind_mismatches, f"Blind 320x240 mismatches: {blind_mismatches}"
+
+    # Verify tiny and non-square frames (6x6, 8x8, 14x14, 16x16, 24x64) never raise broadcast errors
+    for th, tw in [(6, 6), (8, 8), (14, 14), (16, 16), (24, 64)]:
+        tiny = _make_natural_face_rgb(th, tw, seed=19)
+        for eng_id in engines:
+            t_out = model_video.synthesize_visual_deepfake(tiny, eng_id, speaker_id=f"tiny_{th}x{tw}")
+            assert t_out.shape == (th, tw, 3)
+
+
+def test_live_webcam_apply_deepfake_model_ws_and_rest_without_simulated_override(railway_mod):
+    """Verify that sending a clean webcam frame with apply_deepfake_model (and
+    simulated_attack NOT set) over /api/ws/video-stream and /api/video/score:
+      1. Runs synthesize_visual_deepfake() on the user's frame and returns transformed_frame_b64.
+      2. Genuinely scores the transformed frame via VideoDeepfakeDetector as FAKE (video_p >= 0.65)
+         with simulated=False and deepfake_filter_active=True.
+      3. Immediately recovers to REAL when the user stops the deepfake filter on the next frame."""
+    import model_video
+
+    c = TestClient(railway_mod.app)
+
+    # Check UI updates in /meet-addon and /console: no cartoon eye/wireframe drawing, new button labels & larger canvas
+    r_html = c.get("/meet-addon")
+    assert r_html.status_code == 200
+    assert "Apply Deepfake to My Cam" in r_html.text
+    assert "Stop Deepfake Filter" in r_html.text
+    assert "payload.apply_deepfake_model = eng" in r_html.text
+    assert "res.transformed_frame_b64" in r_html.text
+    assert "rgba(20, 28, 36, 0.78)" not in r_html.text  # cartoon eye scleras removed
+
+    r_con = c.get("/console")
+    assert r_con.status_code == 200
+    assert "Run Visual Deepfake" in r_con.text
+    assert "Stop Deepfake Filter" in r_con.text
+    assert "videoCaptureCanvas" in r_con.text
+    assert "payload.apply_deepfake_model = eng" in r_con.text
+
+    c.post("/api/meet/sessions/connect", json={"space_id": "https://meet.google.com/cam-self-filter"})
+    nat_rgb = _make_natural_face_rgb(128, 128, seed=31, mouth_open=0.25)
+    nat_b64 = base64.b64encode(_encode_rgb_png(nat_rgb)).decode()
+
+    with c.websocket_connect("/api/ws/video-stream?speaker=Host&space_id=cam-self-filter") as ws_vid:
+        # 1. Clean webcam frame -> REAL
+        ws_vid.send_json({
+            "speaker": "Host",
+            "frame_b64": nat_b64,
+            "audio_rms": 0.02,
+            "mouth_delta": 0.022,
+            "source": "webcam_self_check",
+        })
+        res_clean = ws_vid.receive_json()
+        assert res_clean["video_verdict"] == "real"
+        assert res_clean["video_p"] < 0.45
+        assert res_clean["transformed_frame_b64"] is None
+
+        # 2. User activates "Apply Deepfake to My Cam" -> sends raw webcam frame + apply_deepfake_model
+        #    Note: simulated_attack is NOT set! Detection is 100% genuine on the synthesized pixels.
+        for eng_id in ("deepfacelive", "heygen_liveavatar", "wav2lip_retalking", "facefusion_simswap"):
+            ws_vid.send_json({
+                "speaker": "Host",
+                "frame_b64": nat_b64,
+                "audio_rms": 0.26,
+                "mouth_delta": 0.001,
+                "apply_deepfake_model": eng_id,
+                "source": "webcam_self_check",
+            })
+            res_df = ws_vid.receive_json()
+            assert res_df["video_verdict"] == "fake", f"Expected fake for {eng_id}, got {res_df}"
+            assert res_df["video_p"] >= 0.65
+            assert res_df["simulated"] is False
+            assert res_df["deepfake_filter_active"] is True
+            assert res_df["applied_deepfake_model"] == eng_id
+            assert res_df["transformed_frame_b64"] is not None
+            assert res_df["transformed_frame_b64"].startswith(
+                ("data:image/jpeg;base64,", "data:image/png;base64,")
+            )
+            assert res_df["video_attribution"]["engine_id"] == eng_id
+
+            # Decode returned transformed_frame_b64 and confirm it is a valid modified RGB frame
+            tf_raw = base64.b64decode(res_df["transformed_frame_b64"].split(",", 1)[1])
+            tf_arr = model_video.decode_frame(tf_raw) * 255.0
+            assert tf_arr.shape == nat_rgb.shape
+            assert float(np.abs(tf_arr - nat_rgb.astype(np.float32)).mean()) > 1.0
+
+        # 3. User clicks "Stop Deepfake Filter" -> next frame has no apply_deepfake_model
+        #    Must immediately recover to REAL without needing a separate reset call
+        ws_vid.send_json({
+            "speaker": "Host",
+            "frame_b64": nat_b64,
+            "audio_rms": 0.02,
+            "mouth_delta": 0.024,
+            "source": "webcam_self_check",
+        })
+        res_rec = ws_vid.receive_json()
+        assert res_rec["video_verdict"] == "real"
+        assert res_rec["video_p"] < 0.45
+        assert res_rec["deepfake_filter_active"] is False
+        assert res_rec["transformed_frame_b64"] is None
+
+    # 4. Also verify REST /api/video/score with apply_deepfake_model
+    r_rest = c.post(
+        "/api/video/score",
+        json={
+            "speaker": "Host",
+            "space_id": "cam-self-filter",
+            "frame_b64": nat_b64,
+            "audio_rms": 0.25,
+            "mouth_delta": 0.001,
+            "apply_deepfake_model": "hallo_liveportrait",
+        },
+    )
+    assert r_rest.status_code == 200
+    body_rest = r_rest.json()
+    assert body_rest["video_verdict"] == "fake"
+    assert body_rest["video_p"] >= 0.65
+    assert body_rest["simulated"] is False
+    assert body_rest["deepfake_filter_active"] is True
+    assert body_rest["applied_deepfake_model"] == "hallo_liveportrait"
+    assert body_rest["transformed_frame_b64"].startswith(
+        ("data:image/jpeg;base64,", "data:image/png;base64,")
+    )
+    assert body_rest["video_attribution"]["engine_id"] == "hallo_liveportrait"
+

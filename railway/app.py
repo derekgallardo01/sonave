@@ -1987,6 +1987,7 @@ async def ws_video_stream(ws: WebSocket):
                     "mouth_delta",
                     "lag_ms",
                     "engine_id",
+                    "apply_deepfake_model",
                     "simulated_attack",
                     "source",
                     "target_video_p",
@@ -2331,24 +2332,38 @@ def _score_video_and_store(
     """Score a video frame for spatial-frequency blending seams, temporal landmark
     jitter, and audio-visual lip-sync coherence, updating VIDEO_STATE and escalating
     sustained video deepfakes (streak >= 2, video_p >= 0.65) to incidents."""
-    client_metrics = client_metrics or {}
+    client_metrics = dict(client_metrics or {})
+    apply_model = str(client_metrics.get("apply_deepfake_model") or "").strip().lower()
+    now_sim_or_filter = bool(client_metrics.get("simulated_attack") or apply_model)
     key = (user_id, spk)
     now = time.time()
     LAST_FRAME[user_id] = now
 
     with _STATE_LOCK:
         prev_vs_initial = VIDEO_STATE.get(key, {})
-        was_simulated = bool(prev_vs_initial.get("simulated"))
+        was_simulated = bool(prev_vs_initial.get("simulated") or prev_vs_initial.get("deepfake_filter_active"))
         if audio_rms is None:
             q_cur = QUALITY.get(key)
             if q_cur and q_cur.get("level") is not None:
                 audio_rms = float(q_cur["level"])
 
-    if was_simulated and not client_metrics.get("simulated_attack") and model_video is not None:
+    if was_simulated != now_sim_or_filter and model_video is not None:
         try:
             model_video.get_video_detector().reset_speaker(spk)
         except Exception:
             pass
+
+    transformed_frame_b64: str | None = None
+    if apply_model and frame_bytes and model_video is not None:
+        try:
+            syn_arr = model_video.synthesize_visual_deepfake(frame_bytes, engine_id=apply_model, speaker_id=spk)
+            transformed_frame_b64 = model_video.encode_frame_b64(syn_arr, fmt="jpeg")
+            frame_bytes = model_video.encode_frame_png(syn_arr)
+            client_metrics["_already_synthesized"] = True
+            client_metrics["transformed_frame_b64"] = transformed_frame_b64
+            client_metrics.pop("mouth_delta", None)
+        except Exception as e:
+            logger.debug("synthesize_visual_deepfake failed: %s", repr(e)[:80])
 
     res = None
     if SCORER_URL and frame_bytes and not client_metrics.get("simulated_attack"):
@@ -2411,10 +2426,15 @@ def _score_video_and_store(
                 "model_version": getattr(model_video, "MODEL_VIDEO_VERSION", "sonave-vit-freq-v1"),
             }
 
+    if not transformed_frame_b64 and res.get("transformed_frame_b64"):
+        transformed_frame_b64 = res["transformed_frame_b64"]
+
     # Incorporate client-side optical flow / mouth delta or simulated attack overrides
     v_metrics = dict(res.get("visual_metrics") or {})
     for k in (
         "spatial_seam_score",
+        "perioral_seam_score",
+        "skin_smoothing_score",
         "temporal_jitter_score",
         "av_sync_score",
         "vit_score",
@@ -2458,22 +2478,29 @@ def _score_video_and_store(
 
     with _STATE_LOCK:
         prev_vs = VIDEO_STATE.get(key, {})
+        prev_was_sim_or_filter = bool(prev_vs.get("simulated") or prev_vs.get("deepfake_filter_active"))
         if client_metrics.get("simulated_attack"):
             window = [raw_p, raw_p]
-        elif prev_vs.get("simulated"):
+        elif apply_model:
+            if not prev_vs.get("deepfake_filter_active") or prev_vs.get("applied_deepfake_model") != apply_model:
+                window = [raw_p]
+            else:
+                prev_win = [float(x) for x in prev_vs.get("window", []) if x is not None]
+                window = (prev_win[-4:] if prev_win else []) + [raw_p]
+        elif prev_was_sim_or_filter:
             window = [raw_p]
         else:
             prev_win = [float(x) for x in prev_vs.get("window", []) if x is not None]
             window = (prev_win[-4:] if prev_win else []) + [raw_p]
         rolling_vp = round(sum(window) / len(window), 3)
         v_verdict = "fake" if rolling_vp >= 0.65 else ("suspect" if rolling_vp >= 0.42 else "real")
-        prev_streak = 0 if (prev_vs.get("simulated") and not client_metrics.get("simulated_attack")) else int(prev_vs.get("fake_streak", 0))
+        prev_streak = 0 if (prev_was_sim_or_filter and not now_sim_or_filter) else int(prev_vs.get("fake_streak", 0))
         fake_streak = (prev_streak + 1) if v_verdict == "fake" else 0
         if client_metrics.get("simulated_attack") and v_verdict == "fake":
             fake_streak = max(fake_streak, 2)
         checks = int(prev_vs.get("n", 0)) + 1
 
-        engine_hint = client_metrics.get("engine_id")
+        engine_hint = client_metrics.get("engine_id") or (apply_model if apply_model else None)
         video_attr = attribution.attribute_visual_engine(
             rolling_vp, speaker_name=spk, metrics=v_metrics, engine_hint=engine_hint
         )
@@ -2506,12 +2533,15 @@ def _score_video_and_store(
             "model": res.get("model_version", getattr(model_video, "MODEL_VIDEO_VERSION", "sonave-vit-freq-v1")),
             "source": client_metrics.get("source", "meet_video"),
             "simulated": bool(client_metrics.get("simulated_attack")),
+            "deepfake_filter_active": bool(apply_model),
+            "applied_deepfake_model": apply_model or None,
+            "transformed_frame_b64": transformed_frame_b64,
         }
         VIDEO_STATE[key] = entry
 
-        # When a live webcam face-swap simulation targets Host directly, purge any standalone
+        # When a live webcam deepfake filter or simulation targets Host directly, purge any standalone
         # dummy simulated video speakers (e.g. CFO_DeepFaceLive_Clone) so they never coexist.
-        if spk == "Host" and client_metrics.get("simulated_attack"):
+        if spk == "Host" and now_sim_or_filter:
             stale_sim_spks = [
                 k[1] for k, vs in list(VIDEO_STATE.items())
                 if k[0] == user_id and k[1] != "Host" and isinstance(vs, dict) and vs.get("simulated")
@@ -3770,11 +3800,14 @@ class SynthReq(BaseModel):
 class VideoScoreReq(BaseModel):
     frame_b64: str = ""
     speaker: str = "You (Speaker)"
+    speaker_name: str | None = None
+    space_id: str | None = None
     audio_rms: float | None = None
     mouth_delta: float | None = None
     lag_ms: int | None = None
     source: str = "meet_video"
     simulated_attack: bool = False
+    apply_deepfake_model: str | None = None
     engine_id: str | None = None
     target_video_p: float | None = None
     vit_score: float | None = None
@@ -3797,7 +3830,8 @@ class VideoSimReq(BaseModel):
 @app.post("/api/video/score")
 def api_video_score(req: VideoScoreReq, p: auth.Principal = Depends(require_principal)):
     """Score a single video frame (base64 JPEG/PNG) and update live multimodal state."""
-    spk = _canonical_host_speaker(req.speaker or "Host", default="Host")[:64]
+    raw_spk = req.speaker_name or req.speaker or "Host"
+    spk = _canonical_host_speaker(raw_spk, default="Host")[:64]
     b64 = (req.frame_b64 or "").strip()
     if "," in b64 and b64.startswith("data:"):
         b64 = b64.split(",", 1)[1]
@@ -3817,6 +3851,7 @@ def api_video_score(req: VideoScoreReq, p: auth.Principal = Depends(require_prin
         "mouth_delta",
         "lag_ms",
         "engine_id",
+        "apply_deepfake_model",
         "target_video_p",
         "vit_score",
         "spatial_seam_score",
@@ -3859,7 +3894,7 @@ def _clear_simulated_state(uid: str) -> list[str]:
     with _STATE_LOCK:
         sim_video_spks = {
             k[1] for k, vs in VIDEO_STATE.items()
-            if k[0] == uid and isinstance(vs, dict) and vs.get("simulated")
+            if k[0] == uid and isinstance(vs, dict) and (vs.get("simulated") or vs.get("deepfake_filter_active"))
         }
         for k in list(QUALITY.keys()):
             if k[0] == uid and not _is_local_host_alias(k[1]) and (

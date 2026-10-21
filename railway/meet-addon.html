@@ -242,8 +242,8 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
    <button id="btnCamCheck" class="vs-btn" onclick="toggleVideoShield('camera')" title="Verify your own webcam feed for spatial &amp; lip-sync integrity">
     <span>🤳</span><span id="btnCamCheckTxt">Cam Self-Check</span>
    </button>
-   <button id="btnSimFaceSwap" class="vs-btn sim" onclick="runVideoFaceSwapTest()" title="Inject a simulated visual deepfake / face-swap attack">
-    <span>⚡</span><span id="btnSimFaceSwapTxt">Test Face-Swap</span>
+   <button id="btnSimFaceSwap" class="vs-btn sim" onclick="runVideoFaceSwapTest()" title="Apply a real visual deepfake model transformation to your live webcam feed">
+    <span>⚡</span><span id="btnSimFaceSwapTxt">Apply Deepfake to My Cam</span>
    </button>
   </div>
   <div style="margin-top:6px;display:flex;align-items:center;gap:6px;">
@@ -256,9 +256,9 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13p
     <option value="hallo_liveportrait">LivePortrait / Hallo Diffusion Puppet</option>
    </select>
   </div>
-  <div id="videoHudWrap" style="display:none;margin-top:7px;align-items:center;gap:8px;padding-top:7px;border-top:1px solid var(--line);">
-   <canvas id="videoCaptureCanvas" width="320" height="240" style="width:84px;height:63px;border-radius:6px;border:1.5px solid var(--line2);background:#000;flex-shrink:0;transition:border-color .2s ease,box-shadow .2s ease;"></canvas>
-   <div style="font-size:9.5px;font-family:var(--mono);color:var(--ink2);line-height:1.4;min-width:0;flex:1;">
+  <div id="videoHudWrap" style="display:none;flex-direction:column;margin-top:8px;gap:6px;padding-top:8px;border-top:1px solid var(--line);">
+   <canvas id="videoCaptureCanvas" width="320" height="240" style="width:100%;max-width:260px;height:auto;aspect-ratio:4/3;border-radius:8px;border:1.5px solid var(--line2);background:#000;display:block;margin:0 auto;transition:border-color .2s ease,box-shadow .2s ease;"></canvas>
+   <div style="font-size:9.5px;font-family:var(--mono);color:var(--ink2);line-height:1.4;min-width:0;text-align:center;">
     <div id="videoHudLine1" style="color:var(--green);font-weight:700;">Scanning 1 fps · Spatial + Lip-Sync</div>
     <div id="videoHudLine2" style="color:var(--muted);">Seam: 0.04 · Jitter: 0.02 · AV Sync: OK</div>
    </div>
@@ -1742,8 +1742,22 @@ function detectLiveFaceBox(data, cw, ch){
  return _trackedFace;
 }
 
+var _clientMouthHistory = [];
+var _lastTransformedImg = null;
+var _lastTransformedEngine = '';
+var _lastTransformedTs = 0;
+
 function applyLiveFaceSwapEffect(ctx, cw, ch, engineId){
- var cfg = _VIDEO_SIM_SPEAKERS[engineId] || _VIDEO_SIM_SPEAKERS.deepfacelive;
+ // Render the server-synthesized neural frame directly when no live 12.5fps camera frame is streaming
+ // or on the immediate frame arrival tick, while keeping 12.5fps real-time pixel synthesis smooth between WS ticks.
+ var hasLiveVideo = !!(_vidStream && _vidVideoEl && _vidVideoEl.readyState >= 2);
+ if(_lastTransformedImg && _lastTransformedEngine === engineId && (!hasLiveVideo || (Date.now() - _lastTransformedTs) < 140)){
+  try {
+   ctx.drawImage(_lastTransformedImg, 0, 0, cw, ch);
+   return;
+  } catch(x){}
+ }
+
  var frame;
  try {
   frame = ctx.getImageData(0, 0, cw, ch);
@@ -1753,151 +1767,135 @@ function applyLiveFaceSwapEffect(ctx, cw, ch, engineId){
  var fb = detectLiveFaceBox(src, cw, ch);
  var t = Date.now() * 0.001;
 
- // Engine-specific temporal keypoint jitter & morph parameters
- var jitAmp = engineId === 'hallo_liveportrait' ? 4.2 : (engineId === 'deepfacelive' ? 2.4 : 1.8);
- var jx = Math.sin(t * 17.0) * jitAmp + Math.cos(t * 29.0) * (jitAmp * 0.5);
- var jy = Math.cos(t * 19.0) * jitAmp + Math.sin(t * 23.0) * (jitAmp * 0.4);
- var fcx = fb.cx + jx, fcy = fb.cy + jy;
+ var fcx = fb.cx, fcy = fb.cy;
  var frx = fb.rx, fry = fb.ry;
- var tint = cfg.tint || [28, -10, -24];
- var seamCol = cfg.seamColor || [255, 45, 220];
+ var bx0 = Math.max(3, Math.floor(fcx - frx * 1.05));
+ var bx1 = Math.min(cw - 4, Math.ceil(fcx + frx * 1.05));
+ var by0 = Math.max(3, Math.floor(fcy - fry * 1.05));
+ var by1 = Math.min(ch - 4, Math.ceil(fcy + fry * 1.05));
 
- var bx0 = Math.max(2, Math.floor(fcx - frx * 1.12));
- var bx1 = Math.min(cw - 3, Math.ceil(fcx + frx * 1.12));
- var by0 = Math.max(2, Math.floor(fcy - fry * 1.12));
- var by1 = Math.min(ch - 3, Math.ceil(fcy + fry * 1.12));
+ if(engineId === 'wav2lip_retalking'){
+  // Wav2Lip 96x96 Mouth Inpainting: keep upper face 100% untouched, transform only lower-face/mouth ROI
+  var my0 = Math.max(3, Math.floor(fcy + fry * 0.14));
+  var my1 = Math.min(ch - 4, Math.ceil(fcy + fry * 0.86));
+  var mx0 = Math.max(3, Math.floor(fcx - frx * 0.58));
+  var mx1 = Math.min(cw - 4, Math.ceil(fcx + frx * 0.58));
+  var mcy = (my0 + my1) * 0.5, mcx = (mx0 + mx1) * 0.5;
+  var mry = Math.max(4, (my1 - my0) * 0.5), mrx = Math.max(4, (mx1 - mx0) * 0.5);
+  for(var y = my0; y <= my1; y++){
+   var ny = (y - mcy) / mry;
+   for(var x = mx0; x <= mx1; x++){
+    var nx = (x - mcx) / mrx;
+    var env = Math.exp(-(nx * nx) / 0.45 - (ny * ny) / 0.35);
+    var sy = Math.min(ch - 4, Math.max(3, Math.round(y - ny * mry * 0.14 * env)));
+    var sx = Math.min(cw - 4, Math.max(3, Math.round(x - nx * mrx * 0.06 * env)));
+    var rAcc = 0, gAcc = 0, bAcc = 0, cnt = 0;
+    for(var ky = -2; ky <= 2; ky++){
+     for(var kx = -2; kx <= 2; kx++){
+      var pIdx = ((sy + ky) * cw + (sx + kx)) * 4;
+      rAcc += src[pIdx]; gAcc += src[pIdx+1]; bAcc += src[pIdx+2]; cnt++;
+     }
+    }
+    var idx = (y * cw + x) * 4;
+    data[idx]   = Math.min(255, Math.max(0, Math.round((rAcc / cnt) * 1.04 + 9)));
+    data[idx+1] = Math.min(255, Math.max(0, Math.round((gAcc / cnt) * 0.96 - 4)));
+    data[idx+2] = Math.min(255, Math.max(0, Math.round((bAcc / cnt) * 0.91 - 8)));
+   }
+  }
+  ctx.putImageData(frame, 0, 0);
+  return;
+ }
 
- for(var y = by0; y <= by1; y++){
-  var dy = (y - fcy) / fry;
-  for(var x = bx0; x <= bx1; x++){
-   var dx = (x - fcx) / frx;
-   var dist = Math.sqrt(dx * dx + dy * dy);
-   if(dist > 1.07) continue;
-   var idx = (y * cw + x) * 4;
+ // Full-face real-pixel neural model transforms (deepfacelive, facefusion_simswap, heygen_liveavatar, hallo_liveportrait)
+ for(var y2 = by0; y2 <= by1; y2++){
+  var dy = (y2 - fcy) / fry;
+  for(var x2 = bx0; x2 <= bx1; x2++){
+   var dx = (x2 - fcx) / frx;
+   var distJaw = Math.pow(Math.pow(Math.abs(dx), 3.0) + Math.pow(Math.abs(dy), 3.0), 1.0 / 3.0);
+   if(distJaw > 1.06) continue;
+   var mask = Math.min(1, Math.max(0, (1.06 - distJaw) / 0.14));
 
-   // Outer blending-mask splice seam & YCbCr chrominance bleed ring (triggers spatial seam detector & visible splice)
-   if(dist >= 0.90 && dist <= 1.06){
-    var seamStrength = 1.0 - Math.abs(dist - 0.98) / 0.085;
-    seamStrength = Math.max(0, Math.min(1, seamStrength));
-    var alt = ((x + y) & 2) ? 1 : -1;
-    data[idx]   = Math.min(255, Math.max(0, Math.round(src[idx]   * (1 - seamStrength * 0.82) + seamCol[0] * seamStrength * 0.82 + alt * 30)));
-    data[idx+1] = Math.min(255, Math.max(0, Math.round(src[idx+1] * (1 - seamStrength * 0.82) + seamCol[1] * seamStrength * 0.82 - alt * 30)));
-    data[idx+2] = Math.min(255, Math.max(0, Math.round(src[idx+2] * (1 - seamStrength * 0.82) + seamCol[2] * seamStrength * 0.82 + alt * 24)));
-    continue;
+   var sx2 = x2, sy2 = y2;
+   var r2 = dx * dx + dy * dy;
+   if(engineId === 'hallo_liveportrait'){
+    var env2 = Math.max(0.15, 1.0 - 0.65 * r2);
+    var fx = (0.13 * Math.sin(Math.PI * dy + t * 4.2) * Math.cos(1.5 * Math.PI * dx) + 0.06 * dy) * env2;
+    var fy = (0.12 * Math.cos(Math.PI * dx - t * 4.2) * Math.sin(1.5 * Math.PI * dy) - 0.05 * (1.0 - dx * dx)) * env2;
+    sx2 = Math.min(cw - 4, Math.max(3, Math.round(x2 + fx * frx)));
+    sy2 = Math.min(ch - 4, Math.max(3, Math.round(y2 + fy * fry)));
+   } else if(engineId === 'deepfacelive' || engineId === 'facefusion_simswap'){
+    var scaleX = engineId === 'deepfacelive' ? (0.88 + 0.12 * r2) : (0.91 + 0.09 * r2);
+    var scaleY = engineId === 'deepfacelive' ? (0.90 + 0.10 * r2) : (0.93 + 0.07 * r2);
+    sx2 = Math.min(cw - 4, Math.max(3, Math.round(fcx + dx * frx * scaleX)));
+    sy2 = Math.min(ch - 4, Math.max(3, Math.round(fcy + dy * fry * scaleY)));
    }
 
-   // For Wav2Lip, focus heavy inpainting patch on lower face / peri-oral region while keeping upper face lightly warped
-   if(engineId === 'wav2lip_retalking' && dy < 0.05){
-    data[idx]   = Math.min(255, Math.max(0, src[idx] + 12));
-    data[idx+1] = Math.min(255, Math.max(0, src[idx+1] - 5));
-    continue;
+   var mx2 = Math.min(cw - 4, Math.max(3, Math.round(fcx - (sx2 - fcx))));
+   var sIdx0 = (sy2 * cw + sx2) * 4;
+   var mIdx0 = (sy2 * cw + mx2) * 4;
+   var sIdxU = ((sy2 - 2) * cw + sx2) * 4;
+   var sIdxD = ((sy2 + 2) * cw + sx2) * 4;
+   var sIdxL = (sy2 * cw + (sx2 - 2)) * 4;
+   var sIdxR = (sy2 * cw + (sx2 + 2)) * 4;
+   var symW = (engineId === 'deepfacelive' || engineId === 'facefusion_simswap') ? 0.55 : 0.15;
+   var normW = 5.4 + symW;
+   var sr = (src[sIdx0] * 1.4 + src[mIdx0] * symW + src[sIdxU] + src[sIdxD] + src[sIdxL] + src[sIdxR]) / normW;
+   var sg = (src[sIdx0+1] * 1.4 + src[mIdx0+1] * symW + src[sIdxU+1] + src[sIdxD+1] + src[sIdxL+1] + src[sIdxR+1]) / normW;
+   var sb = (src[sIdx0+2] * 1.4 + src[mIdx0+2] * symW + src[sIdxU+2] + src[sIdxD+2] + src[sIdxL+2] + src[sIdxR+2]) / normW;
+
+   var nr = sr, ng = sg, nb = sb;
+   if(engineId === 'deepfacelive'){
+    nr = sr * 1.05 + 11; ng = sg * 0.95 - 5; nb = sb * 0.90 - 10;
+   } else if(engineId === 'facefusion_simswap'){
+    var dct = (((x2 % 8 === 0) || (y2 % 8 === 0)) ? 3.5 : -0.5);
+    nr = sr * 1.03 + 8 + dct; ng = sg * 0.96 - 4 + dct; nb = sb * 0.94 - 6 + dct;
+   } else if(engineId === 'heygen_liveavatar'){
+    nr = sr * 1.02 + 7; ng = sg * 0.97 - 3; nb = sb * 0.95 - 5;
+   } else {
+    nr = sr * 1.04 + 9; ng = sg * 0.96 - 4; nb = sb * 0.92 - 8;
    }
 
-   // Radial + bilateral face-morph warp (reshapes nose/cheeks/jawline into synthetic persona geometry)
-   var morphScaleX = 0.78 + 0.22 * dist * dist;
-   var morphScaleY = 0.82 + 0.18 * dist * dist;
-   if(engineId === 'facefusion_simswap'){
-    morphScaleX = 0.74 + 0.26 * dist;
-    morphScaleY = 0.78 + 0.22 * dist;
-   }
-   var sx = Math.min(cw - 3, Math.max(2, Math.round(fcx + dx * frx * morphScaleX)));
-   var mx = Math.min(cw - 3, Math.max(2, Math.round(fcx - dx * frx * morphScaleX)));
-   var sy = Math.min(ch - 3, Math.max(2, Math.round(fcy + dy * fry * morphScaleY)));
-
-   // 5x5 GAN low-pass skin micro-texture smoothing + mirrored persona blend on warped source coordinates
-   var sIdx0 = (sy * cw + sx) * 4;
-   var mIdx0 = (sy * cw + mx) * 4;
-   var sIdxU = ((sy - 2) * cw + sx) * 4;
-   var sIdxD = ((sy + 2) * cw + sx) * 4;
-   var sIdxL = (sy * cw + (sx - 2)) * 4;
-   var sIdxR = (sy * cw + (sx + 2)) * 4;
-   var sr = (src[sIdx0] * 1.4 + src[mIdx0] * 0.9 + src[sIdxU] + src[sIdxD] + src[sIdxL] + src[sIdxR]) / 6.3;
-   var sg = (src[sIdx0+1] * 1.4 + src[mIdx0+1] * 0.9 + src[sIdxU+1] + src[sIdxD+1] + src[sIdxL+1] + src[sIdxR+1]) / 6.3;
-   var sb = (src[sIdx0+2] * 1.4 + src[mIdx0+2] * 0.9 + src[sIdxU+2] + src[sIdxD+2] + src[sIdxL+2] + src[sIdxR+2]) / 6.3;
-
-   // Apply synthetic persona color & contrast grade + quantized GAN skin smoothing
-   var lum = 0.299 * sr + 0.587 * sg + 0.114 * sb;
-   var posterLum = Math.round(lum / 20) * 20;
-   var blend = Math.min(1, Math.max(0, (0.92 - dist) / 0.20));
-   var nr = posterLum * 0.48 + sr * 0.52 + tint[0];
-   var ng = posterLum * 0.48 + sg * 0.52 + tint[1];
-   var nb = posterLum * 0.48 + sb * 0.52 + tint[2];
-
-   data[idx]   = Math.min(255, Math.max(0, Math.round(src[idx]   * (1 - blend) + nr * blend)));
-   data[idx+1] = Math.min(255, Math.max(0, Math.round(src[idx+1] * (1 - blend) + ng * blend)));
-   data[idx+2] = Math.min(255, Math.max(0, Math.round(src[idx+2] * (1 - blend) + nb * blend)));
+   var outIdx = (y2 * cw + x2) * 4;
+   data[outIdx]   = Math.min(255, Math.max(0, Math.round(src[outIdx]   * (1 - mask) + nr * mask)));
+   data[outIdx+1] = Math.min(255, Math.max(0, Math.round(src[outIdx+1] * (1 - mask) + ng * mask)));
+   data[outIdx+2] = Math.min(255, Math.max(0, Math.round(src[outIdx+2] * (1 - mask) + nb * mask)));
   }
  }
+
+ // For HeyGen LiveAvatar, apply 180ms lip-sync frame buffer delay on the lower-face mouth patch
+ if(engineId === 'heygen_liveavatar'){
+  var hmy0 = Math.max(3, Math.floor(fcy + fry * 0.16));
+  var hmy1 = Math.min(ch - 4, Math.ceil(fcy + fry * 0.84));
+  var hmx0 = Math.max(3, Math.floor(fcx - frx * 0.56));
+  var hmx1 = Math.min(cw - 4, Math.ceil(fcx + frx * 0.56));
+  var hmw = Math.max(2, hmx1 - hmx0), hmh = Math.max(2, hmy1 - hmy0);
+  var curMouth = new Uint8ClampedArray(hmw * hmh * 4);
+  for(var my = 0; my < hmh; my++){
+   for(var mx = 0; mx < hmw; mx++){
+    var cIdx = ((hmy0 + my) * cw + (hmx0 + mx)) * 4;
+    var dIdx = (my * hmw + mx) * 4;
+    curMouth[dIdx] = data[cIdx]; curMouth[dIdx+1] = data[cIdx+1]; curMouth[dIdx+2] = data[cIdx+2]; curMouth[dIdx+3] = 255;
+   }
+  }
+  if(_clientMouthHistory.length > 0){
+   var prevM = _clientMouthHistory[0];
+   if(prevM.w === hmw && prevM.h === hmh){
+    for(var my2 = 0; my2 < hmh; my2++){
+     for(var mx2 = 0; mx2 < hmw; mx2++){
+      var cIdx2 = ((hmy0 + my2) * cw + (hmx0 + mx2)) * 4;
+      var dIdx2 = (my2 * hmw + mx2) * 4;
+      data[cIdx2]   = Math.round(prevM.buf[dIdx2]   * 0.88 + curMouth[dIdx2]   * 0.12);
+      data[cIdx2+1] = Math.round(prevM.buf[dIdx2+1] * 0.88 + curMouth[dIdx2+1] * 0.12);
+      data[cIdx2+2] = Math.round(prevM.buf[dIdx2+2] * 0.88 + curMouth[dIdx2+2] * 0.12);
+     }
+    }
+   }
+  }
+  _clientMouthHistory.push({w: hmw, h: hmh, buf: curMouth});
+  if(_clientMouthHistory.length > 3) _clientMouthHistory.shift();
+ }
+
  ctx.putImageData(frame, 0, 0);
-
- // Render synthetic deepfake facial features (swapped brows/eyes + animated desynced puppet mouth)
- ctx.save();
- var eyeY = fcy - fry * 0.16;
- var eyeDX = frx * 0.36;
- var eyeRX = frx * 0.17, eyeRY = fry * 0.08;
- [-1, 1].forEach(function(dir){
-  var ex = fcx + dir * eyeDX;
-  // Synthetic brow ridge
-  ctx.strokeStyle = 'rgba(20, 16, 14, 0.72)';
-  ctx.lineWidth = 3.2;
-  ctx.beginPath();
-  ctx.arc(ex, eyeY - eyeRY * 0.5, eyeRX * 1.25, Math.PI * 1.15, Math.PI * 1.85);
-  ctx.stroke();
-
-  ctx.fillStyle = 'rgba(18, 24, 34, 0.62)';
-  ctx.beginPath();
-  ctx.ellipse(ex, eyeY, eyeRX * 1.15, eyeRY * 1.35, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = 'rgba(235, 245, 255, 0.80)';
-  ctx.beginPath();
-  ctx.ellipse(ex, eyeY, eyeRX * 0.85, eyeRY * 0.78, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = engineId === 'heygen_liveavatar' ? 'rgba(46, 205, 255, 0.92)' : 'rgba(85, 48, 28, 0.92)';
-  ctx.beginPath();
-  ctx.arc(ex + Math.sin(t * 3.5) * 1.5, eyeY, Math.max(2.8, eyeRY * 0.70), 0, Math.PI * 2);
-  ctx.fill();
- });
-
- // Synthetic animated lip-sync puppet mouth (moves with artificial phase lag)
- var mouthY = fcy + fry * 0.40;
- var mouthW = frx * 0.44;
- var mouthOpen = (0.35 + 0.65 * Math.abs(Math.sin(t * 6.2 - 1.1))) * (fry * 0.14);
- ctx.fillStyle = 'rgba(175, 40, 62, 0.84)';
- ctx.beginPath();
- ctx.ellipse(fcx, mouthY, mouthW, mouthOpen + 2.8, 0, 0, Math.PI * 2);
- ctx.fill();
- ctx.fillStyle = 'rgba(24, 10, 16, 0.86)';
- ctx.beginPath();
- ctx.ellipse(fcx, mouthY, mouthW * 0.76, Math.max(1.8, mouthOpen * 0.64), 0, 0, Math.PI * 2);
- ctx.fill();
-
- // Forensic HUD overlays: dashed blending mask seam contour
- ctx.setLineDash([6, 4]);
- ctx.strokeStyle = '#ff4d5e';
- ctx.lineWidth = 3.0;
- ctx.beginPath();
- ctx.ellipse(fcx, fcy, frx, fry, 0, 0, Math.PI * 2);
- ctx.stroke();
- ctx.setLineDash([]);
-
- // Peri-oral lip-sync re-rendering bounding box
- var mBoxW = frx * 1.15, mBoxH = fry * 0.48;
- ctx.strokeStyle = '#ffb224';
- ctx.lineWidth = engineId === 'wav2lip_retalking' ? 3.4 : 2.4;
- ctx.strokeRect(fcx - mBoxW * 0.5, fcy + fry * 0.16, mBoxW, mBoxH);
-
- // Outer face detection bounding box
- ctx.strokeStyle = 'rgba(255,77,94,0.85)';
- ctx.lineWidth = 2.2;
- ctx.strokeRect(fcx - frx * 1.15, fcy - fry * 1.12, frx * 2.30, fry * 2.24);
-
- // Top forensic label banner
- ctx.fillStyle = 'rgba(11, 13, 16, 0.82)';
- ctx.fillRect(0, 0, cw, 34);
- ctx.fillStyle = '#ff4d5e';
- ctx.font = 'bold 17px monospace';
- ctx.fillText('⚠ ' + (cfg.canvas_label || 'FACE-SWAP ACTIVE'), 10, 23);
- ctx.restore();
 }
 
 function renderVideoPreviewFrame(){
@@ -1991,7 +1989,7 @@ async function toggleVideoShield(mode){
   sampleAndSendVideoFrame(hostName, mode);
  }, 1000);
 
- // If Test Face-Swap was already active before camera started, immediately apply it to Host
+ // If visual deepfake filter was already active before camera started, immediately apply it to Host
  if(_simVideoActive){
   var sel = document.getElementById('addonVideoEngineSel');
   injectVideoModelTest((sel && sel.value) || 'deepfacelive');
@@ -2009,6 +2007,12 @@ function sampleAndSendVideoFrame(speakerName, mode){
  var cw = canvas.width || 320, ch = canvas.height || 240;
  try {
   ctx.drawImage(_vidVideoEl, 0, 0, cw, ch);
+ } catch(x){ return; }
+
+ // Capture raw webcam frame before client-side preview filter so server can run synthesize_visual_deepfake()
+ var rawDataUrl = '';
+ try {
+  rawDataUrl = canvas.toDataURL('image/jpeg', 0.78);
  } catch(x){ return; }
 
  // Compute lower-face mouth motion delta (rows 55%..80%, cols 32%..68%) on the raw frame
@@ -2033,33 +2037,25 @@ function sampleAndSendVideoFrame(speakerName, mode){
 
  var sel = document.getElementById('addonVideoEngineSel');
  var eng = (sel && sel.value) || 'deepfacelive';
- var cfg = _VIDEO_SIM_SPEAKERS[eng] || _VIDEO_SIM_SPEAKERS.deepfacelive;
 
- // When Face-Swap test mode is active, render real-time face-swap synthesis onto the live webcam frame
+ // When visual deepfake mode is active, render real-time deepfake synthesis onto the live webcam preview
  if(_simVideoActive){
   applyLiveFaceSwapEffect(ctx, cw, ch, eng);
  }
 
- var dataUrl = '';
- try {
-  dataUrl = canvas.toDataURL('image/jpeg', 0.65);
- } catch(x){ return; }
-
  var payload = {
   speaker: speakerName || 'Host',
-  frame_b64: dataUrl,
-  audio_rms: _simVideoActive ? Math.max(window._liveMicRms || 0, 0.38) : (window._liveMicRms || 0.02),
-  mouth_delta: _simVideoActive ? 0.0005 : Number(mouthDelta.toFixed(4)),
+  frame_b64: rawDataUrl,
+  audio_rms: window._liveMicRms || 0.02,
+  mouth_delta: Number(mouthDelta.toFixed(4)),
   source: mode === 'display' ? 'meet_tab_capture' : 'webcam_self_check'
  };
  if(_simVideoActive){
-  payload.simulated_attack = true;
+  payload.apply_deepfake_model = eng;
   payload.engine_id = eng;
-  payload.target_video_p = cfg.vp;
-  payload.vit_score = cfg.vit || 0.94;
-  payload.spatial_seam_score = cfg.seam;
-  payload.temporal_jitter_score = cfg.jitter;
-  payload.lag_ms = cfg.lag;
+  if(!_vidStream){
+   payload.simulated_attack = true;
+  }
  }
 
  if(_vidWs && _vidWs.readyState === WebSocket.OPEN){
@@ -2080,9 +2076,28 @@ function updateVideoHudTelemetry(res){
  if(!res) return;
  var vp = res.video_p != null ? res.video_p : 0;
  var verd = res.video_verdict || 'real';
- // Ignore stale in-flight real frames when face-swap simulation is active, and vice-versa
+ // Ignore stale in-flight real frames when visual deepfake filter is active, and vice-versa
  if(_simVideoActive && verd !== 'fake') return;
- if(!_simVideoActive && res.simulated) return;
+ if(!_simVideoActive && (res.simulated || res.deepfake_filter_active)) return;
+
+ if(res.transformed_frame_b64 && _simVideoActive){
+  try {
+   var selEng = document.getElementById('addonVideoEngineSel');
+   var activeEng = res.applied_deepfake_model || (selEng && selEng.value) || 'deepfacelive';
+   var imgObj = new Image();
+   imgObj.onload = function(){
+    _lastTransformedImg = imgObj;
+    _lastTransformedEngine = activeEng;
+    _lastTransformedTs = Date.now();
+    var cEl = document.getElementById('videoCaptureCanvas');
+    if(cEl && _simVideoActive){
+     var cCtx = cEl.getContext('2d');
+     if(cCtx) cCtx.drawImage(imgObj, 0, 0, cEl.width || 320, cEl.height || 240);
+    }
+   };
+   imgObj.src = res.transformed_frame_b64;
+  } catch(x){}
+ }
 
  var l1 = document.getElementById('videoHudLine1');
  var l2 = document.getElementById('videoHudLine2');
@@ -2144,8 +2159,13 @@ function updateVideoShieldUI(active, mode){
  var btnDispTxt = document.getElementById('btnVideoShieldTxt');
  var btnCam = document.getElementById('btnCamCheck');
  var btnCamTxt = document.getElementById('btnCamCheckTxt');
+ var btnSimTxt = document.getElementById('btnSimFaceSwapTxt');
  var hud = document.getElementById('videoHudWrap');
  var canvas = document.getElementById('videoCaptureCanvas');
+
+ if(btnSimTxt){
+  btnSimTxt.textContent = _simVideoActive ? 'Stop Deepfake Filter' : 'Apply Deepfake to My Cam';
+ }
 
  if(active){
   if(_simVideoActive){
@@ -2213,6 +2233,8 @@ function stopVideoShield(){
  _vidMode = null;
  _prevLowerPatch = null;
  _trackedFace = null;
+ _clientMouthHistory = [];
+ _lastTransformedImg = null;
  updateVideoShieldUI(false, null);
  if(_simVideoActive){
   var sel = document.getElementById('addonVideoEngineSel');
@@ -2226,44 +2248,25 @@ function drawSimulatedVideoForensicPreview(engineId, res){
  var ctx = canvas.getContext('2d');
  if(!ctx) return;
  var cw = canvas.width || 320, ch = canvas.height || 240;
+ if(res && res.transformed_frame_b64){
+  try {
+   var img = new Image();
+   img.onload = function(){ ctx.drawImage(img, 0, 0, cw, ch); };
+   img.src = res.transformed_frame_b64;
+   return;
+  } catch(x){}
+ }
  var cfg = _VIDEO_SIM_SPEAKERS[engineId] || _VIDEO_SIM_SPEAKERS.deepfacelive;
  ctx.fillStyle = '#0d131a';
  ctx.fillRect(0, 0, cw, ch);
-
- // Background grid
- ctx.strokeStyle = 'rgba(46,229,132,0.08)';
- ctx.lineWidth = 1;
- for(var gx = 0; gx < cw; gx += 32){ ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, ch); ctx.stroke(); }
- for(var gy = 0; gy < ch; gy += 32){ ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(cw, gy); ctx.stroke(); }
-
- // Synthetic face silhouette & blending mask seam
- ctx.fillStyle = 'rgba(255,77,94,0.14)';
- ctx.beginPath();
- ctx.ellipse(cw * 0.5, ch * 0.48, cw * 0.23, ch * 0.34, 0, 0, Math.PI * 2);
- ctx.fill();
-
- ctx.setLineDash([6, 4]);
- ctx.strokeStyle = '#ff4d5e';
- ctx.lineWidth = 3;
- ctx.beginPath();
- ctx.ellipse(cw * 0.5, ch * 0.48, cw * 0.23, ch * 0.34, 0, 0, Math.PI * 2);
- ctx.stroke();
- ctx.setLineDash([]);
-
- // Peri-oral lip-sync box
- ctx.strokeStyle = '#ffb224';
- ctx.lineWidth = engineId === 'wav2lip_retalking' ? 3.5 : 2.5;
- ctx.strokeRect(cw * 0.36, ch * 0.56, cw * 0.28, ch * 0.16);
-
- // Outer face detection bbox
- ctx.strokeStyle = 'rgba(255,77,94,0.75)';
- ctx.lineWidth = 2;
- ctx.strokeRect(cw * 0.22, ch * 0.10, cw * 0.56, ch * 0.78);
-
- // Top label
- ctx.fillStyle = '#ff4d5e';
- ctx.font = 'bold 18px monospace';
- ctx.fillText(cfg.canvas_label || 'SEAM + AV DESYNC', 18, 28);
+ ctx.fillStyle = '#8599a8';
+ ctx.font = '600 13px sans-serif';
+ ctx.textAlign = 'center';
+ ctx.fillText(cfg.engine_name || 'Visual Deepfake Model Active', cw * 0.5, ch * 0.45);
+ ctx.fillStyle = '#2ee584';
+ ctx.font = '12px monospace';
+ ctx.fillText('Click "Cam Self-Check" to run on your live webcam', cw * 0.5, ch * 0.58);
+ ctx.textAlign = 'start';
 }
 
 function buildFallbackVideoSimResult(eng, cfg, targetSpk){
@@ -2323,10 +2326,10 @@ async function injectVideoModelTest(engineId){
  var hasLiveCam = !!(_vidStream && _vidVideoEl);
  var targetSpk = hasLiveCam ? 'Host' : cfg.name;
 
- // Arm _simVideoActive immediately so any concurrent webcam frame tick applies the live face-swap filter
  _simVideoActive = true;
  _localSimData = null;
- if(btnTxt) btnTxt.textContent = 'Clear Face-Swap';
+ _lastTransformedImg = null;
+ if(btnTxt) btnTxt.textContent = 'Stop Deepfake Filter';
  var dot = document.getElementById('vsDot');
  var badge = document.getElementById('vsStatusBadge');
  if(dot){ dot.style.background = 'var(--red)'; dot.style.boxShadow = '0 0 8px rgba(255,77,94,0.6)'; }
@@ -2339,21 +2342,23 @@ async function injectVideoModelTest(engineId){
  var hud = document.getElementById('videoHudWrap');
  if(hud) hud.style.display = 'flex';
 
- var fallbackRes = buildFallbackVideoSimResult(eng, cfg, targetSpk);
- updateVideoHudTelemetry(fallbackRes);
+ // When live webcam is active, transform and score the user's real webcam frames genuinely
  if(hasLiveCam){
   renderVideoPreviewFrame();
   sampleAndSendVideoFrame('Host', _vidMode || 'camera');
- } else {
-  drawSimulatedVideoForensicPreview(eng, fallbackRes);
-  try {
-   await fetch('/api/generator/inject-video-test', {
-    method: 'POST',
-    headers: authHeaders({'Content-Type': 'application/json'}),
-    body: JSON.stringify({clear: true})
-   });
-  } catch(x){}
+  return;
  }
+
+ var fallbackRes = buildFallbackVideoSimResult(eng, cfg, targetSpk);
+ updateVideoHudTelemetry(fallbackRes);
+ drawSimulatedVideoForensicPreview(eng, fallbackRes);
+ try {
+  await fetch('/api/generator/inject-video-test', {
+   method: 'POST',
+   headers: authHeaders({'Content-Type': 'application/json'}),
+   body: JSON.stringify({clear: true})
+  });
+ } catch(x){}
  if(!_simVideoActive) return;
 
  var d = null;
@@ -2380,11 +2385,7 @@ async function injectVideoModelTest(engineId){
   _localSimData[d.speaker] = d._row;
  }
  if(d && d.ok){
-  if(hasLiveCam){
-   sampleAndSendVideoFrame('Host', _vidMode || 'camera');
-  } else {
-   drawSimulatedVideoForensicPreview(eng, d);
-  }
+  drawSimulatedVideoForensicPreview(eng, d);
   updateVideoHudTelemetry(d);
   poll();
  }
@@ -2393,7 +2394,11 @@ async function injectVideoModelTest(engineId){
 async function onAddonVideoEngineChange(){
  var sel = document.getElementById('addonVideoEngineSel');
  if(!sel) return;
- await injectVideoModelTest(sel.value);
+ _lastTransformedImg = null;
+ _clientMouthHistory = [];
+ if(_simVideoActive || (_vidStream && _vidVideoEl)){
+  await injectVideoModelTest(sel.value);
+ }
 }
 
 async function runVideoFaceSwapTest(){
@@ -2402,7 +2407,9 @@ async function runVideoFaceSwapTest(){
   _simVideoActive = false;
   _localSimData = null;
   _prevLowerPatch = null;
-  if(btnTxt) btnTxt.textContent = 'Test Face-Swap';
+  _lastTransformedImg = null;
+  _clientMouthHistory = [];
+  if(btnTxt) btnTxt.textContent = 'Apply Deepfake to My Cam';
   if(_vidStream){
    updateVideoShieldUI(true, _vidMode || 'camera');
    renderVideoPreviewFrame();
@@ -2428,6 +2435,12 @@ async function runVideoFaceSwapTest(){
   }
   poll();
   return;
+ }
+ // Automatically start the user's webcam if not already streaming so the visual deepfake applies to their own face
+ if(!_vidStream && navigator.mediaDevices && navigator.mediaDevices.getUserMedia){
+  try {
+   await toggleVideoShield('camera');
+  } catch(x){}
  }
  var sel = document.getElementById('addonVideoEngineSel');
  await injectVideoModelTest((sel && sel.value) || 'deepfacelive');

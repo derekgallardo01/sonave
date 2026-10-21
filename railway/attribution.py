@@ -126,16 +126,20 @@ def attribute_visual_engine(
         # Select based on dominant forensic artifact signature if metrics are present, else deterministic hash
         av_s = float(vm.get("av_sync_score") if vm.get("av_sync_score") is not None else 0.95)
         seam_s = float(vm.get("spatial_seam_score") or vm.get("frequency_seam_score") or 0.0)
+        perioral_s = float(vm.get("perioral_seam_score") or 0.0)
         smooth_s = float(vm.get("skin_smoothing_score") or 0.0)
         jitter_s = float(vm.get("temporal_jitter_score") or 0.0)
+        hf_r = float(vm.get("hf_energy_ratio") if vm.get("hf_energy_ratio") is not None else 0.35)
 
-        if av_s <= 0.40 and seam_s < 0.75:
+        if (perioral_s >= 0.65 and smooth_s < 0.45) or (av_s <= 0.40 and seam_s < 0.75):
             gen = KNOWN_VIDEO_GENERATORS[3]  # wav2lip_retalking
-        elif smooth_s >= 0.78:
-            gen = KNOWN_VIDEO_GENERATORS[2]  # facefusion_simswap
-        elif jitter_s >= 0.75:
+        elif perioral_s >= 0.25 and smooth_s >= 0.45:
+            gen = KNOWN_VIDEO_GENERATORS[1]  # heygen_liveavatar
+        elif jitter_s >= 0.75 or (smooth_s >= 0.75 and hf_r < 0.075):
             gen = KNOWN_VIDEO_GENERATORS[4]  # hallo_liveportrait
-        elif seam_s >= 0.80:
+        elif smooth_s >= 0.78 and hf_r >= 0.125:
+            gen = KNOWN_VIDEO_GENERATORS[2]  # facefusion_simswap
+        elif seam_s >= 0.75 or smooth_s >= 0.75:
             gen = KNOWN_VIDEO_GENERATORS[0]  # deepfacelive
         else:
             hash_val = sum(ord(c) for c in (speaker_name or "unknown")) + int(p_video_fake * 100)
