@@ -69,9 +69,27 @@ import compliance_vault   # SOC2 / FINRA compliance cloud evidence vault
 import legal_certificate  # FBI IC3 / insurance legal certificate of authenticity
 import attribution        # AI vocoder fingerprinting & ambient mismatch analysis
 import generator          # Synthetic voice generation & live test injector
-if str(_HERE.parent / "src") not in sys.path:
-    sys.path.insert(0, str(_HERE.parent / "src"))
-import model_video        # Multimodal video deepfake & AV lip-sync detector
+_SRC_DIR = _HERE.parent / "src"
+if _SRC_DIR.is_dir() and str(_SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(_SRC_DIR))
+if any(
+    os.environ.get(k)
+    for k in (
+        "RAILWAY_ENVIRONMENT",
+        "RAILWAY_SERVICE_ID",
+        "RAILWAY_PROJECT_ID",
+        "RAILWAY_PUBLIC_DOMAIN",
+        "RAILWAY_GIT_COMMIT_SHA",
+    )
+):
+    os.environ.setdefault(
+        "SONAVE_ENABLE_HF_VIDEO",
+        "0" if not os.environ.get("SONAVE_FORCE_LOCAL_HF_VIDEO") else "1",
+    )
+try:
+    import model_video        # Multimodal video deepfake & AV lip-sync detector (vendored in railway/model_video.py)
+except Exception:
+    model_video = None
 os.environ.setdefault("SONAVE_ENROLL_DIR", "/data/enrollments")
 os.environ.setdefault("SONAVE_MODEL_CACHE", "/data/models/ecapa")
 

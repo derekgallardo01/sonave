@@ -25,6 +25,7 @@ COPY . /app/
 ENV SONAVE_ENROLL_DIR=/data/enrollments
 ENV SONAVE_MODEL_CACHE=/data/models/ecapa
 ENV SONAVE_DATA_DIR=/data/captured
+ENV SONAVE_ENABLE_HF_VIDEO=0
 
 WORKDIR /app/railway
 EXPOSE 8000

@@ -913,6 +913,73 @@ def test_live_webcam_face_swap_stream_and_instant_clear_recovery(railway_mod):
     assert q_post_close["Host"]["baseline"] is True
 
 
+def test_railway_standalone_root_dir_deploy_has_vendored_model_video(monkeypatch):
+    """Regression test for Railway production deployment where Root Directory = 'railway'
+    (so ../src does not exist inside the container). Verifies:
+      1. railway/model_video.py exists, matches src/model_video.py, and loads standalone when src/ is absent.
+      2. HuggingFaceViTDeepfakeBackbone.is_enabled() defaults to False inside a Railway CPU
+         container (RAILWAY_ENVIRONMENT or RAILWAY_PUBLIC_DOMAIN set) unless SONAVE_ENABLE_HF_VIDEO=1
+         or SONAVE_FORCE_LOCAL_HF_VIDEO=1 is explicitly set.
+      3. railway/app.py imports cleanly without src/ on sys.path, sets SONAVE_ENABLE_HF_VIDEO=0 on Railway,
+         and scores video frames end-to-end."""
+    from pathlib import Path
+    import os
+    import sys
 
+    root = Path(__file__).resolve().parent.parent
+    src_mv_path = root / "src" / "model_video.py"
+    rw_mv_path = root / "railway" / "model_video.py"
+    assert rw_mv_path.is_file(), "railway/model_video.py must be vendored for Railway Root Directory deploys"
+    assert rw_mv_path.read_text(encoding="utf-8").strip() == src_mv_path.read_text(encoding="utf-8").strip(), (
+        "railway/model_video.py must stay in sync with src/model_video.py"
+    )
 
+    # Load railway/model_video.py directly
+    rw_mv = load_module("railway_vendored_model_video", "railway/model_video.py")
+    monkeypatch.delenv("SONAVE_ENABLE_HF_VIDEO", raising=False)
+    monkeypatch.delenv("SONAVE_FORCE_LOCAL_HF_VIDEO", raising=False)
+    monkeypatch.setenv("RAILWAY_ENVIRONMENT", "production")
+    assert rw_mv.HuggingFaceViTDeepfakeBackbone.is_enabled() is False
+
+    monkeypatch.delenv("RAILWAY_ENVIRONMENT", raising=False)
+    monkeypatch.setenv("RAILWAY_PUBLIC_DOMAIN", "sonave.up.railway.app")
+    assert rw_mv.HuggingFaceViTDeepfakeBackbone.is_enabled() is False
+
+    monkeypatch.setenv("SONAVE_FORCE_LOCAL_HF_VIDEO", "1")
+    assert rw_mv.HuggingFaceViTDeepfakeBackbone.is_enabled() is True
+    monkeypatch.delenv("SONAVE_FORCE_LOCAL_HF_VIDEO", raising=False)
+
+    monkeypatch.setenv("SONAVE_ENABLE_HF_VIDEO", "1")
+    assert rw_mv.HuggingFaceViTDeepfakeBackbone.is_enabled() is True
+
+    monkeypatch.delenv("SONAVE_ENABLE_HF_VIDEO", raising=False)
+    monkeypatch.delenv("RAILWAY_PUBLIC_DOMAIN", raising=False)
+    assert rw_mv.HuggingFaceViTDeepfakeBackbone.is_enabled() is True
+
+    # Simulate Railway container where only railway/ is on sys.path and model_video is not pre-imported from src/
+    saved_mv = sys.modules.pop("model_video", None)
+    src_resolved = (root / "src").resolve()
+    orig_is_dir = Path.is_dir
+    saved_path = list(sys.path)
+    try:
+        sys.path = [p for p in sys.path if Path(p).resolve() != src_resolved]
+        monkeypatch.setattr(
+            Path,
+            "is_dir",
+            lambda self: False if self.resolve() == src_resolved else orig_is_dir(self),
+        )
+        monkeypatch.setenv("RAILWAY_PUBLIC_DOMAIN", "sonave.up.railway.app")
+        monkeypatch.delenv("SONAVE_ENABLE_HF_VIDEO", raising=False)
+        rw_isolated = load_module("rwapp_isolated", "railway/app.py")
+        assert rw_isolated.model_video is not None
+        assert Path(rw_isolated.model_video.__file__).resolve() == rw_mv_path.resolve()
+        assert os.environ.get("SONAVE_ENABLE_HF_VIDEO") == "0"
+        nat_png = _encode_rgb_png(_make_natural_face_rgb(64, 64, seed=7))
+        entry = rw_isolated._score_video_and_store("admin", "IsolatedSpk", nat_png, audio_rms=0.02)
+        assert entry["video_verdict"] == "real"
+        assert entry["hf_loaded"] is False
+    finally:
+        sys.path = saved_path
+        if saved_mv is not None:
+            sys.modules["model_video"] = saved_mv
 

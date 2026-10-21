@@ -636,8 +636,28 @@ class HuggingFaceViTDeepfakeBackbone:
 
     @staticmethod
     def is_enabled() -> bool:
-        val = os.environ.get("SONAVE_ENABLE_HF_VIDEO", "1").strip().lower()
-        return val not in ("0", "false", "no", "off")
+        raw = os.environ.get("SONAVE_ENABLE_HF_VIDEO")
+        if raw is not None:
+            return raw.strip().lower() not in ("0", "false", "no", "off")
+        if os.environ.get("SONAVE_FORCE_LOCAL_HF_VIDEO", "").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+            "on",
+        ):
+            return True
+        if any(
+            os.environ.get(k)
+            for k in (
+                "RAILWAY_ENVIRONMENT",
+                "RAILWAY_SERVICE_ID",
+                "RAILWAY_PROJECT_ID",
+                "RAILWAY_PUBLIC_DOMAIN",
+                "RAILWAY_GIT_COMMIT_SHA",
+            )
+        ):
+            return False
+        return True
 
     @property
     def is_loaded(self) -> bool:
@@ -1312,4 +1332,3 @@ if __name__ == "__main__":
     allow_dl = "--no-download" not in sys.argv
     info = warm_hf_video_backbone(allow_download=allow_dl)
     print(json.dumps(info, indent=2))
-
