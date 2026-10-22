@@ -37,6 +37,14 @@ def _hermetic_sonave_env(monkeypatch, tmp_path):
     monkeypatch.setenv("SONAVE_INCIDENT_DB", str(tmp_path / "incidents.db"))
     monkeypatch.setenv("SONAVE_DATA_DIR", str(tmp_path / "captured"))
     monkeypatch.setenv("SONAVE_ENROLL_DIR", str(tmp_path / "enrollments"))
+    monkeypatch.setenv("SONAVE_HF_REGISTRY", str(tmp_path / "hf_discovered_models.json"))
+    monkeypatch.setenv("SONAVE_HF_CORPUS_DIR", str(tmp_path / "hf_corpora"))
+    monkeypatch.setenv("SONAVE_PIPELINE_DATA_DIR", str(tmp_path / "pipeline_data"))
+    monkeypatch.setenv("SONAVE_SCHEDULER_DAEMON", "0")
+    monkeypatch.setenv("SONAVE_SCHEDULER_CONFIG", str(tmp_path / "scheduler_config.json"))
+    monkeypatch.setenv("SONAVE_LINEAGE_FILE", str(tmp_path / "training_lineage.json"))
+    monkeypatch.setenv("SONAVE_CHECKPOINTS_DIR", str(tmp_path / "ensemble_checkpoints"))
+    monkeypatch.setenv("SONAVE_BENCHMARK_RESULTS_FILE", str(tmp_path / "hardened_benchmark_results.json"))
     # incidents.py bakes DB_PATH at import; if it's already cached from an earlier
     # test file, re-point the attribute so no test can ever touch /data.
     inc = sys.modules.get("incidents")

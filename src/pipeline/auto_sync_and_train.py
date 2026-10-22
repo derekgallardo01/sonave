@@ -108,7 +108,8 @@ def step_validate_and_test() -> None:
 
 def update_scheduler_metadata() -> None:
     """Record the automated run in scheduler_config.json."""
-    config_file = _ROOT / "models" / "scheduler_config.json"
+    default_cfg = _ROOT / "models" / "scheduler_config.json"
+    config_file = Path(os.environ.get("SONAVE_SCHEDULER_CONFIG", str(default_cfg)))
     data = {}
     if config_file.exists():
         try:
@@ -117,6 +118,7 @@ def update_scheduler_metadata() -> None:
             pass
     data["last_run_utc"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     data["status"] = "active"
+    config_file.parent.mkdir(parents=True, exist_ok=True)
     config_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 

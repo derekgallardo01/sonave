@@ -17,17 +17,28 @@ from pathlib import Path
 _LOCK = threading.Lock()
 
 _SCHEMA = """
+PRAGMA synchronous=NORMAL;
 CREATE TABLE IF NOT EXISTS users (
-    id            TEXT PRIMARY KEY,
-    google_sub    TEXT UNIQUE,
-    email         TEXT,
-    name          TEXT,
-    picture       TEXT,
-    role          TEXT DEFAULT 'member',
-    session_ver   INTEGER DEFAULT 1,
-    created_ts    REAL,
-    last_login_ts REAL,
-    metadata      TEXT DEFAULT '{}'
+    id             TEXT PRIMARY KEY,
+    google_sub     TEXT UNIQUE,
+    email          TEXT,
+    name           TEXT,
+    picture        TEXT,
+    role           TEXT DEFAULT 'member',
+    session_ver    INTEGER DEFAULT 1,
+    created_ts     REAL,
+    last_login_ts  REAL,
+    alert_webhook  TEXT,
+    ical_url       TEXT,
+    webhook_secret TEXT,
+    metadata       TEXT DEFAULT '{}'
+);
+CREATE TABLE IF NOT EXISTS autojoin_log (
+    user_id   TEXT,
+    event_key TEXT,
+    bot_id    TEXT,
+    ts        REAL,
+    PRIMARY KEY (user_id, event_key)
 );
 CREATE TABLE IF NOT EXISTS oauth_tokens (
     user_id       TEXT,
@@ -124,6 +135,7 @@ def _conn() -> sqlite3.Connection:
 
     c = sqlite3.connect(p, timeout=10)
     c.row_factory = sqlite3.Row
+    c.execute("PRAGMA synchronous=NORMAL")
     if need_init:
         c.execute("PRAGMA journal_mode=WAL")
         c.executescript(_SCHEMA)
@@ -136,9 +148,6 @@ def _conn() -> sqlite3.Connection:
             c.execute("ALTER TABLE users ADD COLUMN webhook_secret TEXT")
         if "metadata" not in cols:                       # rich acquisition & client metadata
             c.execute("ALTER TABLE users ADD COLUMN metadata TEXT DEFAULT '{}'")
-        c.execute("CREATE TABLE IF NOT EXISTS autojoin_log ("
-                  "user_id TEXT, event_key TEXT, bot_id TEXT, ts REAL, "
-                  "PRIMARY KEY (user_id, event_key))")
         try:
             st2 = p.stat()
             if st2.st_size > 0:

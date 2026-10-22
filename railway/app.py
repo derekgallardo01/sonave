@@ -3134,7 +3134,7 @@ _TRAINING_STATE = {"status": "idle", "last_run": None, "current_epoch": 0, "tota
 
 @app.get("/api/training/lineage")
 def api_training_lineage(p: auth.Principal = Depends(require_principal)):
-    lineage_file = Path("models/training_lineage.json")
+    lineage_file = Path(os.environ.get("SONAVE_LINEAGE_FILE", "models/training_lineage.json"))
     if lineage_file.exists():
         try:
             return json.loads(lineage_file.read_text(encoding="utf-8"))
@@ -3354,6 +3354,8 @@ def _background_scheduler_daemon():
     while True:
         try:
             time.sleep(60)
+            if os.environ.get("SONAVE_SCHEDULER_DAEMON", "1") == "0" or "PYTEST_CURRENT_TEST" in os.environ:
+                continue
             from src.pipeline.training_scheduler import TrainingScheduler
             sched = TrainingScheduler()
             cfg = sched.load_config()
@@ -3364,6 +3366,10 @@ def _background_scheduler_daemon():
             now = datetime.datetime.now(datetime.timezone.utc)
             target_hour = cfg.get("hour_utc", 0)
             target_min = cfg.get("minute_utc", 0)
+            last_run_prefix = str(cfg.get("last_run_utc") or "").replace(" ", "T")[:16]
+            now_prefix = now.strftime("%Y-%m-%dT%H:%M")
+            if last_run_prefix == now_prefix:
+                continue
 
             should_run = False
             if cadence == "daily":
@@ -3384,14 +3390,19 @@ def _background_scheduler_daemon():
                 finally:
                     _TRAINING_STATE["status"] = "idle"
 
-        except Exception as ex:
+        except Exception:
             pass
 
 
-try:
-    threading.Thread(target=_background_scheduler_daemon, daemon=True, name="SonaveSchedulerDaemon").start()
-except Exception:
-    pass
+if (
+    os.environ.get("SONAVE_SCHEDULER_DAEMON", "1") == "1"
+    and "PYTEST_CURRENT_TEST" not in os.environ
+    and not any(t.name == "SonaveSchedulerDaemon" and t.is_alive() for t in threading.enumerate())
+):
+    try:
+        threading.Thread(target=_background_scheduler_daemon, daemon=True, name="SonaveSchedulerDaemon").start()
+    except Exception:
+        pass
 
 
 @app.get("/api/incidents")

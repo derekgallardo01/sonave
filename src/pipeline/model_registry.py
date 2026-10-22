@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 import torch
 import torch.nn as nn
@@ -23,14 +24,27 @@ LINEAGE_FILE = Path("models/training_lineage.json")
 class ModelRegistry:
     """Manages model checkpoints, ONNX exports, and training lineage."""
 
-    def __init__(self, checkpoints_dir: str | Path = "models/ensemble_checkpoints"):
-        self.checkpoints_dir = Path(checkpoints_dir)
+    def __init__(
+        self,
+        checkpoints_dir: str | Path | None = None,
+        lineage_file: str | Path | None = None,
+    ):
+        default_chk = os.environ.get("SONAVE_CHECKPOINTS_DIR", "models/ensemble_checkpoints")
+        self.checkpoints_dir = Path(checkpoints_dir if checkpoints_dir is not None else default_chk)
         self.checkpoints_dir.mkdir(parents=True, exist_ok=True)
+        if lineage_file is not None:
+            self.lineage_file = Path(lineage_file)
+        elif os.environ.get("SONAVE_LINEAGE_FILE"):
+            self.lineage_file = Path(os.environ["SONAVE_LINEAGE_FILE"])
+        elif self.checkpoints_dir == Path("models/ensemble_checkpoints"):
+            self.lineage_file = LINEAGE_FILE
+        else:
+            self.lineage_file = self.checkpoints_dir.parent / "training_lineage.json"
 
     def load_lineage(self) -> dict[str, Any]:
-        if LINEAGE_FILE.exists():
+        if self.lineage_file.exists():
             try:
-                return json.loads(LINEAGE_FILE.read_text(encoding="utf-8"))
+                return json.loads(self.lineage_file.read_text(encoding="utf-8"))
             except Exception as e:
                 logger.warning("Could not read lineage file: %s", e)
         return {
@@ -40,8 +54,8 @@ class ModelRegistry:
         }
 
     def save_lineage(self, lineage_data: dict[str, Any]) -> None:
-        LINEAGE_FILE.parent.mkdir(parents=True, exist_ok=True)
-        LINEAGE_FILE.write_text(json.dumps(lineage_data, indent=2), encoding="utf-8")
+        self.lineage_file.parent.mkdir(parents=True, exist_ok=True)
+        self.lineage_file.write_text(json.dumps(lineage_data, indent=2), encoding="utf-8")
 
     def export_onnx(self, model: nn.Module, output_path: str | Path,
                     sample_rate: int = 16000, duration_sec: float = 4.0) -> Path:

@@ -128,7 +128,7 @@ def test_model_registry_and_lineage(tmp_path):
     assert Path(run_record["pytorch_checkpoint"]).exists()
 
 
-def test_adversarial_hardened_benchmark():
+def test_adversarial_hardened_benchmark(tmp_path):
     from src.pipeline.hardened_benchmark import AdversarialBenchmarkEngine
     model = MultiFoundationAcousticEnsemble()
     engine = AdversarialBenchmarkEngine(num_samples=40)
@@ -138,3 +138,4 @@ def test_adversarial_hardened_benchmark():
     assert "hardened_equal_error_rate_pct" in results
     assert "in_the_wild_adversarial_catch_pct" in results
     assert len(results["generator_catch_matrix"]) > 0
+    assert (tmp_path / "hardened_benchmark_results.json").exists()

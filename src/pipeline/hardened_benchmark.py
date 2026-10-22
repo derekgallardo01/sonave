@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import logging
 import math
+import os
 import random
 import sys
 import time
@@ -38,9 +39,11 @@ logger = logging.getLogger("sonave.pipeline.hardened_benchmark")
 class AdversarialBenchmarkEngine:
     """Stress-tests deepfake detection models against 1,000+ realistic, hardened audio clips."""
 
-    def __init__(self, num_samples: int = 1000):
+    def __init__(self, num_samples: int = 1000, output_file: str | Path | None = None):
         self.num_samples = num_samples
         self.augmentor = MeetingAudioAugmentor(sample_rate=16000)
+        default_out = os.environ.get("SONAVE_BENCHMARK_RESULTS_FILE", "models/hardened_benchmark_results.json")
+        self.output_file = Path(output_file if output_file is not None else default_out)
 
     def generate_adversarial_test_suite(self) -> list[dict[str, Any]]:
         """Generate a statistically significant, hardened 1,000-sample test suite."""
@@ -201,7 +204,7 @@ class AdversarialBenchmarkEngine:
         }
 
         # Save to benchmark history
-        out_file = Path("models/hardened_benchmark_results.json")
+        out_file = self.output_file
         out_file.parent.mkdir(parents=True, exist_ok=True)
         out_file.write_text(json.dumps(results, indent=2), encoding="utf-8")
 

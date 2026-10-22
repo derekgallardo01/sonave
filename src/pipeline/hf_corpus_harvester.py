@@ -55,8 +55,9 @@ HF_TARGET_REPOS = [
 class HFCorpusHarvester:
     """Discovers, downloads, caches, and normalizes synthetic speech corpora from Hugging Face."""
 
-    def __init__(self, cache_dir: str | Path = "data/raw/hf_corpora"):
-        self.cache_dir = Path(cache_dir)
+    def __init__(self, cache_dir: str | Path | None = None):
+        default_cache = os.environ.get("SONAVE_HF_CORPUS_DIR", "data/raw/hf_corpora")
+        self.cache_dir = Path(cache_dir if cache_dir is not None else default_cache)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.manifest_file = self.cache_dir / "harvester_manifest.json"
 
@@ -136,7 +137,7 @@ class HFCorpusHarvester:
             discovered.extend(fallback_models)
 
         # Save to discovered models registry
-        registry_file = Path("models/hf_discovered_models.json")
+        registry_file = Path(os.environ.get("SONAVE_HF_REGISTRY", "models/hf_discovered_models.json"))
         registry_file.parent.mkdir(parents=True, exist_ok=True)
         registry_file.write_text(json.dumps({"discovered_models": discovered, "total_tracked": len(discovered)}, indent=2), encoding="utf-8")
         return discovered
@@ -166,7 +167,8 @@ class HFCorpusHarvester:
             return {"ok": True, "status": "ping_received", "message": "Sonave Webhook endpoint active & verified."}
 
         # 4. Append to discovered registry
-        registry_file = Path("models/hf_discovered_models.json")
+        registry_file = Path(os.environ.get("SONAVE_HF_REGISTRY", "models/hf_discovered_models.json"))
+        registry_file.parent.mkdir(parents=True, exist_ok=True)
         data = {"discovered_models": [], "total_tracked": 0}
         if registry_file.exists():
             try:
@@ -183,8 +185,11 @@ class HFCorpusHarvester:
             "pipeline_tag": "text-to-speech",
             "source": "hf_webhook_push"
         }
-        data["discovered_models"].insert(0, entry)
-        data["total_tracked"] = len(data["discovered_models"])
+        models = data.get("discovered_models", [])
+        if not any(m.get("model_id") == repo_id for m in models):
+            models.insert(0, entry)
+        data["discovered_models"] = models
+        data["total_tracked"] = len(models)
         registry_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
         return {"ok": True, "status": "webhook_processed", "model_id": repo_id, "event": event_type}

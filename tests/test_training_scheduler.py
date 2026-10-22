@@ -52,6 +52,23 @@ def test_scheduler_next_run_calculation(tmp_path):
     ts_manual = sched.get_next_run_timestamp()
     assert "Manual" in ts_manual
 
+    # Same-day weekly before target hour should schedule today, not +7 days
+    import datetime
+    now = datetime.datetime.now(datetime.timezone.utc)
+    sched.config["cadence"] = "weekly"
+    sched.config["day_of_week"] = now.weekday()
+    sched.config["hour_utc"] = 23
+    sched.config["minute_utc"] = 59
+    ts_same_day = sched.get_next_run_timestamp()
+    if now.hour < 23 or (now.hour == 23 and now.minute < 59):
+        assert now.strftime("%Y-%m-%d") in ts_same_day
+        assert now.strftime("%A") in ts_same_day
+
+    # auto_sync_and_train.update_scheduler_metadata respects SONAVE_SCHEDULER_CONFIG
+    from src.pipeline.auto_sync_and_train import update_scheduler_metadata
+    update_scheduler_metadata()
+    assert (tmp_path / "scheduler_config.json").exists()
+
 
 def test_scheduler_threshold_trigger(tmp_path):
     config_file = tmp_path / "scheduler_config.json"
@@ -84,14 +101,18 @@ def test_scheduler_regression_gate(tmp_path):
     assert gate_fail["verdict"] == "REJECTED_REGRESSION_DETECTED"
 
 
-def test_api_training_schedule_endpoints():
+def test_api_training_schedule_endpoints(tmp_path):
     import sys
+    import threading
     _RAILWAY = Path(__file__).resolve().parent.parent / "railway"
     if str(_RAILWAY) not in sys.path:
         sys.path.insert(0, str(_RAILWAY))
 
     from app import app
     client = TestClient(app)
+
+    # Background scheduler daemon must be suppressed under pytest
+    assert not any(t.name == "SonaveSchedulerDaemon" and t.is_alive() for t in threading.enumerate())
 
     # GET schedule
     r = client.get("/api/training/schedule")
@@ -100,3 +121,14 @@ def test_api_training_schedule_endpoints():
     assert d["ok"] is True
     assert "cadence" in d
     assert "next_run_display" in d
+
+    # POST schedule writes to hermetic SONAVE_SCHEDULER_CONFIG, not models/scheduler_config.json
+    r_post = client.post("/api/training/schedule", json={
+        "cadence": "daily",
+        "hour_utc": 4,
+        "capture_threshold_hours": 6.0,
+        "auto_deploy_on_pass": False,
+    })
+    assert r_post.status_code == 200
+    assert r_post.json()["config"]["hour_utc"] == 4
+    assert (tmp_path / "scheduler_config.json").exists()

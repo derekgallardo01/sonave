@@ -95,3 +95,80 @@ def test_find_device_no_match_raises(monkeypatch):
     monkeypatch.setitem(sys.modules, "sounddevice", _fake_sounddevice(devs))
     with pytest.raises(SystemExit):
         pim._find_device("nonexistent-device")
+
+
+# --- send_daily_outreach ---------------------------------------------------
+def test_send_daily_outreach_dedup_and_persistence(tmp_path, monkeypatch):
+    import csv
+    import conftest
+
+    sdo = conftest.load_module("send_daily_outreach", "scripts/send_daily_outreach.py")
+    assert sdo.extract_root_domain("https://www.blog.trace3.com/post") == "trace3.com"
+    assert sdo.extract_root_domain("Editor <editor@news.co.uk>") == "news.co.uk"
+    assert sdo.extract_root_domain("news.substack.com/p/hello") == "news.substack.com"
+    assert sdo.extract_email("Editor <Ed@SealedSite.com>") == "ed@sealedsite.com"
+    assert sdo.extract_email("invalid-no-tld@localhost") == ""
+    assert sdo.normalize_url("https://www2.Example.com/guide/") == "example.com/guide"
+    assert sdo.normalize_url("www.Example.com/guide/#top") == "example.com/guide"
+
+    tracker_csv = tmp_path / "tracker.csv"
+    dispatch_log = tmp_path / "dispatch.json"
+    sr_tracker = tmp_path / "sr.csv"
+
+    with open(sr_tracker, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=["Platform", "Platform URL", "Contact Email"])
+        w.writeheader()
+        w.writerow({"Platform": "sealedsite.com", "Platform URL": "https://sealedsite.com/a", "Contact Email": "Editor <ed@sharededitor.org>"})
+
+    fieldnames = [
+        "Referring_Page_URL", "DR", "Dofollow", "Outreach_Status",
+        "Primary_Email", "Email_Subject", "Email_Body"
+    ]
+    with open(tracker_csv, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=fieldnames)
+        w.writeheader()
+        # 1. Blocked by Sealed Rose tracker domain
+        w.writerow({
+            "Referring_Page_URL": "https://sealedsite.com/other",
+            "DR": "70", "Dofollow": "Yes", "Outreach_Status": "Not Contacted",
+            "Primary_Email": "info@sealedsite.com", "Email_Subject": "Subj", "Email_Body": "Body"
+        })
+        # 1b. Blocked by Sealed Rose angle-bracketed Contact Email on a different domain
+        w.writerow({
+            "Referring_Page_URL": "https://unseen-publication.org/story",
+            "DR": "68", "Dofollow": "Yes", "Outreach_Status": "Not Contacted",
+            "Primary_Email": "ed@sharededitor.org", "Email_Subject": "Subj", "Email_Body": "Body"
+        })
+        # 2. Empty body -> skipped
+        w.writerow({
+            "Referring_Page_URL": "https://emptybody.com/guide",
+            "DR": "65", "Dofollow": "Yes", "Outreach_Status": "Not Contacted",
+            "Primary_Email": "ed@emptybody.com", "Email_Subject": "Subj", "Email_Body": ""
+        })
+        # 3. Valid candidate 1
+        w.writerow({
+            "Referring_Page_URL": "https://validone.com/article",
+            "DR": "60", "Dofollow": "Yes", "Outreach_Status": "Not Contacted",
+            "Primary_Email": "Editor <ed@validone.com>", "Email_Subject": "Subj 1", "Email_Body": "Body 1"
+        })
+        # 4. Duplicate domain of candidate 1 -> skipped
+        w.writerow({
+            "Referring_Page_URL": "https://blog.validone.com/other",
+            "DR": "60", "Dofollow": "Yes", "Outreach_Status": "Not Contacted",
+            "Primary_Email": "other@validone.com", "Email_Subject": "Subj 2", "Email_Body": "Body 2"
+        })
+
+    monkeypatch.setattr(sdo, "TRACKER_CSV", tracker_csv)
+    monkeypatch.setattr(sdo, "DISPATCH_LOG", dispatch_log)
+    monkeypatch.setattr(sdo, "SEALED_ROSE_TRACKER", sr_tracker)
+    monkeypatch.setenv("RESEND_API_KEY", "re_test_key")
+    monkeypatch.setattr(sdo, "send_via_resend", lambda key, to, subj, body: "re_receipt_123")
+    monkeypatch.setattr(sys, "argv", ["send_daily_outreach.py", "--send", "--limit", "5"])
+
+    sdo.main()
+
+    dispatched = json.loads(dispatch_log.read_text(encoding="utf-8"))
+    assert len(dispatched) == 1
+    assert dispatched[0]["domain"] == "validone.com"
+    assert dispatched[0]["to"] == "ed@validone.com"
+    assert dispatched[0]["resendId"] == "re_receipt_123"

@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import sys
 import time
 from pathlib import Path
@@ -29,18 +30,26 @@ logger = logging.getLogger("sonave.loop")
 LINEAGE_FILE = Path("models/training_lineage.json")
 
 
+def _lineage_path() -> Path:
+    if LINEAGE_FILE != Path("models/training_lineage.json"):
+        return Path(LINEAGE_FILE)
+    return Path(os.environ.get("SONAVE_LINEAGE_FILE", str(LINEAGE_FILE)))
+
+
 def load_lineage() -> dict:
-    if LINEAGE_FILE.exists():
+    lp = _lineage_path()
+    if lp.exists():
         try:
-            return json.loads(LINEAGE_FILE.read_text(encoding="utf-8"))
+            return json.loads(lp.read_text(encoding="utf-8"))
         except Exception:
             pass
     return {"runs": [], "latest_model_version": "sonave-xlsr-meet-v2", "total_epochs_trained": 0}
 
 
 def save_lineage(data: dict) -> None:
-    LINEAGE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    LINEAGE_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    lp = _lineage_path()
+    lp.parent.mkdir(parents=True, exist_ok=True)
+    lp.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
 def run_continuous_training_iteration(epochs: int = 3, batch_size: int = 16, lr: float = 1e-4) -> dict:
@@ -71,7 +80,13 @@ def run_continuous_training_iteration(epochs: int = 3, batch_size: int = 16, lr:
                     epoch, epochs, t_el, m_train["loss"], m_eval["val_acc"] * 100, m_eval["catch_rate"] * 100)
         history.append({"epoch": epoch, "loss": m_train["loss"], "val_acc": m_eval["val_acc"], "catch_rate": m_eval["catch_rate"]})
 
-    checkpoint_dir = Path("models/ensemble_checkpoints")
+    lp = _lineage_path()
+    if os.environ.get("SONAVE_CHECKPOINTS_DIR") and LINEAGE_FILE == Path("models/training_lineage.json"):
+        checkpoint_dir = Path(os.environ["SONAVE_CHECKPOINTS_DIR"])
+    elif lp == Path("models/training_lineage.json"):
+        checkpoint_dir = Path("models/ensemble_checkpoints")
+    else:
+        checkpoint_dir = lp.parent / "ensemble_checkpoints"
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
     chk_path = checkpoint_dir / f"model_v{int(time.time())}.pt"
     torch.save(model.state_dict(), chk_path)
@@ -91,7 +106,7 @@ def run_continuous_training_iteration(epochs: int = 3, batch_size: int = 16, lr:
     lineage["total_epochs_trained"] += epochs
     save_lineage(lineage)
 
-    logger.info("Continuous training run recorded in %s", LINEAGE_FILE)
+    logger.info("Continuous training run recorded in %s", lp)
     return run_entry
 
 

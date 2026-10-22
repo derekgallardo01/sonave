@@ -12,6 +12,7 @@ import logging
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 # Add src to Python path
 _SRC = Path(__file__).resolve().parent.parent
@@ -143,3 +144,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if args.mode == "full":
         execute_full_pipeline(epochs=args.epochs, batch_size=args.batch_size, lr=args.lr)
+    elif args.mode == "ingest":
+        builder = DatasetManifestBuilder()
+        samples = builder.ingest_all_sources(num_benchmark=160, include_hf=True)
+        builder.build_stratified_manifests(samples)
+    elif args.mode == "eval":
+        from pipeline.hardened_benchmark import AdversarialBenchmarkEngine
+        model = MultiFoundationAcousticEnsemble()
+        AdversarialBenchmarkEngine().run_hardened_evaluation(model)

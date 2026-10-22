@@ -32,6 +32,14 @@ def _hermetic_sonave_env(monkeypatch, tmp_path):
     monkeypatch.setenv("SONAVE_INCIDENT_DB", str(tmp_path / "incidents.db"))
     monkeypatch.setenv("SONAVE_DATA_DIR", str(tmp_path / "captured"))
     monkeypatch.setenv("SONAVE_ENROLL_DIR", str(tmp_path / "enrollments"))
+    monkeypatch.setenv("SONAVE_HF_REGISTRY", str(tmp_path / "hf_discovered_models.json"))
+    monkeypatch.setenv("SONAVE_HF_CORPUS_DIR", str(tmp_path / "hf_corpora"))
+    monkeypatch.setenv("SONAVE_PIPELINE_DATA_DIR", str(tmp_path / "pipeline_data"))
+    monkeypatch.setenv("SONAVE_SCHEDULER_DAEMON", "0")
+    monkeypatch.setenv("SONAVE_SCHEDULER_CONFIG", str(tmp_path / "scheduler_config.json"))
+    monkeypatch.setenv("SONAVE_LINEAGE_FILE", str(tmp_path / "training_lineage.json"))
+    monkeypatch.setenv("SONAVE_CHECKPOINTS_DIR", str(tmp_path / "ensemble_checkpoints"))
+    monkeypatch.setenv("SONAVE_BENCHMARK_RESULTS_FILE", str(tmp_path / "hardened_benchmark_results.json"))
     inc = sys.modules.get("incidents")
     if inc is not None:
         monkeypatch.setattr(inc, "DB_PATH", tmp_path / "incidents.db")
@@ -44,5 +52,13 @@ def railway_mod(monkeypatch):
     mod = load_module("rwapp", "railway/app.py")
     mod.QUALITY.clear()
     mod.VERDICTS.clear()
+    mod.VIDEO_STATE.clear()
     mod.ROLL.clear()
     return mod
+
+
+def pcm16(samples):
+    """float [-1,1] list/array -> S16LE bytes, as Recall/WS delivers."""
+    import array
+    a = array.array("h", [max(-32768, min(32767, int(x * 32767))) for x in samples])
+    return a.tobytes()

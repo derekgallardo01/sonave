@@ -36,8 +36,9 @@ GENERATOR_CATALOG = {
 class DatasetManifestBuilder:
     """Orchestrates dataset discovery, normalization, and stratified manifest creation."""
 
-    def __init__(self, data_root: str | Path = "data"):
-        self.data_root = Path(data_root)
+    def __init__(self, data_root: str | Path | None = None):
+        default_root = os.environ.get("SONAVE_PIPELINE_DATA_DIR", "data")
+        self.data_root = Path(data_root if data_root is not None else default_root)
         self.raw_dir = self.data_root / "raw"
         self.processed_dir = self.data_root / "processed"
         self.manifest_dir = self.data_root / "manifests"

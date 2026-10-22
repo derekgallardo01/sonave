@@ -11,6 +11,7 @@ from __future__ import annotations
 import datetime
 import json
 import logging
+import os
 import time
 from pathlib import Path
 from typing import Any
@@ -36,8 +37,11 @@ DEFAULT_CONFIG = {
 class TrainingScheduler:
     """Manages retraining schedule, execution triggers, and regression gating."""
 
-    def __init__(self, config_path: str | Path = CONFIG_FILE):
-        self.config_path = Path(config_path)
+    def __init__(self, config_path: str | Path | None = None):
+        if config_path is not None:
+            self.config_path = Path(config_path)
+        else:
+            self.config_path = Path(os.environ.get("SONAVE_SCHEDULER_CONFIG", str(CONFIG_FILE)))
         self.config = self.load_config()
 
     def load_config(self) -> dict[str, Any]:
@@ -78,12 +82,13 @@ class TrainingScheduler:
             return next_run.strftime("%Y-%m-%d %H:%M UTC")
 
         elif cadence == "weekly":
-            target_weekday = self.config.get("day_of_week", 6) # Sunday = 6
-            days_ahead = target_weekday - now.weekday()
-            if days_ahead <= 0: # Target day already happened this week
-                days_ahead += 7
+            target_weekday = int(self.config.get("day_of_week", 6)) # Sunday = 6
+            days_ahead = (target_weekday - now.weekday()) % 7
             next_run = now.replace(hour=target_hour, minute=target_minute, second=0, microsecond=0) + datetime.timedelta(days=days_ahead)
-            return next_run.strftime("%Y-%m-%d %H:%M UTC (Sunday)")
+            if next_run <= now:
+                next_run += datetime.timedelta(days=7)
+            day_name = next_run.strftime("%A")
+            return f"{next_run.strftime('%Y-%m-%d %H:%M')} UTC ({day_name})"
 
         return None
 
