@@ -1314,6 +1314,35 @@ def test_real_webcam_false_positive_prevention_and_forensic_corroboration(monkey
             assert r_dsyn["verdict"] == "fake", f"derek_thumb {eng_id} expected fake, got {r_dsyn}"
             assert r_dsyn["video_p"] >= 0.65
 
+    clean_derek = Path(r"C:\Users\Derek\.gemini\antigravity\brain\51b1814f-2a59-4d80-9afd-49fd27ed0d73\scratch\clean_derek_cam.png")
+    if clean_derek.is_file():
+        from railway import attribution
+
+        derek_full = (model_video.decode_frame(clean_derek.read_bytes()) * 255.0).clip(0, 255).astype(np.uint8)
+        r_full_real = det_cam.score_frame(derek_full, speaker_id="derek_full_real", audio_rms=0.02)
+        assert r_full_real["verdict"] == "real", f"clean_derek_cam scored fake: {r_full_real}"
+        assert r_full_real["video_p"] < 0.20
+        # Ensure face bbox locked onto lower-left face, NOT the warm ceiling
+        assert r_full_real["bbox"][0] >= 55 and r_full_real["bbox"][3] <= 105, f"Face bbox hit ceiling/wall: {r_full_real['bbox']}"
+        for eng_id in (
+            "deepfacelive",
+            "facefusion_simswap",
+            "heygen_liveavatar",
+            "wav2lip_retalking",
+            "hallo_liveportrait",
+        ):
+            r_fsyn = det_cam.score_frame(
+                derek_full,
+                speaker_id=f"derek_full_{eng_id}",
+                audio_rms=0.02,
+                client_metrics={"apply_deepfake_model": eng_id},
+            )
+            assert r_fsyn["verdict"] == "fake", f"clean_derek_cam {eng_id} expected fake, got {r_fsyn}"
+            assert r_fsyn["video_p"] >= 0.65
+            vm_no_hint = {k: v for k, v in r_fsyn["visual_metrics"].items() if k != "engine_hint"}
+            attr_f = attribution.attribute_visual_engine(r_fsyn["video_p"], visual_metrics=vm_no_hint)
+            assert attr_f is not None and attr_f["engine_id"] == eng_id, f"Expected {eng_id}, got {attr_f}"
+
     # 2. Test forensic corroboration gating when ViT=0.85 but Seam=0.13, Jitter=0.02, AV=0.96
     det_spike = model_video.VideoDeepfakeDetector()
     monkeypatch.setattr(

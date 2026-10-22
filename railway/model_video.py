@@ -238,6 +238,46 @@ def detect_face_region(img: np.ndarray) -> dict[str, Any]:
         x1 = min(w, int(np.percentile(xs, 99)) + 3)
         if (y1 - y0) < int(h * 0.18) or (x1 - x0) < int(w * 0.18) or (y1 - y0) > int(h * 0.92) or (x1 - x0) > int(w * 0.92):
             y0, y1, x0, x1 = cy0, cy1, cx0, cx1
+        elif h >= 140 and w >= 140 and (((y1 - y0) * (x1 - x0)) > 0.48 * h * w or (x1 - x0) > int(w * 0.68)):
+            # Warm indoor ceiling/wall bled into the broad YCbCr skin mask:
+            # refine to the true human head window using R/G & R/B skin dominance + dark hair/brow/eye features.
+            true_skin = (
+                (r > g * 1.18) & (r > b * 1.18)
+                & ((r - g) > 0.04) & ((r - b) > 0.04)
+                & (cr >= 0.535) & (cr <= 0.68)
+                & (cb >= 0.34) & (cb <= 0.50)
+                & (y_lum >= 0.10) & (y_lum <= 0.92)
+            )
+            dark_feat = y_lum < 0.22
+            win_h, win_w = max(12, int(h * 0.50)), max(12, int(w * 0.42))
+            step_y, step_x = max(2, h // 28), max(2, w // 28)
+            best_score = 0.0
+            best_box: tuple[int, int, int, int] | None = None
+            best_sf = skin_frac
+            for wy in range(0, max(1, h - win_h + 1), step_y):
+                for wx in range(0, max(1, w - win_w + 1), step_x):
+                    s_sub = true_skin[wy:wy + win_h, wx:wx + win_w]
+                    d_sub = dark_feat[wy:wy + win_h, wx:wx + win_w]
+                    sf = float(np.mean(s_sub))
+                    df = float(np.mean(d_sub))
+                    if sf >= 0.08 and df >= 0.08:
+                        sc = sf * (1.0 + 2.5 * min(0.45, df))
+                        if sc > best_score:
+                            best_score = sc
+                            best_box = (wy, wx, wy + win_h, wx + win_w)
+                            best_sf = sf
+            if best_box is not None:
+                wy0, wx0, wy1, wx1 = best_box
+                ys_t, xs_t = np.where(true_skin[wy0:wy1, wx0:wx1])
+                if ys_t.size >= 16:
+                    ry0 = max(0, wy0 + int(np.percentile(ys_t, 2)) - 4)
+                    ry1 = min(h, wy0 + int(np.percentile(ys_t, 98)) + 6)
+                    rx0 = max(0, wx0 + int(np.percentile(xs_t, 2)) - 4)
+                    rx1 = min(w, wx0 + int(np.percentile(xs_t, 98)) + 4)
+                    if (ry1 - ry0) >= int(h * 0.18) and (rx1 - rx0) >= int(w * 0.16):
+                        y0, y1, x0, x1 = ry0, ry1, rx0, rx1
+                        skin_frac = best_sf
+                        face_detected = True
     else:
         y0, y1, x0, x1 = cy0, cy1, cx0, cx1
 
@@ -769,16 +809,19 @@ class SpatialFrequencyResidualNet:
 
         perioral_tex_drop = max(0.0, (0.55 - mouth_tex_ratio) / 0.32) if mouth_tex_ratio < 0.55 else 0.0
         perioral_edge_excess = max(0.0, (mouth_seam_ratio - 1.55) / 1.35) if perioral_tex_drop > 0.05 else 0.0
-        perioral_seam_score = float(
-            np.clip(
-                max(
-                    0.55 * perioral_tex_drop + 0.45 * perioral_edge_excess,
-                    0.92 * perioral_tex_drop if mouth_seam_ratio >= 1.15 else 0.0,
-                ),
-                0.02,
-                0.99,
+        if mouth_lum_mean < 0.72 * upper_lum_mean and mouth_seam_ratio < 1.15:
+            perioral_seam_score = 0.02
+        else:
+            perioral_seam_score = float(
+                np.clip(
+                    max(
+                        0.55 * perioral_tex_drop + 0.45 * perioral_edge_excess,
+                        0.92 * perioral_tex_drop if mouth_seam_ratio >= 1.15 else 0.0,
+                    ),
+                    0.02,
+                    0.99,
+                )
             )
-        )
 
         # 3. 2D FFT spectral energy & checkerboard upsampling periodicity
         raw_face_patch = lum[iy0:iy1, ix0:ix1] if (iy1 - iy0 >= 8 and ix1 - ix0 >= 8) else lum
@@ -820,7 +863,8 @@ class SpatialFrequencyResidualNet:
                 hf_energy_ratio = raw_hf_ratio
 
         # Skin smoothing score: when the face interior has abnormally low high-frequency micro-texture
-        # compared to the surrounding frame, or extreme over-sharpening from GFPGAN super-resolution
+        # compared to the surrounding frame, or extreme over-sharpening from GFPGAN super-resolution,
+        # OR background-independent intrinsic GAN/autoencoder smoothing paired with a face-box seam.
         tex_ratio = inner_mean / max(outer_mean, 1e-4)
         if tex_ratio < 0.55:
             skin_smoothing_score = min(1.0, (0.55 - tex_ratio) / 0.40)
@@ -828,6 +872,17 @@ class SpatialFrequencyResidualNet:
             skin_smoothing_score = min(1.0, (tex_ratio - 2.2) / 2.5)
         else:
             skin_smoothing_score = 0.06
+
+        lap_grad_ratio = inner_mean / max(interior_grad, 1e-4)
+        if boundary_seam_ratio >= 1.40 and inner_mean < 0.0155 and lap_grad_ratio < 0.38:
+            intrinsic_smooth = min(
+                1.0,
+                max(
+                    (0.0175 - inner_mean) / 0.0055,
+                    (0.40 - lap_grad_ratio) / 0.15,
+                ),
+            )
+            skin_smoothing_score = max(skin_smoothing_score, intrinsic_smooth)
 
         # Seam score from boundary gradient spike + chrominance discontinuity + peri-oral inpainting seam
         seam_excess = min(1.5, max(0.0, boundary_seam_ratio - 1.55) / 1.80)

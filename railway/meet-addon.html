@@ -1681,61 +1681,113 @@ var _VIDEO_SIM_SPEAKERS = {
  }
 };
 
+var _serverFaceBox = null;
+var _serverFaceBoxTs = 0;
+
 function detectLiveFaceBox(data, cw, ch){
- var sumX = 0, sumY = 0, sumW = 0, count = 0;
- var x0 = Math.floor(cw * 0.15), x1 = Math.floor(cw * 0.85);
- var y0 = Math.floor(ch * 0.08), y1 = Math.floor(ch * 0.88);
- var midX = cw * 0.5, midY = ch * 0.45;
- for(var y = y0; y < y1; y += 2){
+ if(_serverFaceBox && (Date.now() - _serverFaceBoxTs) < 2500){
+  var sb = _serverFaceBox;
+  var sfcx = (sb[1] + sb[3]) * 0.5;
+  var sfcy = (sb[0] + sb[2]) * 0.5;
+  var sfrx = Math.max(cw * 0.11, (sb[3] - sb[1]) * 0.52);
+  var sfry = Math.max(ch * 0.15, (sb[2] - sb[0]) * 0.52);
+  if(_trackedFace){
+   _trackedFace.cx = _trackedFace.cx * 0.55 + sfcx * 0.45;
+   _trackedFace.cy = _trackedFace.cy * 0.55 + sfcy * 0.45;
+   _trackedFace.rx = _trackedFace.rx * 0.60 + sfrx * 0.40;
+   _trackedFace.ry = _trackedFace.ry * 0.60 + sfry * 0.40;
+  } else {
+   _trackedFace = {cx: sfcx, cy: sfcy, rx: sfrx, ry: sfry};
+  }
+  return _trackedFace;
+ }
+
+ // Sliding-window head/face detector pairing strict skin chrominance/RGB dominance (R > 1.18*G, R > 1.18*B)
+ // with dark hair/brow/eye/beard features (lum < 56) so warm ceilings and walls are never mistaken for a face.
+ var step = 4;
+ var gw = Math.ceil(cw / step), gh = Math.ceil(ch / step);
+ var skinGrid = new Uint8Array(gw * gh);
+ var darkGrid = new Uint8Array(gw * gh);
+ for(var gy = 0; gy < gh; gy++){
+  var y = gy * step;
   var rowOff = y * cw * 4;
-  var ny = (y - midY) / (ch * 0.42);
-  for(var x = x0; x < x1; x += 2){
+  for(var gx = 0; gx < gw; gx++){
+   var x = gx * step;
    var i = rowOff + x * 4;
    var r = data[i], g = data[i+1], b = data[i+2];
    var lum = 0.299 * r + 0.587 * g + 0.114 * b;
    var cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b;
    var cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
-   if(lum > 35 && lum < 242 && cr >= 131 && cr <= 178 && cb >= 80 && cb <= 132){
-    var nx = (x - midX) / (cw * 0.40);
-    var w = Math.max(0.15, 1.0 - 0.35 * (nx * nx + ny * ny));
-    sumX += x * w;
-    sumY += y * w;
-    sumW += w;
-    count++;
+   var idx = gy * gw + gx;
+   if(r > g * 1.18 && r > b * 1.18 && (r - g) > 10 && (r - b) > 10 && cr >= 136 && cr <= 174 && cb >= 86 && cb <= 128 && lum >= 25 && lum <= 235){
+    skinGrid[idx] = 1;
+   }
+   if(lum < 56){
+    darkGrid[idx] = 1;
    }
   }
  }
- var fcx = cw * 0.5, fcy = ch * 0.46, frx = cw * 0.22, fry = ch * 0.34;
- if(count > 45 && sumW > 0){
-  fcx = Math.max(cw * 0.30, Math.min(cw * 0.70, sumX / sumW));
-  fcy = Math.max(ch * 0.28, Math.min(ch * 0.64, sumY / sumW));
-  var varX = 0, varY = 0;
-  for(var y2 = y0; y2 < y1; y2 += 4){
-   var rOff2 = y2 * cw * 4;
-   for(var x2 = x0; x2 < x1; x2 += 4){
-    var j = rOff2 + x2 * 4;
-    var r2 = data[j], g2 = data[j+1], b2 = data[j+2];
-    var lum2 = 0.299 * r2 + 0.587 * g2 + 0.114 * b2;
-    var cb2 = 128 - 0.168736 * r2 - 0.331264 * g2 + 0.5 * b2;
-    var cr2 = 128 + 0.5 * r2 - 0.418688 * g2 - 0.081312 * b2;
-    if(lum2 > 35 && lum2 < 242 && cr2 >= 131 && cr2 <= 178 && cb2 >= 80 && cb2 <= 132){
-     var dx2 = x2 - fcx, dy2 = y2 - fcy;
-     varX += dx2 * dx2;
-     varY += dy2 * dy2;
+
+ var winGW = Math.max(4, Math.floor(gw * 0.42));
+ var winGH = Math.max(4, Math.floor(gh * 0.50));
+ var winArea = winGW * winGH;
+ var bestScore = 0, bestGX = -1, bestGY = -1;
+ for(var wy = 0; wy <= gh - winGH; wy += 2){
+  for(var wx = 0; wx <= gw - winGW; wx += 2){
+   var sCnt = 0, dCnt = 0;
+   for(var yy = wy; yy < wy + winGH; yy++){
+    var rBase = yy * gw;
+    for(var xx = wx; xx < wx + winGW; xx++){
+     sCnt += skinGrid[rBase + xx];
+     dCnt += darkGrid[rBase + xx];
+    }
+   }
+   var sf = sCnt / winArea, df = dCnt / winArea;
+   if(sf >= 0.08 && df >= 0.08){
+    var sc = sf * (1.0 + 2.5 * Math.min(0.45, df));
+    if(sc > bestScore){
+     bestScore = sc; bestGX = wx; bestGY = wy;
     }
    }
   }
-  var n2 = Math.max(1, count / 4);
-  var stdX = Math.sqrt(varX / n2);
-  var stdY = Math.sqrt(varY / n2);
-  frx = Math.max(cw * 0.17, Math.min(cw * 0.28, stdX * 1.65));
-  fry = Math.max(ch * 0.25, Math.min(ch * 0.38, stdY * 1.85));
+ }
+
+ var fcx = cw * 0.5, fcy = ch * 0.48, frx = cw * 0.18, fry = ch * 0.28;
+ if(bestGX >= 0 && bestGY >= 0){
+  var sumX = 0, sumY = 0, cnt = 0;
+  for(var sy = bestGY; sy < bestGY + winGH; sy++){
+   var rB = sy * gw;
+   for(var sx = bestGX; sx < bestGX + winGW; sx++){
+    if(skinGrid[rB + sx]){
+     sumX += sx * step;
+     sumY += sy * step;
+     cnt++;
+    }
+   }
+  }
+  if(cnt >= 6){
+   fcx = Math.max(cw * 0.08, Math.min(cw * 0.92, sumX / cnt));
+   fcy = Math.max(ch * 0.12, Math.min(ch * 0.92, sumY / cnt));
+   var varX = 0, varY = 0;
+   for(var sy2 = bestGY; sy2 < bestGY + winGH; sy2++){
+    var rB2 = sy2 * gw;
+    for(var sx2 = bestGX; sx2 < bestGX + winGW; sx2++){
+     if(skinGrid[rB2 + sx2]){
+      var dx = sx2 * step - fcx, dy = sy2 * step - fcy;
+      varX += dx * dx;
+      varY += dy * dy;
+     }
+    }
+   }
+   frx = Math.max(cw * 0.11, Math.min(cw * 0.24, Math.sqrt(varX / cnt) * 1.85));
+   fry = Math.max(ch * 0.16, Math.min(ch * 0.32, Math.sqrt(varY / cnt) * 1.95));
+  }
  }
  if(_trackedFace){
-  _trackedFace.cx = _trackedFace.cx * 0.7 + fcx * 0.3;
-  _trackedFace.cy = _trackedFace.cy * 0.7 + fcy * 0.3;
-  _trackedFace.rx = _trackedFace.rx * 0.75 + frx * 0.25;
-  _trackedFace.ry = _trackedFace.ry * 0.75 + fry * 0.25;
+  _trackedFace.cx = _trackedFace.cx * 0.65 + fcx * 0.35;
+  _trackedFace.cy = _trackedFace.cy * 0.65 + fcy * 0.35;
+  _trackedFace.rx = _trackedFace.rx * 0.70 + frx * 0.30;
+  _trackedFace.ry = _trackedFace.ry * 0.70 + fry * 0.30;
  } else {
   _trackedFace = {cx: fcx, cy: fcy, rx: frx, ry: fry};
  }
@@ -1845,14 +1897,14 @@ function applyLiveFaceSwapEffect(ctx, cw, ch, engineId){
 
    var nr = sr, ng = sg, nb = sb;
    if(engineId === 'deepfacelive'){
-    nr = sr * 1.05 + 11; ng = sg * 0.95 - 5; nb = sb * 0.90 - 10;
+    nr = sr * 1.03 + 5; ng = sg * 0.98 - 1; nb = sb * 0.96 - 3;
    } else if(engineId === 'facefusion_simswap'){
-    var dct = (((x2 % 8 === 0) || (y2 % 8 === 0)) ? 3.5 : -0.5);
-    nr = sr * 1.03 + 8 + dct; ng = sg * 0.96 - 4 + dct; nb = sb * 0.94 - 6 + dct;
+    var dct = (((x2 % 8 === 0) || (y2 % 8 === 0)) ? 3.0 : -0.4);
+    nr = sr * 1.02 + 4 + dct; ng = sg * 0.98 - 1 + dct; nb = sb * 0.97 - 2 + dct;
    } else if(engineId === 'heygen_liveavatar'){
-    nr = sr * 1.02 + 7; ng = sg * 0.97 - 3; nb = sb * 0.95 - 5;
+    nr = sr * 1.01 + 3; ng = sg * 0.99 - 1; nb = sb * 0.97 - 2;
    } else {
-    nr = sr * 1.04 + 9; ng = sg * 0.96 - 4; nb = sb * 0.92 - 8;
+    nr = sr * 1.02 + 4; ng = sg * 0.98 - 1; nb = sb * 0.96 - 3;
    }
 
    var outIdx = (y2 * cw + x2) * 4;
@@ -2076,8 +2128,12 @@ function updateVideoHudTelemetry(res){
  if(!res) return;
  var vp = res.video_p != null ? res.video_p : 0;
  var verd = res.video_verdict || 'real';
+ if(res.bbox && res.bbox.length === 4){
+  _serverFaceBox = res.bbox;
+  _serverFaceBoxTs = Date.now();
+ }
  // Ignore stale in-flight real frames when visual deepfake filter is active, and vice-versa
- if(_simVideoActive && verd !== 'fake') return;
+ if(_simVideoActive && !res.deepfake_filter_active && !res.applied_deepfake_model && !res.simulated && verd !== 'fake') return;
  if(!_simVideoActive && (res.simulated || res.deepfake_filter_active)) return;
 
  if(res.transformed_frame_b64 && _simVideoActive){
